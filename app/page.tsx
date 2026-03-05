@@ -1,65 +1,354 @@
-import Image from "next/image";
+'use client'
 
-export default function Home() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+import { useState } from "react"
+
+import { analyzeBiomarkers } from "../src/lib/analyzeBiomarkers"
+import { calculateScore } from "../src/lib/calculateScore"
+import { classifyUser } from "../src/lib/classifyUser"
+import { recommendTests } from "../src/lib/recommendTests"
+
+import { interventions } from "../src/lib/interventions"
+import { researchSources } from "../src/lib/research"
+import { supplementRecommendations } from "../src/lib/supplements"
+
+import { buildReportSummary } from "../src/lib/reportSummary"
+import { buildTopActions } from "../src/lib/actionEngine"
+
+export default function Home(){
+
+const [age,setAge] = useState("")
+const [sex,setSex] = useState("")
+const [sport,setSport] = useState("")
+const [volume,setVolume] = useState("")
+const [diet,setDiet] = useState("")
+
+const [recommended,setRecommended] = useState<string[]>([])
+const [bloodwork,setBloodwork] = useState<any>({})
+
+const [report,setReport] = useState<any[]>([])
+const [score,setScore] = useState<number | null>(null)
+const [summary,setSummary] = useState("")
+const [topActions,setTopActions] = useState<any[]>([])
+
+const getTrainingUnit = () => {
+if(sport==="Running") return "Miles per week"
+return "Hours per week"
+}
+
+const handleProfile = () => {
+
+const profile = classifyUser({
+age,
+sex,
+sport,
+volume,
+diet
+})
+
+const tests = recommendTests(profile)
+
+setRecommended(tests)
+
+}
+
+const handleBloodwork = (marker:string,value:any)=>{
+
+setBloodwork({
+...bloodwork,
+[marker]:value
+})
+
+}
+
+const runAnalysis = () => {
+
+const analysis = analyzeBiomarkers(bloodwork,{
+age,
+sex,
+sport,
+volume,
+diet
+})
+
+setReport(analysis)
+
+const calculatedScore = calculateScore(analysis)
+setScore(calculatedScore)
+
+const summaryText = buildReportSummary(analysis)
+setSummary(summaryText)
+
+const actions = buildTopActions(analysis)
+setTopActions(actions)
+
+}
+
+let stackTotal = 0
+let premiumEstimate = 0
+
+return(
+
+<div style={{padding:40,maxWidth:1200,margin:"auto",color:"white"}}>
+
+<h1 style={{fontSize:44,fontWeight:700}}>Bloodwise</h1>
+
+<p style={{opacity:.7}}>
+Bloodwise provides educational bloodwork insights and is not medical advice.
+Consult a licensed healthcare professional before making health decisions.
+</p>
+
+{/* PROFILE */}
+
+<div style={{marginTop:40}}>
+
+<h2>Profile</h2>
+
+<input placeholder="Age" onChange={e=>setAge(e.target.value)} />
+
+<select onChange={e=>setSex(e.target.value)}>
+<option value="">Sex</option>
+<option>Male</option>
+<option>Female</option>
+</select>
+
+<select onChange={e=>setSport(e.target.value)}>
+<option value="">Sport</option>
+<option>Running</option>
+<option>Cycling</option>
+<option>Swimming</option>
+<option>Ball Sports</option>
+<option>General Fitness</option>
+</select>
+
+<input placeholder={getTrainingUnit()} onChange={e=>setVolume(e.target.value)} />
+
+<select onChange={e=>setDiet(e.target.value)}>
+<option value="">Diet</option>
+<option>Omnivore</option>
+<option>Vegetarian</option>
+<option>Vegan</option>
+</select>
+
+<button onClick={handleProfile} style={{marginTop:10}}>
+Generate Blood Test Recommendations
+</button>
+
+</div>
+
+{/* RECOMMENDED TESTS */}
+
+{recommended.length>0 && (
+
+<div style={{marginTop:40}}>
+
+<h2>Recommended Blood Tests</h2>
+
+<ul>
+{recommended.map((test,i)=>(
+<li key={i}>{test}</li>
+))}
+</ul>
+
+</div>
+
+)}
+
+{/* BLOODWORK ENTRY */}
+
+{recommended.length>0 && (
+
+<div style={{marginTop:40}}>
+
+<h2>Enter Bloodwork</h2>
+
+{recommended.map((marker,i)=>(
+<input
+key={i}
+placeholder={marker}
+onChange={e=>handleBloodwork(marker,e.target.value)}
+/>
+))}
+
+<button onClick={runAnalysis} style={{marginTop:10}}>
+Analyze Blood Tests
+</button>
+
+</div>
+
+)}
+
+{/* REPORT */}
+
+{report.length>0 && (
+
+<div style={{marginTop:60}}>
+
+<h2>Bloodwise Score</h2>
+<h1>{score}/100</h1>
+
+<p style={{marginTop:10,opacity:.8}}>
+{summary}
+</p>
+
+{/* TOP ACTIONS */}
+
+<div style={{marginTop:30}}>
+
+<h3>Top Actions</h3>
+
+<ul>
+{topActions.map((a:any,i:number)=>(
+<li key={i}>
+<b>{a.marker}</b> — {a.impact} impact
+</li>
+))}
+</ul>
+
+</div>
+
+{/* BIOMARKERS */}
+
+<div style={{
+display:"grid",
+gridTemplateColumns:"1fr 1fr",
+gap:20,
+marginTop:40
+}}>
+
+{report.map((marker:any,i:number)=>{
+
+const intervention = interventions[marker.marker]
+const study = researchSources[marker.marker]
+const supplements = supplementRecommendations[marker.marker]
+
+let cheapestMonthly = 0
+
+if(Array.isArray(supplements) && supplements.length>0){
+
+const cheapest = supplements.reduce((a:any,b:any)=>{
+const aCost = a.price/a.servings
+const bCost = b.price/b.servings
+return aCost<bCost ? a : b
+})
+
+cheapestMonthly = (cheapest.price/cheapest.servings)*30
+
+stackTotal += cheapestMonthly
+premiumEstimate += 20
+
+}
+
+return(
+
+<div key={i} style={{
+border:"1px solid #333",
+borderRadius:12,
+padding:20
+}}>
+
+<h3>{marker.marker}</h3>
+
+<p style={{
+color:
+marker.status==="optimal"
+? "#22c55e"
+: marker.status==="suboptimal"
+? "#facc15"
+: "#ef4444"
+}}>
+{marker.status}
+</p>
+
+<p>Optimal: {marker.optimalRange}</p>
+
+{/* STUDY */}
+
+{study && (
+
+<p style={{fontSize:13,opacity:.7}}>
+{study.author}. {study.title}
+<br/>
+<a href={study.link} target="_blank">View Study</a>
+</p>
+
+)}
+
+{/* INTERVENTIONS */}
+
+{intervention && (
+
+<div style={{marginTop:10}}>
+
+<p><b>Why:</b> {intervention.why}</p>
+<p><b>Foods:</b> {intervention.foods}</p>
+<p><b>Lifestyle:</b> {intervention.lifestyle}</p>
+<p><b>Supplements:</b> {intervention.supplements}</p>
+<p><b>Retest:</b> {intervention.retest}</p>
+
+</div>
+
+)}
+
+{/* SUPPLEMENTS */}
+
+{Array.isArray(supplements) && supplements.length>0 && (
+
+<div style={{marginTop:20}}>
+
+<h4>Best Value Supplements</h4>
+
+{supplements.map((s:any,i:number)=>{
+
+const costPerDose = s.price / s.servings
+const monthlyCost = costPerDose * 30
+
+return(
+
+<div key={i} style={{marginBottom:10}}>
+
+<b>{s.brand}</b>
+
+<p>Bottle Price: ${s.price}</p>
+<p>Servings: {s.servings}</p>
+<p>$ per dose: ${costPerDose.toFixed(2)}</p>
+<p>Monthly Cost: ${monthlyCost.toFixed(2)}</p>
+
+</div>
+
+)
+
+})}
+
+</div>
+
+)}
+
+</div>
+
+)
+
+})}
+
+</div>
+
+{/* STACK SUMMARY */}
+
+<div style={{marginTop:50}}>
+
+<h2>Recommended Supplement Stack</h2>
+
+<p>Total Optimized Monthly Cost: ${stackTotal.toFixed(2)}</p>
+<p>Typical Premium Stack Estimate: ${premiumEstimate}</p>
+<p>Savings: ${(premiumEstimate-stackTotal).toFixed(2)}</p>
+
+</div>
+
+</div>
+
+)}
+
+</div>
+
+)
+
 }
