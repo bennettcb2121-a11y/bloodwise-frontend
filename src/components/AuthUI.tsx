@@ -2,11 +2,17 @@
 
 import React, { useState } from "react"
 import { useAuth } from "@/src/contexts/AuthContext"
+import type { OAuthProvider } from "@/src/contexts/AuthContext"
 
 type Mode = "idle" | "login" | "signup"
 
+const OAUTH_PROVIDERS: { provider: OAuthProvider; label: string }[] = [
+  { provider: "google", label: "Continue with Google" },
+  { provider: "github", label: "Continue with GitHub" },
+]
+
 export function AuthUI() {
-  const { user, loading, signIn, signUp, signOut } = useAuth()
+  const { user, loading, signIn, signUp, signInWithOAuth, signOut } = useAuth()
   const [mode, setMode] = useState<Mode>("idle")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -54,21 +60,49 @@ export function AuthUI() {
   if (mode === "idle") {
     return (
       <div className="auth-ui auth-ui-idle">
-        <button
-          type="button"
-          className="auth-ui-btn auth-ui-btn-ghost"
-          onClick={() => setMode("login")}
-        >
-          Log in
-        </button>
-        <span className="auth-ui-idle-divider" aria-hidden>·</span>
-        <button
-          type="button"
-          className="auth-ui-btn auth-ui-btn-primary"
-          onClick={() => setMode("signup")}
-        >
-          Sign up
-        </button>
+        <div className="auth-ui-oauth-row">
+          {OAUTH_PROVIDERS.map(({ provider, label }) => (
+            <button
+              key={provider}
+              type="button"
+              className="auth-ui-btn auth-ui-btn-oauth"
+              onClick={async () => {
+                setMessage(null)
+                const { error } = await signInWithOAuth(provider)
+                if (error) setMessage({ type: "error", text: error.message })
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="auth-ui-divider-wrap">
+          <span className="auth-ui-divider" aria-hidden />
+          <span className="auth-ui-divider-text">or</span>
+          <span className="auth-ui-divider" aria-hidden />
+        </div>
+        <div className="auth-ui-email-row">
+          <button
+            type="button"
+            className="auth-ui-btn auth-ui-btn-ghost"
+            onClick={() => setMode("login")}
+          >
+            Log in
+          </button>
+          <span className="auth-ui-idle-divider" aria-hidden>·</span>
+          <button
+            type="button"
+            className="auth-ui-btn auth-ui-btn-primary"
+            onClick={() => setMode("signup")}
+          >
+            Sign up
+          </button>
+        </div>
+        {message && (
+          <p className={message.type === "error" ? "auth-ui-message auth-ui-message-error" : "auth-ui-message auth-ui-message-ok"}>
+            {message.text}
+          </p>
+        )}
       </div>
     )
   }
@@ -79,6 +113,27 @@ export function AuthUI() {
     <div className="auth-ui auth-ui-form-wrap">
       <div className="auth-ui-form-card">
         <h3 className="auth-ui-form-title">{formTitle}</h3>
+        <div className="auth-ui-oauth-row auth-ui-oauth-in-form">
+          {OAUTH_PROVIDERS.map(({ provider, label }) => (
+            <button
+              key={provider}
+              type="button"
+              className="auth-ui-btn auth-ui-btn-oauth"
+              onClick={async () => {
+                setMessage(null)
+                const { error } = await signInWithOAuth(provider)
+                if (error) setMessage({ type: "error", text: error.message })
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="auth-ui-divider-wrap">
+          <span className="auth-ui-divider" aria-hidden />
+          <span className="auth-ui-divider-text">or use email</span>
+          <span className="auth-ui-divider" aria-hidden />
+        </div>
         <form className="auth-ui-form" onSubmit={handleSubmit}>
           <div className="auth-ui-field">
             <label htmlFor="auth-email" className="auth-ui-label">Email</label>

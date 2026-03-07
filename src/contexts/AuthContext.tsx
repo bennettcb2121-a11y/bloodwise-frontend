@@ -4,12 +4,15 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { supabase } from "@/src/lib/supabase"
 import type { User, Session } from "@supabase/supabase-js"
 
+export type OAuthProvider = "google" | "github" | "apple"
+
 type AuthContextValue = {
   user: User | null
   session: Session | null
   loading: boolean
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
+  signInWithOAuth: (provider: OAuthProvider) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
 }
 
@@ -45,6 +48,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error ?? null }
   }, [])
 
+  const signInWithOAuth = useCallback(async (provider: OAuthProvider) => {
+    const origin = typeof window !== "undefined" ? window.location.origin : ""
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${origin}/auth/callback` },
+    })
+    return { error: error ?? null }
+  }, [])
+
   const signOut = useCallback(async () => {
     await supabase.auth.signOut()
   }, [])
@@ -55,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     signUp,
     signIn,
+    signInWithOAuth,
     signOut,
   }
 

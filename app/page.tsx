@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import BiomarkerGauge from "@/src/components/BiomarkerGauge"
 import { AuthUI } from "@/src/components/AuthUI"
+import { SubscribeButton } from "@/src/components/SubscribeButton"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { loadSavedState, upsertProfile, saveBloodwork, getBloodworkHistory } from "@/src/lib/bloodwiseDb"
 import type { BloodworkSaveRow, SavedSupplementStackItem } from "@/src/lib/bloodwiseDb"
@@ -477,18 +478,23 @@ export default function Page() {
             <div className="brand-pill brand-pill-large">BLOODWISE</div>
             <div className="hero-topline-right">
               {userId ? (
-                <Link href="/dashboard" className="hero-dashboard-link">
-                  Dashboard
-                </Link>
+                <>
+                  <SubscribeButton className="hero-dashboard-link hero-subscribe-btn">
+                    Subscribe
+                  </SubscribeButton>
+                  <Link href="/dashboard" className="hero-dashboard-link">
+                    Dashboard
+                  </Link>
+                </>
               ) : null}
               <AuthUI />
             </div>
           </div>
 
           <div className="hero-copy">
-            <h1>Understand your labs. Know what to do next.</h1>
+            <h1>Decode your blood. Optimize your health.</h1>
             <p>
-              Feel good, save money doing it.
+              Feel good and save money.
             </p>
           </div>
 
@@ -1758,6 +1764,53 @@ export default function Page() {
         }
 
         .auth-ui-idle {
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .auth-ui-oauth-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          justify-content: center;
+        }
+
+        .auth-ui-oauth-row.auth-ui-oauth-in-form {
+          margin-bottom: 4px;
+        }
+
+        .auth-ui-btn-oauth {
+          background: rgba(255,255,255,0.08);
+          border-color: rgba(255,255,255,0.12);
+        }
+
+        .auth-ui-btn-oauth:hover {
+          background: rgba(255,255,255,0.12);
+          border-color: rgba(255,255,255,0.18);
+        }
+
+        .auth-ui-divider-wrap {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+        }
+
+        .auth-ui-divider {
+          flex: 1;
+          height: 1px;
+          background: rgba(255,255,255,0.1);
+        }
+
+        .auth-ui-divider-text {
+          font-size: 12px;
+          color: rgba(226,232,240,0.5);
+          text-transform: lowercase;
+        }
+
+        .auth-ui-email-row {
+          display: flex;
+          align-items: center;
           gap: 6px;
         }
 
