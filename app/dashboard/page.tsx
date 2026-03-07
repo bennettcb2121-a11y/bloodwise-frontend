@@ -1,0 +1,392 @@
+"use client"
+
+import React, { useEffect, useState } from "react"
+import Link from "next/link"
+import { useAuth } from "@/src/contexts/AuthContext"
+import { loadSavedState } from "@/src/lib/bloodwiseDb"
+import type { BloodworkSaveRow, ProfileRow } from "@/src/lib/bloodwiseDb"
+import { analyzeBiomarkers } from "@/src/lib/analyzeBiomarkers"
+import { getRetestRecommendations } from "@/src/lib/retestEngine"
+import { scoreToLabel } from "@/src/lib/scoreEngine"
+
+export default function DashboardPage() {
+  const { user, loading: authLoading } = useAuth()
+  const [profile, setProfile] = useState<ProfileRow | null>(null)
+  const [bloodwork, setBloodwork] = useState<BloodworkSaveRow | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!user?.id) {
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    loadSavedState(user.id)
+      .then(({ profile: p, bloodwork: b }) => {
+        setProfile(p)
+        setBloodwork(b)
+      })
+      .catch(() => {
+        setProfile(null)
+        setBloodwork(null)
+      })
+      .finally(() => setLoading(false))
+  }, [user?.id])
+
+  const profileForAnalysis = profile
+    ? { age: profile.age, sex: profile.sex, sport: profile.sport }
+    : {}
+  const analysisResults =
+    bloodwork?.biomarker_inputs && Object.keys(bloodwork.biomarker_inputs).length > 0
+      ? analyzeBiomarkers(bloodwork.biomarker_inputs, profileForAnalysis)
+      : []
+  const retestRecommendations = getRetestRecommendations(analysisResults)
+
+  const savingsSnapshot = bloodwork?.savings_snapshot as Record<string, unknown> | undefined
+  const annualSavings =
+    typeof savingsSnapshot?.annualSavings === "number" ? savingsSnapshot.annualSavings : 0
+  const optimizedSpend =
+    typeof savingsSnapshot?.optimizedSpend === "number" ? savingsSnapshot.optimizedSpend : 0
+  const userCurrentSpend =
+    typeof savingsSnapshot?.userCurrentSpend === "number" ? savingsSnapshot.userCurrentSpend : 0
+  const monthlySavings =
+    typeof savingsSnapshot?.estimatedSavingsVsCurrent === "number"
+      ? savingsSnapshot.estimatedSavingsVsCurrent
+      : userCurrentSpend - optimizedSpend
+
+  if (authLoading || (user && loading)) {
+    return (
+      <main className="dashboard-shell">
+        <div className="dashboard-container">
+          <div className="dashboard-loading">Loading dashboard…</div>
+        </div>
+        <style jsx>{`
+          .dashboard-shell {
+            min-height: 100vh;
+            background: linear-gradient(180deg, #060914 0%, #070b16 50%, #060812 100%);
+            color: #f8fafc;
+          }
+          .dashboard-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 48px 20px;
+          }
+          .dashboard-loading {
+            color: rgba(226, 232, 240, 0.7);
+            font-size: 15px;
+          }
+        `}</style>
+      </main>
+    )
+  }
+
+  if (!user) {
+    return (
+      <main className="dashboard-shell">
+        <div className="dashboard-container">
+          <div className="dashboard-unauth">
+            <h1 className="dashboard-unauth-title">Dashboard</h1>
+            <p className="dashboard-unauth-text">Log in to view your dashboard.</p>
+            <Link href="/" className="dashboard-unauth-link">
+              Go to home
+            </Link>
+          </div>
+        </div>
+        <style jsx>{`
+          .dashboard-shell {
+            min-height: 100vh;
+            background: linear-gradient(180deg, #060914 0%, #070b16 50%, #060812 100%);
+            color: #f8fafc;
+          }
+          .dashboard-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 48px 20px;
+          }
+          .dashboard-unauth {
+            text-align: center;
+            padding: 48px 24px;
+          }
+          .dashboard-unauth-title {
+            margin: 0 0 12px;
+            font-size: 24px;
+            font-weight: 600;
+          }
+          .dashboard-unauth-text {
+            margin: 0 0 20px;
+            color: rgba(226, 232, 240, 0.75);
+          }
+          .dashboard-unauth-link {
+            display: inline-block;
+            padding: 10px 20px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(124, 140, 255, 0.3), rgba(69, 214, 255, 0.12));
+            border: 1px solid rgba(124, 140, 255, 0.4);
+            color: #e8ecff;
+            font-weight: 600;
+            text-decoration: none;
+          }
+          .dashboard-unauth-link:hover {
+            background: linear-gradient(135deg, rgba(124, 140, 255, 0.4), rgba(69, 214, 255, 0.2));
+          }
+        `}</style>
+      </main>
+    )
+  }
+
+  const hasBloodwork = bloodwork && (bloodwork.selected_panel?.length > 0 || bloodwork.score != null)
+  const reportDate = bloodwork?.created_at
+    ? new Date(bloodwork.created_at).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    : null
+
+  return (
+    <main className="dashboard-shell">
+      <div className="dashboard-bg" />
+      <div className="dashboard-container">
+        <header className="dashboard-header">
+          <Link href="/" className="dashboard-back">
+            ← Back to Bloodwise
+          </Link>
+          <h1 className="dashboard-title">Dashboard</h1>
+          <p className="dashboard-subtitle">Your latest health snapshot</p>
+        </header>
+
+        {!hasBloodwork ? (
+          <div className="dashboard-card dashboard-empty">
+            <p>No bloodwork saved yet. Complete a panel on the main flow to see your dashboard.</p>
+            <Link href="/" className="dashboard-cta">
+              Go to Bloodwise
+            </Link>
+          </div>
+        ) : (
+          <div className="dashboard-grid">
+            <div className="dashboard-card dashboard-score-card">
+              <div className="dashboard-card-label">Latest health score</div>
+              <div className="dashboard-score-value">{bloodwork?.score ?? "—"}</div>
+              <div className="dashboard-score-label">
+                {bloodwork?.score != null ? scoreToLabel(bloodwork.score) : "No score"}
+              </div>
+              {reportDate ? (
+                <div className="dashboard-card-meta">From report: {reportDate}</div>
+              ) : null}
+            </div>
+
+            <div className="dashboard-card">
+              <div className="dashboard-card-label">Most recent panel</div>
+              {bloodwork?.selected_panel && bloodwork.selected_panel.length > 0 ? (
+                <ul className="dashboard-panel-list">
+                  {bloodwork.selected_panel.map((marker) => (
+                    <li key={marker}>{marker}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="dashboard-card-muted">No panel saved</p>
+              )}
+            </div>
+
+            <div className="dashboard-card">
+              <div className="dashboard-card-label">Key flagged biomarkers</div>
+              {bloodwork?.key_flagged_biomarkers && bloodwork.key_flagged_biomarkers.length > 0 ? (
+                <ul className="dashboard-flagged-list">
+                  {bloodwork.key_flagged_biomarkers.map((name) => (
+                    <li key={name}>{name}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="dashboard-card-muted">None flagged</p>
+              )}
+            </div>
+
+            <div className="dashboard-card dashboard-savings-card">
+              <div className="dashboard-card-label">Estimated monthly savings</div>
+              <div className="dashboard-savings-value">
+                ${Math.max(0, monthlySavings).toFixed(2)}/mo
+              </div>
+              {annualSavings > 0 && (
+                <div className="dashboard-savings-annual">
+                  ~${annualSavings.toFixed(2)}/yr vs. current spend
+                </div>
+              )}
+            </div>
+
+            <div className="dashboard-card dashboard-retest-card">
+              <div className="dashboard-card-label">Next recommended retest</div>
+              {retestRecommendations.length > 0 ? (
+                <ul className="dashboard-retest-list">
+                  {retestRecommendations.slice(0, 6).map((rec, idx) => (
+                    <li key={`${rec.marker}-${idx}`}>
+                      <span className="dashboard-retest-marker">{rec.marker}</span>
+                      <span className="dashboard-retest-timing">{rec.timing}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="dashboard-card-muted">Complete a panel to see retest dates</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <style jsx>{`
+        .dashboard-shell {
+          min-height: 100vh;
+          background:
+            radial-gradient(circle at 15% 20%, rgba(124, 140, 255, 0.12), transparent 28%),
+            radial-gradient(circle at 85% 15%, rgba(69, 214, 255, 0.1), transparent 24%),
+            linear-gradient(180deg, #060914 0%, #070b16 50%, #060812 100%);
+          color: #f8fafc;
+          position: relative;
+        }
+        .dashboard-bg {
+          position: fixed;
+          inset: 0;
+          background-image:
+            linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+          background-size: 38px 38px;
+          mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.8));
+          pointer-events: none;
+          z-index: 0;
+        }
+        .dashboard-container {
+          position: relative;
+          z-index: 1;
+          max-width: 900px;
+          margin: 0 auto;
+          padding: 32px 20px 60px;
+        }
+        .dashboard-header {
+          margin-bottom: 28px;
+        }
+        .dashboard-back {
+          display: inline-block;
+          margin-bottom: 12px;
+          font-size: 13px;
+          color: rgba(226, 232, 240, 0.7);
+          text-decoration: none;
+        }
+        .dashboard-back:hover {
+          color: rgba(226, 232, 240, 0.95);
+        }
+        .dashboard-title {
+          margin: 0 0 4px;
+          font-size: 28px;
+          font-weight: 600;
+          letter-spacing: -0.02em;
+        }
+        .dashboard-subtitle {
+          margin: 0;
+          font-size: 14px;
+          color: rgba(226, 232, 240, 0.65);
+        }
+        .dashboard-grid {
+          display: grid;
+          gap: 16px;
+          grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        }
+        .dashboard-card {
+          padding: 20px;
+          border-radius: 20px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(16, 22, 42, 0.72);
+          backdrop-filter: blur(18px);
+        }
+        .dashboard-card-label {
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          color: rgba(226, 232, 240, 0.55);
+          margin-bottom: 10px;
+        }
+        .dashboard-card-muted {
+          margin: 0;
+          font-size: 14px;
+          color: rgba(226, 232, 240, 0.5);
+        }
+        .dashboard-card-meta {
+          margin-top: 10px;
+          font-size: 12px;
+          color: rgba(226, 232, 240, 0.5);
+        }
+        .dashboard-score-card .dashboard-score-value {
+          font-size: 36px;
+          font-weight: 600;
+          color: #f8fafc;
+        }
+        .dashboard-score-label {
+          font-size: 14px;
+          color: rgba(226, 232, 240, 0.75);
+        }
+        .dashboard-panel-list,
+        .dashboard-flagged-list {
+          margin: 0;
+          padding-left: 18px;
+          font-size: 14px;
+          color: rgba(226, 232, 240, 0.85);
+          line-height: 1.6;
+        }
+        .dashboard-savings-value {
+          font-size: 24px;
+          font-weight: 600;
+          color: #2bd4a0;
+        }
+        .dashboard-savings-annual {
+          margin-top: 6px;
+          font-size: 13px;
+          color: rgba(226, 232, 240, 0.6);
+        }
+        .dashboard-retest-list {
+          margin: 0;
+          padding: 0;
+          list-style: none;
+        }
+        .dashboard-retest-list li {
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          gap: 12px;
+          padding: 6px 0;
+          font-size: 13px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .dashboard-retest-list li:last-child {
+          border-bottom: none;
+        }
+        .dashboard-retest-marker {
+          color: rgba(226, 232, 240, 0.9);
+        }
+        .dashboard-retest-timing {
+          color: rgba(226, 232, 240, 0.6);
+          font-weight: 500;
+        }
+        .dashboard-empty {
+          text-align: center;
+          padding: 40px 24px;
+        }
+        .dashboard-empty p {
+          margin: 0 0 20px;
+          color: rgba(226, 232, 240, 0.7);
+        }
+        .dashboard-cta {
+          display: inline-block;
+          padding: 12px 24px;
+          border-radius: 12px;
+          background: linear-gradient(135deg, rgba(124, 140, 255, 0.3), rgba(69, 214, 255, 0.12));
+          border: 1px solid rgba(124, 140, 255, 0.4);
+          color: #e8ecff;
+          font-weight: 600;
+          text-decoration: none;
+        }
+        .dashboard-cta:hover {
+          background: linear-gradient(135deg, rgba(124, 140, 255, 0.4), rgba(69, 214, 255, 0.2));
+        }
+      `}</style>
+    </main>
+  )
+}

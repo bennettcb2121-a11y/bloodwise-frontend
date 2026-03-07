@@ -1,36 +1,104 @@
-export function classifyUser(profile:any){
+import type { AgeGroup, Sex, UserClass } from "./biomarkerDatabase"
 
-const { age, sex, sport, trainingVolume, diet } = profile
-
-let athleteType = "general"
-
-if(sport === "Running" || sport === "Cycling" || sport === "Triathlon"){
-athleteType = "endurance"
+export type UserProfile = {
+  age?: string | number
+  sex?: string
+  sport?: string
+  volume?: string
+  diet?: string
 }
 
-if(sport === "Strength Training"){
-athleteType = "strength"
+export type ClassifiedUser = {
+  userClass: UserClass
+  sex: Sex
+  ageGroup: AgeGroup
+  trainingLoad: "low" | "moderate" | "high" | "elite"
+  dietRisk: "low" | "moderate" | "high"
 }
 
-if(sport === "Ball Sports"){
-athleteType = "mixed"
+function normalize(value: string | number | undefined) {
+  return String(value ?? "").trim().toLowerCase()
 }
 
-let trainingLevel = "low"
+function classifySport(sport: string): UserClass {
+  const s = normalize(sport)
 
-if(trainingVolume >= 6) trainingLevel = "high"
-else if(trainingVolume >= 3) trainingLevel = "moderate"
+  if (
+    s.includes("run") ||
+    s.includes("cycling") ||
+    s.includes("cycl") ||
+    s.includes("triathlon") ||
+    s.includes("tri") ||
+    s.includes("row") ||
+    s.includes("swim")
+  ) {
+    return "endurance"
+  }
 
-let dietType = diet || "omnivore"
+  if (
+    s.includes("strength") ||
+    s.includes("football") ||
+    s.includes("lifting") ||
+    s.includes("weightlifting") ||
+    s.includes("power") ||
+    s.includes("sprint")
+  ) {
+    return "strength"
+  }
 
-return {
+  if (
+    s.includes("soccer") ||
+    s.includes("basketball") ||
+    s.includes("hockey") ||
+    s.includes("lacrosse") ||
+    s.includes("mixed") ||
+    s.includes("team")
+  ) {
+    return "mixed"
+  }
 
-athleteType,
-trainingLevel,
-dietType,
-sex,
-age
-
+  return "general"
 }
 
+function classifySex(sex: string): Sex {
+  const s = normalize(sex)
+  if (s === "male") return "male"
+  if (s === "female") return "female"
+  return "unknown"
+}
+
+function classifyAgeGroup(age: string | number | undefined): AgeGroup {
+  const n = Number(age)
+
+  if (Number.isNaN(n)) return "adult"
+  if (n < 18) return "adolescent"
+  if (n >= 50) return "masters"
+  return "adult"
+}
+
+function classifyTrainingLoad(volume: string): ClassifiedUser["trainingLoad"] {
+  const v = normalize(volume)
+
+  if (v === "elite") return "elite"
+  if (v === "high") return "high"
+  if (v === "moderate") return "moderate"
+  return "low"
+}
+
+function classifyDietRisk(diet: string): ClassifiedUser["dietRisk"] {
+  const d = normalize(diet)
+
+  if (d === "vegan") return "high"
+  if (d === "vegetarian") return "moderate"
+  return "low"
+}
+
+export function classifyUser(profile: UserProfile = {}): ClassifiedUser {
+  return {
+    userClass: classifySport(profile.sport ?? ""),
+    sex: classifySex(profile.sex ?? ""),
+    ageGroup: classifyAgeGroup(profile.age),
+    trainingLoad: classifyTrainingLoad(profile.volume ?? ""),
+    dietRisk: classifyDietRisk(profile.diet ?? ""),
+  }
 }
