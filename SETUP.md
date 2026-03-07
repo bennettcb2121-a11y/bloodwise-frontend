@@ -1,6 +1,27 @@
-# Bloodwise: Website, Login & Stripe Subscription
+# Clarion Labs: Website, Login & Stripe Subscription
 
-This guide covers making Bloodwise a live website with **Google/GitHub login** and **Stripe monthly subscription**.
+This guide covers making Clarion Labs a live website with **Google/GitHub login** and **Stripe monthly subscription**.
+
+---
+
+## 0. Push to GitHub (if you get "repository not found")
+
+Your folder might be pointing at a repo that doesn’t exist or a different account. Fix the remote and push:
+
+1. **Create the repo on GitHub** (if needed): GitHub → New repository → name it `bloodwise-frontend` (or `bloodwise`) → don’t add README (you already have code).
+2. **Set the correct remote** (use your real GitHub username and repo name):
+   ```bash
+   git remote set-url origin https://github.com/YOUR_GITHUB_USERNAME/bloodwise-frontend.git
+   ```
+   With username `bennettcb2121-a11y` (copy-paste):
+   ```bash
+   git remote set-url origin https://github.com/bennettcb2121-a11y/bloodwise-frontend.git
+   ```
+3. **Push:**
+   ```bash
+   git push -u origin main
+   ```
+   When prompted for password, use a [Personal Access Token](https://github.com/settings/tokens) (repo scope), not your GitHub password.
 
 ---
 
@@ -54,7 +75,7 @@ After this, **Continue with Google** and **Continue with GitHub** (if enabled) w
 ### Stripe Dashboard
 
 1. [Stripe Dashboard](https://dashboard.stripe.com) → **Products** → **Add product**.
-2. Create a **monthly** product (e.g. “Bloodwise Monthly”) and set a **recurring price** (monthly).
+2. Create a **monthly** product (e.g. “Clarion Labs Monthly”) and set a **recurring price** (monthly).
 3. Copy the **Price ID** (starts with `price_...`) → use as `STRIPE_PRICE_ID` in env.
 
 ### Environment variables

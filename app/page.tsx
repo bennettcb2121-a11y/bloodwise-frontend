@@ -475,7 +475,7 @@ export default function Page() {
       <div className="bw-container">
         <section className="hero-card">
           <div className="hero-topline">
-            <div className="brand-pill brand-pill-large">BLOODWISE</div>
+            <div className="brand-pill brand-pill-large">CLARION LABS</div>
             <div className="hero-topline-right">
               {userId ? (
                 <>
@@ -551,7 +551,7 @@ export default function Page() {
                 <div className="awaiting-state">
                   <div className="awaiting-title">Awaiting labs</div>
                   <div className="awaiting-copy">
-                    Complete your profile and recommended panel first. Bloodwise should not pretend to have a result before the journey starts.
+                    Complete your profile and recommended panel first. Clarion Labs should not pretend to have a result before the journey starts.
                   </div>
                 </div>
               )}
@@ -621,7 +621,7 @@ export default function Page() {
               </div>
 
               <div className="hero-footer-note">
-                Bloodwise branches based on who the user is before deciding what to recommend.
+                Clarion Labs branches based on who the user is before deciding what to recommend.
               </div>
             </div>
           </div>
@@ -685,7 +685,7 @@ export default function Page() {
             <SectionTitle
               step="Step 2"
               title="What are you spending on supplements now?"
-              subtitle="Use your current monthly supplement spend as the baseline for Bloodwise savings and optimization."
+              subtitle="Use your current monthly supplement spend as the baseline for Clarion Labs savings and optimization."
             />
 
             <div className="flow-grid">
@@ -753,7 +753,7 @@ export default function Page() {
                 <div className="panel-summary">
                   <div className="panel-summary-title">Why this matters</div>
                   <div className="panel-summary-body">
-                    Bloodwise becomes much easier to trust when it compares your current routine against a cleaner, evidence-supported stack.
+                    Clarion Labs becomes much easier to trust when it compares your current routine against a cleaner, evidence-supported stack.
                   </div>
                 </div>
 
@@ -777,7 +777,7 @@ export default function Page() {
             <SectionTitle
               step="Step 3"
               title="Start with the right panel"
-              subtitle="Now that the profile is known, Bloodwise can recommend the biomarkers that matter most first."
+              subtitle="Now that the profile is known, Clarion Labs can recommend the biomarkers that matter most first."
             />
 
             <div className="flow-grid">
@@ -902,7 +902,7 @@ export default function Page() {
 
             {!hasResults ? (
               <div className="glass-card empty-card">
-                Bloodwise could not generate results from the current panel.
+                Clarion Labs could not generate results from the current panel.
               </div>
             ) : (
               <>
@@ -1090,7 +1090,7 @@ export default function Page() {
             <SectionTitle
               step="Step 6"
               title="Full biomarker breakdown + action stack"
-              subtitle="Inspect the full panel, then view Bloodwise’s recommended stack, product options, science notes, and savings."
+              subtitle="Inspect the full panel, then view Clarion Labs' recommended stack, product options, science notes, and savings."
             />
 
             {!hasResults ? (
@@ -1202,7 +1202,7 @@ export default function Page() {
 
                 {hasResults ? (
                   <div className="bloodwise-summary-section">
-                    <h3 className="bloodwise-summary-title">Bloodwise Summary</h3>
+                    <h3 className="bloodwise-summary-title">Clarion Summary</h3>
                     <p className="bloodwise-summary-subtitle">
                       A concise take on your results and what to do next.
                     </p>
@@ -1464,7 +1464,7 @@ export default function Page() {
                           </div>
 
                           <div className="economics-card blue">
-                            <span>Bloodwise optimized stack</span>
+                            <span>Clarion optimized stack</span>
                             <strong>${optimizedSpend.toFixed(2)}/mo</strong>
                           </div>
 
@@ -1496,7 +1496,7 @@ export default function Page() {
                           <div className="trust-card">
                             <div className="trust-title">Range logic</div>
                             <div className="trust-body">
-                              Show whether a biomarker is being judged against a lab range, athlete range, or Bloodwise optimal range.
+                              Show whether a biomarker is being judged against a lab range, athlete range, or Clarion optimal range.
                             </div>
                           </div>
 

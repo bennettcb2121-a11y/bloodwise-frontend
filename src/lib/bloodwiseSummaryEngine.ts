@@ -1,5 +1,5 @@
 /**
- * Bloodwise Summary: plain-language overall interpretation,
+ * Clarion Summary: plain-language overall interpretation,
  * key biomarker findings, and top priority actions for athletes and health-conscious users.
  */
 
@@ -61,7 +61,7 @@ function scoreToLabel(score: number): string {
 }
 
 /**
- * Build a concise Bloodwise Summary from analysis and derived data.
+ * Build a concise Clarion Summary from analysis and derived data.
  * Plain language for athletes and health-conscious users.
  */
 export function getBloodwiseSummary(input: BloodwiseSummaryInput): BloodwiseSummary {

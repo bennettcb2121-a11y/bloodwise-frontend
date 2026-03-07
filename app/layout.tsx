@@ -6,8 +6,8 @@ import { Notifications } from "@mantine/notifications";
 import { AuthProvider } from "@/src/contexts/AuthContext";
 
 export const metadata = {
-  title: "Bloodwise",
-  description: "Blood biomarker intelligence platform",
+  title: "Clarion Labs",
+  description: "Interpret your bloodwork clearly. Optimize your health and save money.",
 };
 
 export default function RootLayout({

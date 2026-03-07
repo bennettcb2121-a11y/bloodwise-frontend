@@ -149,7 +149,7 @@ export default function DashboardPage() {
       <div className="dashboard-container">
         <header className="dashboard-header">
           <Link href="/" className="dashboard-back">
-            ← Back to Bloodwise
+            ← Back to Clarion Labs
           </Link>
           <h1 className="dashboard-title">Dashboard</h1>
           <p className="dashboard-subtitle">Your latest health snapshot</p>
@@ -159,7 +159,7 @@ export default function DashboardPage() {
           <div className="dashboard-card dashboard-empty">
             <p>No bloodwork saved yet. Complete a panel on the main flow to see your dashboard.</p>
             <Link href="/" className="dashboard-cta">
-              Go to Bloodwise
+              Go to Clarion Labs
             </Link>
           </div>
         ) : (
