@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react"
 import Link from "next/link"
 import { useAuth } from "@/src/contexts/AuthContext"
-import { loadSavedState } from "@/src/lib/bloodwiseDb"
+import { loadSavedState, upsertProfile } from "@/src/lib/bloodwiseDb"
 import type { BloodworkSaveRow, ProfileRow } from "@/src/lib/bloodwiseDb"
 import { analyzeBiomarkers } from "@/src/lib/analyzeBiomarkers"
 import { getRetestRecommendations } from "@/src/lib/retestEngine"
@@ -23,7 +23,20 @@ export default function DashboardPage() {
     setLoading(true)
     loadSavedState(user.id)
       .then(({ profile: p, bloodwork: b }) => {
-        setProfile(p)
+        if (!p) {
+          // Ensure every user has a profile row so data saves correctly
+          upsertProfile(user.id, {
+            age: "",
+            sex: "",
+            sport: "",
+            goal: "",
+            current_supplement_spend: "",
+            current_supplements: "",
+            shopping_preference: "Best value",
+          }).then(() => setProfile({ user_id: user.id, age: "", sex: "", sport: "", goal: "", current_supplement_spend: "", current_supplements: "", shopping_preference: "Best value" } as ProfileRow)).catch(() => {})
+        } else {
+          setProfile(p)
+        }
         setBloodwork(b)
       })
       .catch(() => {
@@ -41,6 +54,14 @@ export default function DashboardPage() {
       ? analyzeBiomarkers(bloodwork.biomarker_inputs, profileForAnalysis)
       : []
   const retestRecommendations = getRetestRecommendations(analysisResults)
+
+  const retestWeeks = profile?.retest_weeks ?? 8
+  const lastBloodworkAt = bloodwork?.updated_at ?? bloodwork?.created_at ?? null
+  const isDueForRetest = lastBloodworkAt && (() => {
+    const last = new Date(lastBloodworkAt).getTime()
+    const weeksMs = retestWeeks * 7 * 24 * 60 * 60 * 1000
+    return Date.now() - last >= weeksMs
+  })()
 
   const savingsSnapshot = bloodwork?.savings_snapshot as Record<string, unknown> | undefined
   const annualSavings =
@@ -154,6 +175,13 @@ export default function DashboardPage() {
           <h1 className="dashboard-title">Dashboard</h1>
           <p className="dashboard-subtitle">Your latest health snapshot</p>
         </header>
+
+        {hasBloodwork && isDueForRetest && (
+          <div className="dashboard-retest-banner">
+            <span>It’s been {retestWeeks}+ weeks since your last panel. Time to retest?</span>
+            <Link href="/">Add new results</Link>
+          </div>
+        )}
 
         {!hasBloodwork ? (
           <div className="dashboard-card dashboard-empty">
@@ -283,6 +311,27 @@ export default function DashboardPage() {
           margin: 0;
           font-size: 14px;
           color: rgba(226, 232, 240, 0.65);
+        }
+        .dashboard-retest-banner {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 12px;
+          margin-bottom: 20px;
+          padding: 14px 18px;
+          background: rgba(124, 140, 255, 0.12);
+          border: 1px solid rgba(124, 140, 255, 0.25);
+          border-radius: 12px;
+          font-size: 14px;
+          color: rgba(232, 236, 255, 0.95);
+        }
+        .dashboard-retest-banner a {
+          font-weight: 600;
+          color: #a5b4fc;
+          text-decoration: none;
+        }
+        .dashboard-retest-banner a:hover {
+          color: #c7d2fe;
         }
         .dashboard-grid {
           display: grid;

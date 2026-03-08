@@ -14,6 +14,9 @@ export type ProfileRow = {
   current_supplement_spend: string
   current_supplements: string
   shopping_preference: string
+  email?: string | null
+  phone?: string | null
+  retest_weeks?: number | null
   updated_at?: string
 }
 
@@ -85,6 +88,9 @@ export async function upsertProfile(
       current_supplement_spend: profile.current_supplement_spend ?? "",
       current_supplements: profile.current_supplements ?? "",
       shopping_preference: profile.shopping_preference ?? "Best value",
+      email: profile.email ?? undefined,
+      phone: profile.phone ?? undefined,
+      retest_weeks: profile.retest_weeks ?? undefined,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" }

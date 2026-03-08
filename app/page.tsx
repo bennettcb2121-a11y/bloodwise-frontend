@@ -123,6 +123,8 @@ export default function Page() {
   const [openCompareCards, setOpenCompareCards] = useState<Record<string, boolean>>({})
   const [previousReports, setPreviousReports] = useState<BloodworkSaveRow[]>([])
   const [previousReportsLoading, setPreviousReportsLoading] = useState(false)
+  const [lastBloodworkAt, setLastBloodworkAt] = useState<string | null>(null)
+  const [retestWeeks, setRetestWeeks] = useState(8)
 
   const isProfileReady =
     profile.age.trim() !== "" &&
@@ -254,6 +256,13 @@ export default function Page() {
 
   const userId = user?.id ?? null
 
+  const isDueForRetest = useMemo(() => {
+    if (!lastBloodworkAt || !retestWeeks) return false
+    const last = new Date(lastBloodworkAt).getTime()
+    const weeksMs = retestWeeks * 7 * 24 * 60 * 60 * 1000
+    return Date.now() - last >= weeksMs
+  }, [lastBloodworkAt, retestWeeks])
+
   // On login: load saved profile and bloodwork from Supabase and populate form fields
   const loadDeps: [string | null] = [userId]
   useEffect(() => {
@@ -271,8 +280,38 @@ export default function Page() {
           setCurrentSupplementSpend(p.current_supplement_spend ?? "")
           setCurrentSupplements(p.current_supplements ?? "")
           setShoppingPreference(p.shopping_preference ?? "Best value")
+          setRetestWeeks(p.retest_weeks ?? 8)
+          // Keep profile email in sync for retest reminder emails
+          if (user?.email && p.email !== user.email) {
+            upsertProfile(userId, {
+              age: p.age ?? "",
+              sex: p.sex ?? "",
+              sport: p.sport ?? "",
+              goal: p.goal ?? "",
+              current_supplement_spend: p.current_supplement_spend ?? "",
+              current_supplements: p.current_supplements ?? "",
+              shopping_preference: p.shopping_preference ?? "Best value",
+              email: user.email,
+              phone: p.phone ?? undefined,
+              retest_weeks: p.retest_weeks ?? 8,
+            }).catch(() => {})
+          }
+        } else {
+          // Ensure every signed-in user has a profile row so their data can be saved (include email for retest reminders)
+          upsertProfile(userId, {
+            age: "",
+            sex: "",
+            sport: "",
+            goal: "",
+            current_supplement_spend: "",
+            current_supplements: "",
+            shopping_preference: "Best value",
+            email: user?.email ?? undefined,
+            retest_weeks: 8,
+          }).catch(() => {})
         }
         if (b) {
+          setLastBloodworkAt(b.updated_at ?? b.created_at ?? null)
           if (Array.isArray(b.selected_panel) && b.selected_panel.length > 0) {
             setSelectedPanel(b.selected_panel)
           }
@@ -282,15 +321,21 @@ export default function Page() {
           if (typeof b.current_step === "number" && b.current_step >= 1 && b.current_step <= 6) {
             setCurrentStep(b.current_step)
           }
+        } else {
+          setLastBloodworkAt(null)
         }
       })
       .catch(() => {})
   }, loadDeps)
 
-  // Reset load flag when user logs out so next login loads again
+  // Reset load flag and retest state when user logs out
   const resetDeps: [string | null] = [userId]
   useEffect(() => {
-    if (!userId) hasLoadedSaveRef.current = false
+    if (!userId) {
+      hasLoadedSaveRef.current = false
+      setLastBloodworkAt(null)
+      setRetestWeeks(8)
+    }
   }, resetDeps)
 
   // Fetch previous reports for logged-in users (Previous Reports section)
@@ -497,6 +542,13 @@ export default function Page() {
               Feel good and save money.
             </p>
           </div>
+
+          {userId && isDueForRetest && (
+            <div className="retest-reminder-banner">
+              <span className="retest-reminder-text">It’s been {retestWeeks}+ weeks since your last panel. Time to retest?</span>
+              <Link href="/#step-1" className="retest-reminder-cta">Add new results</Link>
+            </div>
+          )}
 
           <div className="progress-wrap">
             {progressSteps.map((step) => (
@@ -2059,6 +2111,30 @@ export default function Page() {
           font-weight: 600;
           max-width: 920px;
           color: #f8fafc;
+        }
+
+        .retest-reminder-banner {
+          display: flex;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 12px;
+          margin: 14px 0;
+          padding: 12px 18px;
+          background: rgba(124, 140, 255, 0.12);
+          border: 1px solid rgba(124, 140, 255, 0.25);
+          border-radius: 12px;
+        }
+        .retest-reminder-text {
+          font-size: 14px;
+          color: rgba(232, 236, 255, 0.95);
+        }
+        .retest-reminder-cta {
+          font-size: 13px;
+          font-weight: 600;
+          color: #a5b4fc;
+        }
+        .retest-reminder-cta:hover {
+          color: #c7d2fe;
         }
 
         .hero-copy p,

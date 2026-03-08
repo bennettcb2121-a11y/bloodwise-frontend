@@ -15,6 +15,9 @@ create table if not exists public.profiles (
   current_supplement_spend text default '',
   current_supplements text default '',
   shopping_preference text default 'Best value',
+  email text,
+  phone text,
+  retest_weeks int not null default 8,
   updated_at timestamptz default now(),
   unique(user_id)
 );
