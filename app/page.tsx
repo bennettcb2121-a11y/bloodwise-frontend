@@ -550,6 +550,30 @@ export default function Page() {
             </div>
           )}
 
+          {userId ? (
+            <div className="subscribe-section">
+              <div className="subscribe-card">
+                <h3 className="subscribe-title">Subscribe to Clarion Labs</h3>
+                <p className="subscribe-desc">Full access to insights, optimized stacks, and retest reminders. Cancel anytime.</p>
+                <SubscribeButton className="subscribe-btn">Subscribe — monthly</SubscribeButton>
+              </div>
+            </div>
+          ) : null}
+
+          {userId && lastBloodworkAt ? (
+            <div className="retest-status-section">
+              <div className="retest-status-card">
+                <span className="retest-status-label">Retest reminders</span>
+                <p className="retest-status-text">
+                  {isDueForRetest
+                    ? `It's been ${retestWeeks}+ weeks since your last panel. We'll email you too.`
+                    : `Last panel saved. We'll remind you in ${retestWeeks} weeks (email + in-app).`}
+                </p>
+                <Link href="/dashboard" className="retest-status-link">Set reminder preferences →</Link>
+              </div>
+            </div>
+          ) : null}
+
           <div className="progress-wrap">
             {progressSteps.map((step) => (
               <div
@@ -2134,6 +2158,72 @@ export default function Page() {
           color: #a5b4fc;
         }
         .retest-reminder-cta:hover {
+          color: #c7d2fe;
+        }
+
+        .subscribe-section {
+          margin: 18px 0;
+        }
+        .subscribe-card {
+          padding: 20px 24px;
+          border-radius: 16px;
+          border: 1px solid rgba(124, 140, 255, 0.3);
+          background: linear-gradient(135deg, rgba(124, 140, 255, 0.15), rgba(69, 214, 255, 0.06));
+        }
+        .subscribe-title {
+          margin: 0 0 8px;
+          font-size: 18px;
+          font-weight: 600;
+          color: #f8fafc;
+        }
+        .subscribe-desc {
+          margin: 0 0 16px;
+          font-size: 14px;
+          color: rgba(226, 232, 240, 0.85);
+          line-height: 1.5;
+        }
+        .subscribe-btn {
+          padding: 12px 24px;
+          border-radius: 12px;
+          font-size: 14px;
+          font-weight: 600;
+          background: linear-gradient(135deg, rgba(124, 140, 255, 0.4), rgba(69, 214, 255, 0.2));
+          border: 1px solid rgba(124, 140, 255, 0.5);
+          color: #e8ecff;
+          cursor: pointer;
+        }
+        .subscribe-btn:hover:not(:disabled) {
+          background: linear-gradient(135deg, rgba(124, 140, 255, 0.5), rgba(69, 214, 255, 0.3));
+        }
+
+        .retest-status-section {
+          margin: 14px 0 20px;
+        }
+        .retest-status-card {
+          padding: 14px 18px;
+          border-radius: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(16, 22, 42, 0.6);
+        }
+        .retest-status-label {
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.05em;
+          text-transform: uppercase;
+          color: rgba(226, 232, 240, 0.55);
+        }
+        .retest-status-text {
+          margin: 6px 0 8px;
+          font-size: 14px;
+          color: rgba(226, 232, 240, 0.9);
+          line-height: 1.5;
+        }
+        .retest-status-link {
+          font-size: 13px;
+          font-weight: 600;
+          color: #a5b4fc;
+        }
+        .retest-status-link:hover {
           color: #c7d2fe;
         }
 

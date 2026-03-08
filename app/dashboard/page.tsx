@@ -8,12 +8,17 @@ import type { BloodworkSaveRow, ProfileRow } from "@/src/lib/bloodwiseDb"
 import { analyzeBiomarkers } from "@/src/lib/analyzeBiomarkers"
 import { getRetestRecommendations } from "@/src/lib/retestEngine"
 import { scoreToLabel } from "@/src/lib/scoreEngine"
+import { SubscribeButton } from "@/src/components/SubscribeButton"
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth()
   const [profile, setProfile] = useState<ProfileRow | null>(null)
   const [bloodwork, setBloodwork] = useState<BloodworkSaveRow | null>(null)
   const [loading, setLoading] = useState(true)
+  const [prefsPhone, setPrefsPhone] = useState("")
+  const [prefsRetestWeeks, setPrefsRetestWeeks] = useState(8)
+  const [prefsSaving, setPrefsSaving] = useState(false)
+  const [prefsSaved, setPrefsSaved] = useState(false)
 
   useEffect(() => {
     if (!user?.id) {
@@ -33,9 +38,15 @@ export default function DashboardPage() {
             current_supplement_spend: "",
             current_supplements: "",
             shopping_preference: "Best value",
-          }).then(() => setProfile({ user_id: user.id, age: "", sex: "", sport: "", goal: "", current_supplement_spend: "", current_supplements: "", shopping_preference: "Best value" } as ProfileRow)).catch(() => {})
+            retest_weeks: 8,
+          }).then(() => {
+            setProfile({ user_id: user.id, age: "", sex: "", sport: "", goal: "", current_supplement_spend: "", current_supplements: "", shopping_preference: "Best value", retest_weeks: 8 } as ProfileRow)
+            setPrefsRetestWeeks(8)
+          }).catch(() => {})
         } else {
           setProfile(p)
+          setPrefsPhone(p.phone ?? "")
+          setPrefsRetestWeeks(p.retest_weeks ?? 8)
         }
         setBloodwork(b)
       })
@@ -169,9 +180,12 @@ export default function DashboardPage() {
       <div className="dashboard-bg" />
       <div className="dashboard-container">
         <header className="dashboard-header">
-          <Link href="/" className="dashboard-back">
-            ← Back to Clarion Labs
-          </Link>
+          <div className="dashboard-header-row">
+            <Link href="/" className="dashboard-back">
+              ← Back to Clarion Labs
+            </Link>
+            <SubscribeButton className="dashboard-subscribe-btn">Subscribe</SubscribeButton>
+          </div>
           <h1 className="dashboard-title">Dashboard</h1>
           <p className="dashboard-subtitle">Your latest health snapshot</p>
         </header>
@@ -184,11 +198,84 @@ export default function DashboardPage() {
         )}
 
         {!hasBloodwork ? (
-          <div className="dashboard-card dashboard-empty">
-            <p>No bloodwork saved yet. Complete a panel on the main flow to see your dashboard.</p>
-            <Link href="/" className="dashboard-cta">
-              Go to Clarion Labs
-            </Link>
+          <div className="dashboard-empty-wrap">
+            <div className="dashboard-card dashboard-empty">
+              <p>No bloodwork saved yet. Complete a panel on the main flow to see your dashboard.</p>
+              <Link href="/" className="dashboard-cta">
+                Go to Clarion Labs
+              </Link>
+            </div>
+            <div className="dashboard-card dashboard-subscribe-card">
+              <div className="dashboard-card-label">Subscribe to Clarion Labs</div>
+              <p className="dashboard-card-muted">Full access, retest reminders, and optimized recommendations. Cancel anytime.</p>
+              <SubscribeButton className="dashboard-cta dashboard-cta-subscribe">Subscribe — monthly</SubscribeButton>
+            </div>
+            {user && (
+              <div className="dashboard-card dashboard-prefs-card">
+                <div className="dashboard-card-label">Notification preferences</div>
+                <p className="dashboard-prefs-hint">Set when to get retest reminders and add a phone number for optional SMS.</p>
+                <div className="dashboard-prefs-form">
+                  <label className="dashboard-prefs-field">
+                    <span>Remind me to retest every (weeks)</span>
+                    <select
+                      value={prefsRetestWeeks}
+                      onChange={(e) => setPrefsRetestWeeks(Number(e.target.value))}
+                      className="dashboard-prefs-select"
+                    >
+                      {[6, 8, 10, 12].map((w) => (
+                        <option key={w} value={w}>{w} weeks</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="dashboard-prefs-field">
+                    <span>Phone (optional, for SMS reminders)</span>
+                    <input
+                      type="tel"
+                      value={prefsPhone}
+                      onChange={(e) => setPrefsPhone(e.target.value)}
+                      placeholder="+1 555 000 0000"
+                      className="dashboard-prefs-input"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="dashboard-prefs-save"
+                    disabled={prefsSaving}
+                    onClick={async () => {
+                      if (!user) return
+                      setPrefsSaving(true)
+                      setPrefsSaved(false)
+                      try {
+                        await upsertProfile(user.id, {
+                          age: profile?.age ?? "",
+                          sex: profile?.sex ?? "",
+                          sport: profile?.sport ?? "",
+                          goal: profile?.goal ?? "",
+                          current_supplement_spend: profile?.current_supplement_spend ?? "",
+                          current_supplements: profile?.current_supplements ?? "",
+                          shopping_preference: profile?.shopping_preference ?? "Best value",
+                          email: profile?.email ?? undefined,
+                          phone: prefsPhone.trim() || undefined,
+                          retest_weeks: prefsRetestWeeks,
+                        })
+                        const { profile: fresh } = await loadSavedState(user.id)
+                        if (fresh) {
+                          setProfile(fresh)
+                          setPrefsPhone(fresh.phone ?? "")
+                          setPrefsRetestWeeks(fresh.retest_weeks ?? 8)
+                        }
+                        setPrefsSaved(true)
+                      } finally {
+                        setPrefsSaving(false)
+                      }
+                    }}
+                  >
+                    {prefsSaving ? "Saving…" : "Save preferences"}
+                  </button>
+                  {prefsSaved && <span className="dashboard-prefs-saved">Saved.</span>}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="dashboard-grid">
@@ -256,6 +343,95 @@ export default function DashboardPage() {
                 <p className="dashboard-card-muted">Complete a panel to see retest dates</p>
               )}
             </div>
+
+            <div className="dashboard-card dashboard-subscribe-card">
+              <div className="dashboard-card-label">Subscribe to Clarion Labs</div>
+              <p className="dashboard-card-muted">Full access, retest reminders, and optimized recommendations. Cancel anytime.</p>
+              <SubscribeButton className="dashboard-cta dashboard-cta-subscribe">Subscribe — monthly</SubscribeButton>
+            </div>
+
+            <div className="dashboard-card dashboard-retest-status-card">
+              <div className="dashboard-card-label">Retest reminders</div>
+              {bloodwork?.updated_at ? (
+                <>
+                  <p className="dashboard-retest-status-text">
+                    {isDueForRetest
+                      ? `It's been ${retestWeeks}+ weeks since your last panel. We'll email you when it's time.`
+                      : `Last panel saved. We'll remind you in ${retestWeeks} weeks (email + in-app).`}
+                  </p>
+                  <Link href="/#step-1" className="dashboard-retest-status-link">Add new results</Link>
+                </>
+              ) : (
+                <p className="dashboard-card-muted">We'll remind you to retest based on your preference below.</p>
+              )}
+            </div>
+
+            {user && profile && (
+              <div className="dashboard-card dashboard-prefs-card">
+                <div className="dashboard-card-label">Notification preferences</div>
+                <p className="dashboard-prefs-hint">When to get retest reminders; add a phone number for optional SMS.</p>
+                <div className="dashboard-prefs-form">
+                  <label className="dashboard-prefs-field">
+                    <span>Remind me to retest every (weeks)</span>
+                    <select
+                      value={prefsRetestWeeks}
+                      onChange={(e) => setPrefsRetestWeeks(Number(e.target.value))}
+                      className="dashboard-prefs-select"
+                    >
+                      {[6, 8, 10, 12].map((w) => (
+                        <option key={w} value={w}>{w} weeks</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="dashboard-prefs-field">
+                    <span>Phone (optional, for SMS reminders)</span>
+                    <input
+                      type="tel"
+                      value={prefsPhone}
+                      onChange={(e) => setPrefsPhone(e.target.value)}
+                      placeholder="+1 555 000 0000"
+                      className="dashboard-prefs-input"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="dashboard-prefs-save"
+                    disabled={prefsSaving}
+                    onClick={async () => {
+                      if (!user || !profile) return
+                      setPrefsSaving(true)
+                      setPrefsSaved(false)
+                      try {
+                        await upsertProfile(user.id, {
+                          age: profile.age ?? "",
+                          sex: profile.sex ?? "",
+                          sport: profile.sport ?? "",
+                          goal: profile.goal ?? "",
+                          current_supplement_spend: profile.current_supplement_spend ?? "",
+                          current_supplements: profile.current_supplements ?? "",
+                          shopping_preference: profile.shopping_preference ?? "Best value",
+                          email: profile.email ?? undefined,
+                          phone: prefsPhone.trim() || undefined,
+                          retest_weeks: prefsRetestWeeks,
+                        })
+                        const { profile: fresh } = await loadSavedState(user.id)
+                        if (fresh) {
+                          setProfile(fresh)
+                          setPrefsPhone(fresh.phone ?? "")
+                          setPrefsRetestWeeks(fresh.retest_weeks ?? 8)
+                        }
+                        setPrefsSaved(true)
+                      } finally {
+                        setPrefsSaving(false)
+                      }
+                    }}
+                  >
+                    {prefsSaving ? "Saving…" : "Save preferences"}
+                  </button>
+                  {prefsSaved && <span className="dashboard-prefs-saved">Saved.</span>}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -291,9 +467,30 @@ export default function DashboardPage() {
         .dashboard-header {
           margin-bottom: 28px;
         }
+        .dashboard-header-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 12px;
+          margin-bottom: 12px;
+        }
+        .dashboard-subscribe-btn {
+          padding: 8px 16px;
+          border-radius: 10px;
+          font-size: 13px;
+          font-weight: 600;
+          background: linear-gradient(135deg, rgba(124, 140, 255, 0.35), rgba(69, 214, 255, 0.15));
+          border: 1px solid rgba(124, 140, 255, 0.45);
+          color: #e8ecff;
+          cursor: pointer;
+        }
+        .dashboard-subscribe-btn:hover:not(:disabled) {
+          background: linear-gradient(135deg, rgba(124, 140, 255, 0.5), rgba(69, 214, 255, 0.25));
+        }
         .dashboard-back {
           display: inline-block;
-          margin-bottom: 12px;
+          margin-bottom: 0;
           font-size: 13px;
           color: rgba(226, 232, 240, 0.7);
           text-decoration: none;
@@ -414,6 +611,11 @@ export default function DashboardPage() {
           color: rgba(226, 232, 240, 0.6);
           font-weight: 500;
         }
+        .dashboard-empty-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
         .dashboard-empty {
           text-align: center;
           padding: 40px 24px;
@@ -434,6 +636,81 @@ export default function DashboardPage() {
         }
         .dashboard-cta:hover {
           background: linear-gradient(135deg, rgba(124, 140, 255, 0.4), rgba(69, 214, 255, 0.2));
+        }
+        .dashboard-subscribe-card {
+          border-color: rgba(124, 140, 255, 0.25);
+          background: linear-gradient(135deg, rgba(124, 140, 255, 0.12), rgba(16, 22, 42, 0.85));
+        }
+        .dashboard-subscribe-card .dashboard-card-muted {
+          margin-bottom: 14px;
+        }
+        .dashboard-cta-subscribe {
+          margin-top: 4px;
+        }
+        .dashboard-retest-status-card .dashboard-retest-status-text {
+          margin: 0 0 10px;
+          font-size: 14px;
+          color: rgba(226, 232, 240, 0.9);
+          line-height: 1.5;
+        }
+        .dashboard-retest-status-link {
+          font-size: 13px;
+          font-weight: 600;
+          color: #a5b4fc;
+          text-decoration: none;
+        }
+        .dashboard-retest-status-link:hover {
+          color: #c7d2fe;
+        }
+        .dashboard-prefs-card .dashboard-prefs-hint {
+          margin: 0 0 14px;
+          font-size: 13px;
+          color: rgba(226, 232, 240, 0.6);
+          line-height: 1.45;
+        }
+        .dashboard-prefs-form {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+        }
+        .dashboard-prefs-field {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          font-size: 13px;
+          color: rgba(226, 232, 240, 0.85);
+        }
+        .dashboard-prefs-field span {
+          font-weight: 500;
+        }
+        .dashboard-prefs-select,
+        .dashboard-prefs-input {
+          padding: 10px 14px;
+          border-radius: 10px;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          background: rgba(10, 14, 28, 0.6);
+          color: #f8fafc;
+          font-size: 14px;
+          max-width: 280px;
+        }
+        .dashboard-prefs-save {
+          padding: 10px 20px;
+          border-radius: 10px;
+          font-size: 14px;
+          font-weight: 600;
+          background: linear-gradient(135deg, rgba(124, 140, 255, 0.35), rgba(69, 214, 255, 0.15));
+          border: 1px solid rgba(124, 140, 255, 0.45);
+          color: #e8ecff;
+          cursor: pointer;
+          align-self: flex-start;
+        }
+        .dashboard-prefs-save:hover:not(:disabled) {
+          background: linear-gradient(135deg, rgba(124, 140, 255, 0.5), rgba(69, 214, 255, 0.25));
+        }
+        .dashboard-prefs-saved {
+          margin-left: 10px;
+          font-size: 13px;
+          color: #2bd4a0;
         }
       `}</style>
     </main>
