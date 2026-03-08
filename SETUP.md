@@ -4,6 +4,71 @@ This guide covers making Clarion Labs a live website with **Google/GitHub login*
 
 ---
 
+## Quick start: Supabase + Stripe on Vercel (login, save data, pay)
+
+You have Vercel running. Follow this order so people can log in, save data, and pay.
+
+### Step 1: Supabase project
+
+1. Go to [supabase.com/dashboard](https://supabase.com/dashboard) and **create a project** (or use an existing one).
+2. Wait for it to finish provisioning, then go to **Settings** → **API**.
+3. Copy:
+   - **Project URL** → you’ll use this as `NEXT_PUBLIC_SUPABASE_URL`
+   - **anon public** key → `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+   - **service_role** key → `SUPABASE_SERVICE_ROLE_KEY` (keep secret; only for the Stripe webhook later)
+
+### Step 2: Supabase database (profiles + bloodwork + subscriptions)
+
+1. In Supabase: **SQL Editor** → **New query**.
+2. Run the SQL from **`supabase/migrations/001_bloodwise_schema.sql`** (creates `profiles`, `bloodwork_saves`, RLS).
+3. Run the SQL from **`supabase/migrations/004_subscriptions.sql`** (creates `subscriptions` for Stripe).
+
+(If you use other migrations in that folder, run those too.)
+
+### Step 3: Vercel environment variables (Supabase + app URL)
+
+In **Vercel** → your project → **Settings** → **Environment Variables**, add:
+
+| Name | Value | Notes |
+|------|--------|------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase **Project URL** | From Step 1 |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Your Supabase **anon public** key | From Step 1 |
+| `NEXT_PUBLIC_APP_URL` | `https://your-app.vercel.app` | Your actual Vercel URL |
+
+Redeploy (e.g. **Deployments** → … → **Redeploy**) so the new env vars are used. After this, **email sign up / log in** and **saving profile + bloodwork** will work.
+
+### Step 4: Supabase redirect URLs (so OAuth and email links point to your app)
+
+1. In Supabase: **Authentication** → **URL Configuration**.
+2. **Site URL:** set to `https://your-app.vercel.app` (same as `NEXT_PUBLIC_APP_URL`).
+3. **Redirect URLs:** add:
+   - `https://your-app.vercel.app/auth/callback`
+   - `http://localhost:3000/auth/callback` (for local dev)
+
+Save. Now email magic links and “Continue with Google/GitHub” will redirect back to your app correctly.
+
+### Step 5 (optional): “Continue with Google” (or GitHub)
+
+- **Supabase:** **Authentication** → **Providers** → enable **Google** (and **GitHub** if you want). You’ll need to paste a Client ID and Client Secret.
+- **Google:** [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services** → **Credentials** → **Create OAuth client ID** (Web). Set **Authorized redirect URIs** to the **Callback URL** shown in Supabase under Google provider. Copy Client ID and Secret into Supabase.
+- Details are in **§2** below.
+
+### Step 6: Stripe (monthly subscription + webhook)
+
+1. **Stripe product:** [dashboard.stripe.com](https://dashboard.stripe.com) → **Products** → **Add product** → name it e.g. “Clarion Labs Monthly” → add a **recurring monthly** price → copy the **Price ID** (e.g. `price_...`).
+2. **Stripe keys:** **Developers** → **API keys** → copy **Secret key**.
+3. **Vercel env vars:** add  
+   `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, and (after Step 7) `STRIPE_WEBHOOK_SECRET` and `SUPABASE_SERVICE_ROLE_KEY`.
+4. **Stripe webhook:** **Developers** → **Webhooks** → **Add endpoint**:
+   - URL: `https://your-app.vercel.app/api/webhooks/stripe`
+   - Events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`
+   - Copy the **Signing secret** → put it in Vercel as `STRIPE_WEBHOOK_SECRET`.
+5. **Service role in Vercel:** Add `SUPABASE_SERVICE_ROLE_KEY` (from Step 1) so the webhook can write to the `subscriptions` table.
+
+Redeploy again. Users can click **Subscribe** in the app, pay via Stripe, and their subscription status is stored in Supabase.
+
+---
+
 ## 0. Push to GitHub (if you get "repository not found")
 
 Your folder might be pointing at a repo that doesn’t exist or a different account. Fix the remote and push:

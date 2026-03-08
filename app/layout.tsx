@@ -4,6 +4,7 @@ import "@mantine/notifications/styles.css";
 import { ColorSchemeScript, MantineProvider } from "@mantine/core";
 import { Notifications } from "@mantine/notifications";
 import { AuthProvider } from "@/src/contexts/AuthContext";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata = {
   title: "Clarion Labs",
@@ -27,6 +28,7 @@ export default function RootLayout({
             {children}
           </AuthProvider>
         </MantineProvider>
+        <Analytics />
       </body>
     </html>
   );
