@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
+import { motion, AnimatePresence } from "framer-motion"
 import BiomarkerGauge from "@/src/components/BiomarkerGauge"
 import { AuthUI } from "@/src/components/AuthUI"
 import { SubscribeButton } from "@/src/components/SubscribeButton"
@@ -125,6 +126,7 @@ export default function Page() {
   const [previousReportsLoading, setPreviousReportsLoading] = useState(false)
   const [lastBloodworkAt, setLastBloodworkAt] = useState<string | null>(null)
   const [retestWeeks, setRetestWeeks] = useState(8)
+  const [analyzing, setAnalyzing] = useState(false)
 
   const isProfileReady =
     profile.age.trim() !== "" &&
@@ -517,7 +519,60 @@ export default function Page() {
       <div className="bg-orb orb-3" />
       <div className="grid-glow" />
 
+      <AnimatePresence>
+        {analyzing && (
+          <motion.div
+            className="journey-analysis-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <motion.div
+              className="journey-analysis-card"
+              initial={{ scale: 0.96, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.4, ease: "easeOut" }}
+            >
+              <motion.div
+                className="journey-analysis-dots"
+                animate={{ opacity: [0.4, 1, 0.4] }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <span /><span /><span />
+              </motion.div>
+              <h2 className="journey-analysis-title">Analyzing your results</h2>
+              <p className="journey-analysis-subtitle">We’re interpreting your panel and building your personalized insights.</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="bw-container">
+        {currentStep > 1 ? (
+        <div className="journey-progress-bar">
+          {progressSteps.map((step) => (
+            <button
+              key={step.id}
+              type="button"
+              className={`journey-progress-dot ${step.unlocked ? "unlocked" : ""} ${step.active ? "active" : ""} ${step.done ? "done" : ""}`}
+              onClick={() => step.unlocked && setCurrentStep(step.id)}
+              aria-label={`Step ${step.id}: ${step.label}`}
+              disabled={!step.unlocked}
+            >
+              <span className="journey-progress-dot-inner">{step.id}</span>
+            </button>
+          ))}
+          <div className="journey-progress-labels">
+            {progressSteps.map((step) => (
+              <span key={step.id} className={`journey-progress-label ${step.active ? "active" : ""} ${step.done ? "done" : ""}`}>
+                {step.label}
+              </span>
+            ))}
+          </div>
+        </div>
+        ) : null}
+
         <section className="hero-card">
           <div className="hero-topline">
             <div className="brand-pill brand-pill-large">CLARION LABS</div>
@@ -574,18 +629,7 @@ export default function Page() {
             </div>
           ) : null}
 
-          <div className="progress-wrap">
-            {progressSteps.map((step) => (
-              <div
-                key={step.id}
-                className={`progress-step ${step.unlocked ? "unlocked" : ""} ${step.active ? "active" : ""} ${step.done ? "done" : ""}`}
-              >
-                <div className="progress-dot">{step.id}</div>
-                <span>{step.label}</span>
-              </div>
-            ))}
-          </div>
-
+          {currentStep === 1 ? (
           <div className="hero-grid">
             <div className="glass-card hero-score-card">
               <div className="mini-heading">Health score</div>
@@ -699,8 +743,19 @@ export default function Page() {
               <div className="hero-footer-note">
                 Clarion Labs branches based on who the user is before deciding what to recommend.
               </div>
+              <div className="journey-step-actions">
+                <button
+                  type="button"
+                  className="primary-cta"
+                  disabled={!isProfileReady}
+                  onClick={() => setCurrentStep(2)}
+                >
+                  Continue
+                </button>
+              </div>
             </div>
           </div>
+          ) : null}
         </section>
 
         {userId ? (
@@ -756,8 +811,9 @@ export default function Page() {
           </section>
         ) : null}
 
-        {currentStep >= 2 && (
-          <section className="flow-section">
+        {currentStep === 2 && (
+          <section className="flow-section journey-step-section">
+            <button type="button" className="journey-back-btn" onClick={() => setCurrentStep(1)}>← Back</button>
             <SectionTitle
               step="Step 2"
               title="What are you spending on supplements now?"
@@ -848,8 +904,9 @@ export default function Page() {
           </section>
         )}
 
-        {currentStep >= 3 && (
-          <section className="flow-section">
+        {currentStep === 3 && (
+          <section className="flow-section journey-step-section">
+            <button type="button" className="journey-back-btn" onClick={() => setCurrentStep(2)}>← Back</button>
             <SectionTitle
               step="Step 3"
               title="Start with the right panel"
@@ -918,8 +975,9 @@ export default function Page() {
           </section>
         )}
 
-        {currentStep >= 4 && (
-          <section className="flow-section">
+        {currentStep === 4 && (
+          <section className="flow-section journey-step-section">
+            <button type="button" className="journey-back-btn" onClick={() => setCurrentStep(3)}>← Back</button>
             <SectionTitle
               step="Step 4"
               title="Enter results for the selected panel"
@@ -958,7 +1016,13 @@ export default function Page() {
                   className="primary-cta"
                   disabled={!hasEnoughLabsFlag}
                   onClick={() => {
-                    if (hasEnoughLabsFlag) setCurrentStep(5)
+                    if (hasEnoughLabsFlag) {
+                      setAnalyzing(true)
+                      setTimeout(() => {
+                        setCurrentStep(5)
+                        setAnalyzing(false)
+                      }, 2600)
+                    }
                   }}
                 >
                   Analyze panel
@@ -968,8 +1032,9 @@ export default function Page() {
           </section>
         )}
 
-        {currentStep >= 5 && (
-          <section className="flow-section">
+        {currentStep === 5 && (
+          <section className="flow-section journey-step-section">
+            <button type="button" className="journey-back-btn" onClick={() => setCurrentStep(4)}>← Back</button>
             <SectionTitle
               step="Step 5"
               title="See what matters most"
@@ -1161,12 +1226,13 @@ export default function Page() {
           </section>
         )}
 
-        {currentStep >= 6 && (
-          <section className="flow-section">
+        {currentStep === 6 && (
+          <section className="flow-section journey-step-section">
+            <button type="button" className="journey-back-btn" onClick={() => setCurrentStep(5)}>← Back</button>
             <SectionTitle
               step="Step 6"
-              title="Full biomarker breakdown + action stack"
-              subtitle="Inspect the full panel, then view Clarion Labs' recommended stack, product options, science notes, and savings."
+              title="Supplement Stack Optimizer"
+              subtitle="Your personalized supplement recommendations, best-value picks, and estimated savings."
             />
 
             {!hasResults ? (
@@ -1311,27 +1377,40 @@ export default function Page() {
                   </div>
                 ) : null}
 
-                <div className="stack-section-header">
-                  <div>
-                    <h3>Recommended action stack</h3>
-                    <p>
-                      First show the recommended pick and why. Put the full compare table behind a toggle so the section feels simpler.
-                    </p>
-                  </div>
-
-                  <div className="premium-lock">
-                    <span>Premium</span>
-                    <strong>Full protocol export, deeper science, and smarter retest notes</strong>
-                  </div>
+                <div className="stack-optimizer-intro">
+                  <h3 className="stack-optimizer-heading">Your personalized supplement stack</h3>
+                  <p className="stack-optimizer-subtitle">
+                    Based on your results, we’ve curated recommendations with best-value picks and clear pricing. Each card shows why it’s recommended and a short science summary.
+                  </p>
                 </div>
 
+                {hasSupplements ? (
+                  <div className="stack-optimizer-savings-card">
+                    <div className="stack-optimizer-savings-row">
+                      <div className="stack-optimizer-savings-item">
+                        <span className="stack-optimizer-savings-label">Your current spend</span>
+                        <strong className="stack-optimizer-savings-value">${userCurrentSpend.toFixed(2)}/mo</strong>
+                      </div>
+                      <div className="stack-optimizer-savings-item highlight">
+                        <span className="stack-optimizer-savings-label">Optimized stack</span>
+                        <strong className="stack-optimizer-savings-value">${optimizedSpend.toFixed(2)}/mo</strong>
+                      </div>
+                      <div className="stack-optimizer-savings-item success">
+                        <span className="stack-optimizer-savings-label">Estimated savings</span>
+                        <strong className="stack-optimizer-savings-value">${estimatedSavingsVsCurrent.toFixed(2)}/mo</strong>
+                      </div>
+                    </div>
+                    <p className="stack-optimizer-savings-note">~${annualSavings.toFixed(2)}/yr vs. your current spend</p>
+                  </div>
+                ) : null}
+
                 {!hasSupplements ? (
-                  <div className="glass-card empty-card">
-                    No supplement interventions were triggered by the current results.
+                  <div className="glass-card empty-card stack-optimizer-empty">
+                    No supplement interventions were triggered by the current results. Your panel may not suggest additional supplements at this time.
                   </div>
                 ) : (
                   <>
-                    <div className="stack-list">
+                    <div className="stack-list stack-optimizer-list">
                       {optimizedStack.stack.map((rec: any, idx: number) => {
                         const compareKey = `${rec.supplementKey}-${idx}`
                         const markerScience = analysisResults.find(
@@ -1344,7 +1423,8 @@ export default function Page() {
                         const breakdown = rec.monthlyCostBreakdown
 
                         return (
-                          <div className="glass-card stack-card" key={compareKey}>
+                          <div className="glass-card stack-card stack-optimizer-card" key={compareKey}>
+                            <div className="stack-optimizer-card-inner">
                             <div className="stack-top">
                               <div>
                                 <div className="stack-kicker-row">
@@ -1524,6 +1604,7 @@ export default function Page() {
                                 </div>
                               </>
                             ) : null}
+                            </div>
                           </div>
                         )
                       })}
@@ -1604,11 +1685,11 @@ export default function Page() {
         .bw-shell {
           min-height: 100vh;
           background:
-            radial-gradient(circle at 15% 20%, rgba(124, 140, 255, 0.16), transparent 28%),
-            radial-gradient(circle at 85% 15%, rgba(69, 214, 255, 0.14), transparent 24%),
-            radial-gradient(circle at 70% 70%, rgba(255, 107, 122, 0.12), transparent 24%),
-            linear-gradient(180deg, #060914 0%, #070b16 50%, #060812 100%);
-          color: #f8fafc;
+            radial-gradient(circle at 20% 10%, rgba(201, 169, 98, 0.12), transparent 32%),
+            radial-gradient(circle at 85% 20%, rgba(123, 155, 178, 0.1), transparent 28%),
+            radial-gradient(circle at 70% 80%, rgba(232, 165, 152, 0.08), transparent 30%),
+            linear-gradient(180deg, #faf9f6 0%, #f5f2eb 50%, #faf9f6 100%);
+          color: #2d2a26;
           position: relative;
           overflow-x: hidden;
         }
@@ -1616,54 +1697,183 @@ export default function Page() {
         .bw-container {
           position: relative;
           z-index: 2;
-          max-width: 1260px;
+          max-width: 720px;
           margin: 0 auto;
-          padding: 28px 16px 80px;
+          padding: 24px 20px 80px;
         }
 
         .bg-orb {
           position: fixed;
           border-radius: 999px;
-          filter: blur(80px);
-          opacity: 0.5;
+          filter: blur(100px);
+          opacity: 0.4;
           pointer-events: none;
           z-index: 0;
         }
 
         .orb-1 {
-          width: 420px;
-          height: 420px;
-          background: rgba(124, 140, 255, 0.18);
-          top: -80px;
-          left: -120px;
+          width: 400px;
+          height: 400px;
+          background: rgba(201, 169, 98, 0.15);
+          top: -100px;
+          left: -80px;
         }
 
         .orb-2 {
-          width: 360px;
-          height: 360px;
-          background: rgba(69, 214, 255, 0.14);
-          top: 80px;
-          right: -100px;
+          width: 320px;
+          height: 320px;
+          background: rgba(123, 155, 178, 0.12);
+          top: 60px;
+          right: -60px;
         }
 
         .orb-3 {
-          width: 420px;
-          height: 420px;
-          background: rgba(255, 107, 122, 0.12);
-          bottom: 40px;
-          right: 15%;
+          width: 360px;
+          height: 360px;
+          background: rgba(232, 165, 152, 0.1);
+          bottom: 20px;
+          right: 20%;
         }
 
         .grid-glow {
           position: fixed;
           inset: 0;
           background-image:
-            linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
-          background-size: 38px 38px;
-          mask-image: linear-gradient(to bottom, rgba(0,0,0,0.25), rgba(0,0,0,0.85));
+            linear-gradient(rgba(45, 42, 38, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(45, 42, 38, 0.03) 1px, transparent 1px);
+          background-size: 40px 40px;
           pointer-events: none;
           z-index: 0;
+        }
+
+        .journey-analysis-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: rgba(250, 249, 246, 0.92);
+          backdrop-filter: blur(8px);
+        }
+
+        .journey-analysis-card {
+          text-align: center;
+          padding: 48px 40px;
+          border-radius: 24px;
+          background: #fffefb;
+          box-shadow: 0 24px 64px rgba(45, 42, 38, 0.12);
+          border: 1px solid rgba(201, 169, 98, 0.2);
+          max-width: 400px;
+        }
+
+        .journey-analysis-dots {
+          display: flex;
+          gap: 10px;
+          justify-content: center;
+          margin-bottom: 24px;
+        }
+
+        .journey-analysis-dots span {
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background: var(--clarion-muted-gold, #c9a962);
+        }
+
+        .journey-analysis-title {
+          margin: 0 0 10px;
+          font-size: 24px;
+          font-weight: 600;
+          color: #2d2a26;
+          letter-spacing: -0.02em;
+        }
+
+        .journey-analysis-subtitle {
+          margin: 0;
+          font-size: 15px;
+          color: #6b6560;
+          line-height: 1.5;
+        }
+
+        .journey-progress-bar {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 28px;
+          padding: 12px 0;
+        }
+
+        .journey-progress-dot {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          border: 2px solid rgba(45, 42, 38, 0.15);
+          background: #fffefb;
+          color: #6b6560;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: default;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .journey-progress-dot.unlocked {
+          cursor: pointer;
+          border-color: rgba(201, 169, 98, 0.4);
+          color: #2d2a26;
+        }
+
+        .journey-progress-dot.unlocked:hover {
+          background: rgba(201, 169, 98, 0.12);
+          border-color: rgba(201, 169, 98, 0.6);
+        }
+
+        .journey-progress-dot.active {
+          background: #c9a962;
+          border-color: #c9a962;
+          color: #fff;
+        }
+
+        .journey-progress-dot.done {
+          background: rgba(74, 155, 142, 0.2);
+          border-color: #4a9b8e;
+          color: #4a9b8e;
+        }
+
+        .journey-progress-labels {
+          display: none;
+        }
+
+        .journey-back-btn {
+          background: none;
+          border: none;
+          color: #6b6560;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          margin-bottom: 16px;
+          padding: 4px 0;
+          transition: color 0.2s ease;
+        }
+
+        .journey-back-btn:hover {
+          color: #2d2a26;
+        }
+
+        .journey-step-section {
+          animation: journeyFadeIn 0.35s ease;
+        }
+
+        @keyframes journeyFadeIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .journey-step-actions {
+          margin-top: 24px;
         }
 
         .hero-card,
@@ -1782,16 +1992,11 @@ export default function Page() {
 
         .hero-card {
           position: relative;
-          padding: 28px;
-          border-radius: 32px;
-          border: 1px solid rgba(255,255,255,0.08);
-          background:
-            radial-gradient(circle at 75% 30%, rgba(255, 107, 122, 0.16), transparent 24%),
-            radial-gradient(circle at 60% 20%, rgba(124, 140, 255, 0.22), transparent 25%),
-            linear-gradient(135deg, rgba(14,18,35,0.96), rgba(13,18,35,0.78));
-          box-shadow:
-            0 20px 70px rgba(0, 0, 0, 0.36),
-            inset 0 1px 0 rgba(255,255,255,0.04);
+          padding: 32px 28px;
+          border-radius: 24px;
+          border: 1px solid rgba(201, 169, 98, 0.18);
+          background: #fffefb;
+          box-shadow: 0 4px 24px rgba(45, 42, 38, 0.06), 0 1px 0 rgba(255,255,255,0.8) inset;
         }
 
         .hero-topline {
@@ -1811,16 +2016,16 @@ export default function Page() {
         .hero-dashboard-link {
           font-size: 13px;
           font-weight: 600;
-          color: rgba(226, 232, 240, 0.85);
+          color: #6b6560;
           text-decoration: none;
-          padding: 6px 12px;
+          padding: 8px 14px;
           border-radius: 10px;
           transition: background 0.15s ease, color 0.15s ease;
         }
 
         .hero-dashboard-link:hover {
-          color: #f8fafc;
-          background: rgba(255, 255, 255, 0.08);
+          color: #2d2a26;
+          background: rgba(201, 169, 98, 0.12);
         }
 
         .auth-ui {
@@ -2065,9 +2270,9 @@ export default function Page() {
         }
 
         .brand-pill {
-          background: rgba(255,255,255,0.08);
-          border: 1px solid rgba(255,255,255,0.12);
-          color: #fff;
+          background: rgba(201, 169, 98, 0.12);
+          border: 1px solid rgba(201, 169, 98, 0.25);
+          color: #5c4d2e;
         }
 
         .brand-pill-large {
@@ -2079,47 +2284,64 @@ export default function Page() {
         .ghost-cta,
         .ghost-button,
         .choice-pill {
-          border: 1px solid rgba(255,255,255,0.1);
-          background: rgba(255,255,255,0.06);
-          color: #fff;
+          border: 1px solid rgba(45, 42, 38, 0.15);
+          background: #fffefb;
+          color: #2d2a26;
           border-radius: 999px;
-          padding: 10px 14px;
-          font-weight: 700;
+          padding: 10px 18px;
+          font-weight: 600;
           cursor: pointer;
-          transition: 160ms ease;
+          transition: 0.2s ease;
         }
 
         .ghost-cta:hover,
         .ghost-button:hover,
         .choice-pill:hover {
-          background: rgba(255,255,255,0.10);
+          background: rgba(201, 169, 98, 0.1);
+          border-color: rgba(201, 169, 98, 0.3);
         }
 
         .ghost-button.slim {
           padding: 9px 12px;
           margin-top: 12px;
+          color: #6b6560;
         }
 
         .choice-pill.active {
-          background: linear-gradient(135deg, rgba(124,140,255,0.20), rgba(69,214,255,0.12));
-          border-color: rgba(124,140,255,0.28);
-          color: #fff;
+          background: rgba(201, 169, 98, 0.18);
+          border-color: rgba(201, 169, 98, 0.5);
+          color: #2d2a26;
         }
 
         .primary-cta {
           border: none;
-          background: linear-gradient(135deg, rgba(96, 241, 199, 0.82), rgba(81, 130, 255, 0.82));
+          background: linear-gradient(135deg, #b8954a, #c9a962);
           color: #fff;
-          border-radius: 16px;
-          padding: 14px 16px;
-          font-weight: 800;
+          border-radius: 14px;
+          padding: 14px 28px;
+          font-weight: 600;
+          font-size: 15px;
           cursor: pointer;
-          box-shadow: 0 10px 28px rgba(69, 214, 255, 0.18);
+          box-shadow: 0 4px 16px rgba(184, 149, 74, 0.3);
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .primary-cta:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 20px rgba(184, 149, 74, 0.35);
         }
 
         .primary-cta:disabled {
-          opacity: 0.45;
+          opacity: 0.5;
           cursor: not-allowed;
+        }
+
+        .hero-copy h1 {
+          color: #2d2a26;
+        }
+
+        .hero-copy p {
+          color: #6b6560;
         }
 
         .hero-copy {
@@ -2354,15 +2576,11 @@ export default function Page() {
         }
 
         .glass-card {
-          padding: 18px;
-          border-radius: 24px;
-          background: rgba(16, 22, 42, 0.72);
-          border: 1px solid rgba(255,255,255,0.08);
-          backdrop-filter: blur(18px);
-          -webkit-backdrop-filter: blur(18px);
-          box-shadow:
-            0 14px 34px rgba(0, 0, 0, 0.24),
-            inset 0 1px 0 rgba(255,255,255,0.035);
+          padding: 22px 24px;
+          border-radius: 20px;
+          background: #fffefb;
+          border: 1px solid rgba(201, 169, 98, 0.15);
+          box-shadow: 0 4px 20px rgba(45, 42, 38, 0.06);
         }
 
         .mini-heading {
@@ -2370,7 +2588,7 @@ export default function Page() {
           text-transform: uppercase;
           letter-spacing: 0.08em;
           font-weight: 600;
-          color: rgba(226,232,240,0.55);
+          color: #6b6560;
           margin-bottom: 12px;
         }
 
@@ -2385,6 +2603,11 @@ export default function Page() {
           font-size: 28px;
           font-weight: 900;
           margin-bottom: 8px;
+          color: #2d2a26;
+        }
+
+        .awaiting-copy {
+          color: #6b6560;
         }
 
         .score-row,
@@ -2406,7 +2629,7 @@ export default function Page() {
         .snapshot-label {
           font-size: 24px;
           font-weight: 700;
-          color: rgba(226,232,240,0.78);
+          color: #6b6560;
         }
 
         .stats-grid {
@@ -2423,7 +2646,7 @@ export default function Page() {
         .stat-chip {
           padding: 14px;
           border-radius: 18px;
-          border: 1px solid rgba(255,255,255,0.08);
+          border: 1px solid rgba(45,42,38,0.08);
           min-height: 92px;
           display: flex;
           flex-direction: column;
@@ -2432,7 +2655,7 @@ export default function Page() {
 
         .stat-chip span {
           font-size: 13px;
-          color: rgba(248,250,252,0.7);
+          color: #6b6560;
         }
 
         .stat-chip strong {
@@ -2442,24 +2665,24 @@ export default function Page() {
         }
 
         .stat-chip.green {
-          background: linear-gradient(135deg, rgba(43,212,160,0.18), rgba(43,212,160,0.06));
+          background: linear-gradient(135deg, rgba(74,155,142,0.18), rgba(74,155,142,0.06));
         }
-        .stat-chip.green strong { color: #2BD4A0; }
+        .stat-chip.green strong { color: #4a9b8e; }
 
         .stat-chip.amber {
-          background: linear-gradient(135deg, rgba(248,184,78,0.22), rgba(248,184,78,0.08));
+          background: linear-gradient(135deg, rgba(196,149,46,0.2), rgba(196,149,46,0.08));
         }
-        .stat-chip.amber strong { color: #F8B84E; }
+        .stat-chip.amber strong { color: #c4952e; }
 
         .stat-chip.red {
-          background: linear-gradient(135deg, rgba(255,107,122,0.20), rgba(255,107,122,0.07));
+          background: linear-gradient(135deg, rgba(199,92,92,0.18), rgba(199,92,92,0.06));
         }
-        .stat-chip.red strong { color: #FF6B7A; }
+        .stat-chip.red strong { color: #c75c5c; }
 
         .stat-chip.blue {
-          background: linear-gradient(135deg, rgba(124,140,255,0.22), rgba(69,214,255,0.08));
+          background: linear-gradient(135deg, rgba(123,155,178,0.18), rgba(123,155,178,0.08));
         }
-        .stat-chip.blue strong { color: #45D6FF; }
+        .stat-chip.blue strong { color: #7b9bb2; }
 
         .mini-summary-card {
           padding: 14px;
@@ -2500,7 +2723,7 @@ export default function Page() {
         .field span,
         .option-label {
           font-size: 12px;
-          color: rgba(226,232,240,0.56);
+          color: #6b6560;
           font-weight: 700;
           text-transform: uppercase;
           letter-spacing: 0.05em;
@@ -2510,9 +2733,9 @@ export default function Page() {
         .field input,
         .number-input {
           width: 100%;
-          border: 1px solid rgba(255,255,255,0.12);
-          background: rgba(255,255,255,0.035);
-          color: #fff;
+          border: 1px solid rgba(45,42,38,0.12);
+          background: #fffefb;
+          color: #2d2a26;
           border-radius: 14px;
           padding: 12px 14px;
           outline: none;
@@ -2623,19 +2846,23 @@ export default function Page() {
         }
 
         .step-badge {
-          background: rgba(124,140,255,0.14);
-          color: #b8c0ff;
-          border: 1px solid rgba(124,140,255,0.2);
+          background: rgba(201, 169, 98, 0.15);
+          color: #8a7342;
+          border: 1px solid rgba(201, 169, 98, 0.25);
           margin-bottom: 10px;
         }
 
         .section-title h2 {
           margin: 0;
-          font-size: 32px;
-          line-height: 1.15;
+          font-size: 28px;
+          line-height: 1.2;
           letter-spacing: -0.02em;
           font-weight: 600;
-          color: #f8fafc;
+          color: #2d2a26;
+        }
+
+        .section-title p {
+          color: #6b6560;
         }
 
         .priority-focus-card {
@@ -2822,6 +3049,121 @@ export default function Page() {
           margin-bottom: 0;
         }
 
+        .stack-optimizer-intro {
+          margin: 28px 0 24px;
+        }
+
+        .stack-optimizer-heading {
+          margin: 0 0 10px;
+          font-size: 22px;
+          font-weight: 600;
+          letter-spacing: -0.02em;
+          color: #2d2a26;
+        }
+
+        .stack-optimizer-subtitle {
+          margin: 0;
+          font-size: 15px;
+          color: #6b6560;
+          line-height: 1.55;
+        }
+
+        .stack-optimizer-savings-card {
+          padding: 24px 28px;
+          border-radius: 20px;
+          background: linear-gradient(135deg, rgba(74, 155, 142, 0.12), rgba(201, 169, 98, 0.08));
+          border: 1px solid rgba(74, 155, 142, 0.25);
+          margin-bottom: 28px;
+        }
+
+        .stack-optimizer-savings-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 24px;
+          align-items: baseline;
+        }
+
+        .stack-optimizer-savings-item {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .stack-optimizer-savings-item.highlight .stack-optimizer-savings-value {
+          color: #5c4d2e;
+        }
+
+        .stack-optimizer-savings-item.success .stack-optimizer-savings-value {
+          color: #4a9b8e;
+        }
+
+        .stack-optimizer-savings-label {
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: #6b6560;
+        }
+
+        .stack-optimizer-savings-value {
+          font-size: 24px;
+          font-weight: 700;
+          color: #2d2a26;
+        }
+
+        .stack-optimizer-savings-note {
+          margin: 14px 0 0;
+          font-size: 14px;
+          color: #6b6560;
+        }
+
+        .stack-optimizer-list {
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+        }
+
+        .stack-optimizer-card {
+          padding: 26px 28px;
+          border-radius: 20px;
+          border: 1px solid rgba(201, 169, 98, 0.2);
+          background: #fffefb;
+          box-shadow: 0 4px 20px rgba(45, 42, 38, 0.06);
+        }
+
+        .stack-optimizer-card .stack-title {
+          font-size: 20px;
+          font-weight: 600;
+          color: #2d2a26;
+        }
+
+        .stack-optimizer-card .stack-price-pill {
+          background: rgba(201, 169, 98, 0.18);
+          color: #5c4d2e;
+          padding: 8px 14px;
+          border-radius: 999px;
+          font-weight: 700;
+          font-size: 15px;
+        }
+
+        .stack-optimizer-card .best-card.best-overall {
+          border-color: rgba(201, 169, 98, 0.25);
+          background: rgba(201, 169, 98, 0.06);
+          border-radius: 14px;
+          padding: 18px;
+        }
+
+        .stack-optimizer-card .best-label {
+          color: #6b6560;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+
+        .stack-optimizer-card .best-name {
+          color: #2d2a26;
+        }
+
         .stack-section-header {
           margin: 26px 0 16px;
           align-items: center;
@@ -2832,7 +3174,7 @@ export default function Page() {
           font-size: 20px;
           font-weight: 600;
           letter-spacing: -0.02em;
-          color: #f8fafc;
+          color: #2d2a26;
         }
 
         .premium-lock {
@@ -2842,7 +3184,7 @@ export default function Page() {
         .premium-lock span {
           display: block;
           font-size: 12px;
-          color: #b8c0ff;
+          color: #6b6560;
           text-transform: uppercase;
           letter-spacing: 0.06em;
           margin-bottom: 6px;
@@ -2852,6 +3194,7 @@ export default function Page() {
         .premium-lock strong {
           font-size: 14px;
           line-height: 1.6;
+          color: #2d2a26;
         }
 
         .priority-kicker,

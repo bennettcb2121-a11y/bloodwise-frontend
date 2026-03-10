@@ -1,26 +1,40 @@
 @import "tailwindcss";
 
+/* Clarion Labs — warm premium journey theme */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #faf9f6;
+  --foreground: #2d2a26;
+  --clarion-cream: #faf9f6;
+  --clarion-sand: #f5f2eb;
+  --clarion-warm-white: #fffefb;
+  --clarion-muted-gold: #c9a962;
+  --clarion-soft-coral: #e8a598;
+  --clarion-warm-blue: #7b9bb2;
+  --clarion-teal: #5ba39a;
+  --clarion-red: #c75c5c;
+  --clarion-text: #2d2a26;
+  --clarion-text-muted: #6b6560;
+  --clarion-card-bg: #fffefb;
+  --clarion-card-border: rgba(201, 169, 98, 0.2);
+  --clarion-accent: #b8954a;
+  --clarion-success: #4a9b8e;
+  --clarion-amber: #c4952e;
+  --clarion-radius: 20px;
+  --clarion-radius-sm: 14px;
+  --clarion-shadow: 0 4px 24px rgba(45, 42, 38, 0.06);
+  --clarion-shadow-lg: 0 12px 48px rgba(45, 42, 38, 0.08);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-dm-sans), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--clarion-cream);
+  color: var(--clarion-text);
+  font-family: var(--font-dm-sans), system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
