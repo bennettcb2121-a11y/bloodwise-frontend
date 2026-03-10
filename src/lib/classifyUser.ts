@@ -23,7 +23,9 @@ function normalize(value: string | number | undefined) {
 function classifySport(sport: string): UserClass {
   const s = normalize(sport)
 
+  // Onboarding activity options: Endurance, Hybrid, General health, Sedentary
   if (
+    s.includes("endurance") ||
     s.includes("run") ||
     s.includes("cycling") ||
     s.includes("cycl") ||
@@ -33,6 +35,18 @@ function classifySport(sport: string): UserClass {
     s.includes("swim")
   ) {
     return "endurance"
+  }
+
+  if (
+    s.includes("hybrid") ||
+    s.includes("soccer") ||
+    s.includes("basketball") ||
+    s.includes("hockey") ||
+    s.includes("lacrosse") ||
+    s.includes("mixed") ||
+    s.includes("team")
+  ) {
+    return "mixed"
   }
 
   if (
@@ -46,17 +60,7 @@ function classifySport(sport: string): UserClass {
     return "strength"
   }
 
-  if (
-    s.includes("soccer") ||
-    s.includes("basketball") ||
-    s.includes("hockey") ||
-    s.includes("lacrosse") ||
-    s.includes("mixed") ||
-    s.includes("team")
-  ) {
-    return "mixed"
-  }
-
+  // General health, Sedentary, or unknown -> general ranges
   return "general"
 }
 

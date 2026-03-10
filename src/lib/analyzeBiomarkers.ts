@@ -59,6 +59,16 @@ function getAdaptiveRange(markerName: string, profile: UserProfile): BiomarkerRa
   return range
 }
 
+/** Returns athlete/profile-specific optimal range for display (e.g. lab input step). */
+export function getDisplayRange(
+  markerName: string,
+  profile: UserProfile
+): { optimalMin: number; optimalMax: number } | null {
+  const range = getAdaptiveRange(markerName, profile)
+  if (!range) return null
+  return { optimalMin: range.optimalMin, optimalMax: range.optimalMax }
+}
+
 function getStatus(value: number, range: BiomarkerRange): BiomarkerResult["status"] {
   if (typeof range.deficient === "number" && value < range.deficient) {
     return "deficient"

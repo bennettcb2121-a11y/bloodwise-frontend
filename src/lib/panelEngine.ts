@@ -60,7 +60,10 @@ export function getAdaptiveRecommendedMarkers(
     sport.includes("runner") ||
     sport.includes("cycling") ||
     sport.includes("tri")
+  const isHybrid = sport.includes("hybrid") || sport.includes("mixed")
+  const isSedentary = sport.includes("sedentary")
 
+  // Base panel for everyone
   addIfExists(["Ferritin"])
   addIfExists(["Vitamin D"])
   addIfExists(["Magnesium"])
@@ -72,6 +75,16 @@ export function getAdaptiveRecommendedMarkers(
     addIfExists(["Testosterone"])
   }
 
+  if (isHybrid) {
+    addIfExists(["Vitamin B12"])
+    addIfExists(["Testosterone"])
+  }
+
+  if (isSedentary) {
+    addIfExists(["Glucose"])
+    addIfExists(["Insulin"])
+  }
+
   if (
     goal.includes("performance") ||
     goal.includes("recovery") ||
@@ -80,6 +93,16 @@ export function getAdaptiveRecommendedMarkers(
     addIfExists(["Vitamin D"])
     addIfExists(["Magnesium"])
     addIfExists(["CRP"])
+  }
+
+  if (goal.includes("energy")) {
+    addIfExists(["Glucose"])
+    addIfExists(["Insulin"])
+  }
+
+  if (goal.includes("general") || goal.includes("wellness") || goal.includes("longevity")) {
+    addIfExists(["Vitamin D"])
+    addIfExists(["Vitamin B12"])
   }
 
   if (sex.includes("female")) {

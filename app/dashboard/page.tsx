@@ -114,26 +114,25 @@ export default function DashboardPage() {
 
   if (!user) {
     return (
-      <main className="dashboard-shell">
+      <main className="dashboard-shell dashboard-shell-unauth">
         <div className="dashboard-container">
           <div className="dashboard-unauth">
             <h1 className="dashboard-unauth-title">Dashboard</h1>
-            <p className="dashboard-unauth-text">Log in to view your dashboard.</p>
-            <Link href="/" className="dashboard-unauth-link">
-              Go to home
-            </Link>
+            <p className="dashboard-unauth-text">Log in to view your dashboard and save your results.</p>
+            <div className="dashboard-unauth-actions">
+              <Link href="/login" className="dashboard-unauth-link dashboard-unauth-link-primary">
+                Log in
+              </Link>
+              <Link href="/" className="dashboard-unauth-link">
+                Back to home
+              </Link>
+            </div>
           </div>
         </div>
         <style jsx>{`
-          .dashboard-shell {
-            min-height: 100vh;
-            background: linear-gradient(180deg, #060914 0%, #070b16 50%, #060812 100%);
-            color: #f8fafc;
-          }
-          .dashboard-container {
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 48px 20px;
+          .dashboard-shell-unauth {
+            background: linear-gradient(165deg, #1a0a2e 0%, #1e1b4b 25%, #312e81 50%, #1e1b4b 75%, #0f0a1a 100%) !important;
+            color: #fafafa !important;
           }
           .dashboard-unauth {
             text-align: center;
@@ -142,24 +141,44 @@ export default function DashboardPage() {
           .dashboard-unauth-title {
             margin: 0 0 12px;
             font-size: 24px;
-            font-weight: 600;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #fafafa;
           }
           .dashboard-unauth-text {
-            margin: 0 0 20px;
-            color: rgba(226, 232, 240, 0.75);
+            margin: 0 0 24px;
+            color: rgba(255,255,255,0.65);
+          }
+          .dashboard-unauth-actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
           }
           .dashboard-unauth-link {
             display: inline-block;
-            padding: 10px 20px;
+            padding: 12px 24px;
             border-radius: 12px;
-            background: linear-gradient(135deg, rgba(124, 140, 255, 0.3), rgba(69, 214, 255, 0.12));
-            border: 1px solid rgba(124, 140, 255, 0.4);
-            color: #e8ecff;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(26,26,31,0.9);
+            color: #fafafa;
             font-weight: 600;
             text-decoration: none;
+            font-size: 16px;
+            transition: background 0.2s, border-color 0.2s;
           }
           .dashboard-unauth-link:hover {
-            background: linear-gradient(135deg, rgba(124, 140, 255, 0.4), rgba(69, 214, 255, 0.2));
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(255,255,255,0.18);
+          }
+          .dashboard-unauth-link-primary {
+            background: linear-gradient(135deg, #f97316 0%, #E5484D 100%);
+            border: none;
+            color: #fff;
+            box-shadow: 0 4px 20px rgba(229,72,77,0.4);
+          }
+          .dashboard-unauth-link-primary:hover {
+            box-shadow: 0 6px 24px rgba(229,72,77,0.45);
           }
         `}</style>
       </main>

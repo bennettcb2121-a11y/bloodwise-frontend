@@ -1,40 +1,75 @@
 @import "tailwindcss";
 
-/* Clarion Labs — warm premium journey theme */
+/* Clarion — premium dark theme with purple gradient */
 :root {
-  --background: #faf9f6;
-  --foreground: #2d2a26;
-  --clarion-cream: #faf9f6;
-  --clarion-sand: #f5f2eb;
-  --clarion-warm-white: #fffefb;
-  --clarion-muted-gold: #c9a962;
-  --clarion-soft-coral: #e8a598;
-  --clarion-warm-blue: #7b9bb2;
-  --clarion-teal: #5ba39a;
-  --clarion-red: #c75c5c;
-  --clarion-text: #2d2a26;
-  --clarion-text-muted: #6b6560;
-  --clarion-card-bg: #fffefb;
-  --clarion-card-border: rgba(201, 169, 98, 0.2);
-  --clarion-accent: #b8954a;
-  --clarion-success: #4a9b8e;
-  --clarion-amber: #c4952e;
-  --clarion-radius: 20px;
-  --clarion-radius-sm: 14px;
-  --clarion-shadow: 0 4px 24px rgba(45, 42, 38, 0.06);
-  --clarion-shadow-lg: 0 12px 48px rgba(45, 42, 38, 0.08);
+  --clarion-bg: #1a0a2e;
+  --clarion-bg-gradient: linear-gradient(165deg, #1a0a2e 0%, #1e1b4b 25%, #312e81 50%, #1e1b4b 75%, #0f0a1a 100%);
+  --clarion-bg-elevated: #1e1b4b;
+  --clarion-surface: rgba(30, 27, 75, 0.85);
+  --clarion-border: rgba(255, 255, 255, 0.08);
+  --clarion-text: #fafafa;
+  --clarion-text-muted: rgba(255, 255, 255, 0.65);
+  --clarion-primary: #E5484D;
+  --clarion-primary-glow: rgba(229, 72, 77, 0.35);
+  --clarion-accent-start: #f97316;
+  --clarion-accent-end: #E5484D;
+  --clarion-gradient-accent: linear-gradient(135deg, #a855f7 0%, #6366f1 50%, #3b82f6 100%);
+  --font-sans: var(--font-jakarta), system-ui, sans-serif;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-dm-sans), system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--clarion-bg);
+  --color-foreground: var(--clarion-text);
+  --font-sans: var(--font-jakarta), system-ui, sans-serif;
 }
 
 body {
-  background: var(--clarion-cream);
+  background: var(--clarion-bg);
+  background-image: var(--clarion-bg-gradient);
+  background-attachment: fixed;
   color: var(--clarion-text);
-  font-family: var(--font-dm-sans), system-ui, -apple-system, sans-serif;
+  font-family: var(--font-jakarta), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* Auth UI — premium dark */
+.auth-ui { font-family: var(--font-jakarta), system-ui, sans-serif; }
+.auth-ui-loading { text-align: center; padding: 20px; color: var(--clarion-text-muted); }
+.auth-ui-signed-in { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.auth-ui-email { font-size: 14px; color: var(--clarion-text-muted); }
+.auth-ui-btn {
+  font-size: 14px; font-weight: 600; padding: 10px 18px; border-radius: 10px; cursor: pointer;
+  border: none; background: transparent; transition: background 0.2s, color 0.2s;
+}
+.auth-ui-btn-oauth {
+  display: block; width: 100%; margin-bottom: 10px; background: var(--clarion-surface); color: var(--clarion-text);
+  border: 1px solid var(--clarion-border);
+}
+.auth-ui-btn-oauth:hover { background: #25252a; border-color: rgba(255,255,255,0.12); }
+.auth-ui-btn-primary { background: var(--clarion-primary); color: #fff; }
+.auth-ui-btn-primary:hover:not(:disabled) { background: #c73d42; }
+.auth-ui-btn-ghost { color: var(--clarion-primary); }
+.auth-ui-btn-ghost:hover { background: rgba(229, 72, 77, 0.12); }
+.auth-ui-btn-out { color: var(--clarion-text-muted); }
+.auth-ui-btn-out:hover { color: var(--clarion-text); background: rgba(255,255,255,0.06); }
+.auth-ui-oauth-row { margin-bottom: 16px; }
+.auth-ui-divider-wrap { display: flex; align-items: center; gap: 12px; margin: 16px 0; }
+.auth-ui-divider { flex: 1; height: 1px; background: var(--clarion-border); }
+.auth-ui-divider-text { font-size: 13px; color: var(--clarion-text-muted); }
+.auth-ui-email-row { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.auth-ui-idle-divider { color: var(--clarion-border); }
+.auth-ui-message { font-size: 14px; margin-top: 12px; }
+.auth-ui-message-error { color: #f87171; }
+.auth-ui-message-ok { color: #4ade80; }
+.auth-ui-form-wrap { text-align: left; }
+.auth-ui-form-title { font-size: 20px; font-weight: 600; color: var(--clarion-text); margin: 0 0 20px; }
+.auth-ui-field { margin-bottom: 16px; }
+.auth-ui-label { display: block; font-size: 14px; font-weight: 600; color: var(--clarion-text); margin-bottom: 6px; }
+.auth-ui-input {
+  width: 100%; padding: 12px 14px; font-size: 16px; border: 1px solid var(--clarion-border);
+  border-radius: 10px; background: var(--clarion-surface); color: var(--clarion-text); box-sizing: border-box;
+}
+.auth-ui-input::placeholder { color: var(--clarion-text-muted); }
+.auth-ui-form-actions { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+.auth-ui-btn-submit { flex: 1; min-width: 120px; }
