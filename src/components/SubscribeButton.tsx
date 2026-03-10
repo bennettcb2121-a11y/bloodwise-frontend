@@ -15,14 +15,18 @@ export function SubscribeButton({
     setLoading(true)
     try {
       const res = await fetch("/api/create-checkout-session", { method: "POST" })
-      const data = await res.json()
+      const data = res.headers.get("content-type")?.includes("application/json")
+        ? await res.json().catch(() => ({}))
+        : {}
       if (!res.ok) {
-        alert(data.error || "Something went wrong")
+        const msg = data?.error || (res.status === 500 ? "Server error: check Stripe env vars (STRIPE_SECRET_KEY, STRIPE_PRICE_ID) in Vercel." : `Error ${res.status}`)
+        alert(msg)
         return
       }
       if (data.url) window.location.href = data.url
+      else alert("No checkout URL returned.")
     } catch (e) {
-      alert("Failed to start checkout")
+      alert("Failed to start checkout. Check your connection and Vercel env vars (STRIPE_SECRET_KEY, STRIPE_PRICE_ID).")
     } finally {
       setLoading(false)
     }
