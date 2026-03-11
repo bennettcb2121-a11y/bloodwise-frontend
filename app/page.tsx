@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { loadSavedState, upsertProfile, saveBloodwork, getBloodworkHistory } from "@/src/lib/bloodwiseDb"
 import type { BloodworkSaveRow, SavedSupplementStackItem } from "@/src/lib/bloodwiseDb"
@@ -18,6 +19,7 @@ import {
   hasEnoughLabs,
   type ProfileState,
 } from "@/src/lib/panelEngine"
+import { legacyGoalSportToProfileType } from "@/src/lib/clarionProfiles"
 import { computeSavings } from "@/src/lib/savingsEngine"
 import {
   getStatusTone,
@@ -51,9 +53,13 @@ type AnalysisResult = {
   [key: string]: any
 }
 
-export default function Page() {
-  const { user } = useAuth()
+function HomePageContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { user, loading: authLoading } = useAuth()
   const hasLoadedSaveRef = useRef(false)
+  const [hasPaidAnalysis, setHasPaidAnalysis] = useState(false)
+
   const biomarkerKeys = useMemo(() => getBiomarkerKeys(), [])
 
   const [profile, setProfile] = useState<ProfileState>({
@@ -61,6 +67,8 @@ export default function Page() {
     sex: "",
     sport: "",
     goal: "",
+    improvementPreference: "",
+    profileType: "",
   })
 
   const [inputs, setInputs] = useState<BiomarkerInputMap>(() => {
@@ -85,15 +93,12 @@ export default function Page() {
   const [retestWeeks, setRetestWeeks] = useState(8)
   const [analyzing, setAnalyzing] = useState(false)
 
-  const isProfileReady =
-    profile.age.trim() !== "" &&
-    profile.sex.trim() !== "" &&
-    profile.sport.trim() !== "" &&
-    profile.goal.trim() !== ""
+  const isProfileReady = Boolean(
+    profile.profileType?.trim() || (profile.goal.trim() && profile.sport.trim())
+  )
 
-  // Recommended panel uses goal + sport (and optional age/sex); no need to wait for full profile
+  // Recommended panel: profile type → panel, else legacy goal/sport, else general_health_adult (always show a panel)
   const recommendedMarkers = useMemo(() => {
-    if (!profile.goal.trim() || !profile.sport.trim()) return []
     return getAdaptiveRecommendedMarkers(profile, biomarkerKeys)
   }, [profile, biomarkerKeys])
 
@@ -224,13 +229,20 @@ export default function Page() {
     hasLoadedSaveRef.current = true
     loadSavedState(userId)
       .then(({ profile: p, bloodwork: b }) => {
+        const row = p ? (p as { improvement_preference?: string; profile_type?: string; analysis_purchased_at?: string | null }) : null
         if (p) {
+          const profileType =
+            (row?.profile_type && row.profile_type.trim()) ||
+            (p.goal || p.sport ? legacyGoalSportToProfileType(p.goal ?? "", p.sport ?? "") : "")
           setProfile({
             age: p.age ?? "",
             sex: p.sex ?? "",
             sport: p.sport ?? "",
             goal: p.goal ?? "",
+            improvementPreference: row?.improvement_preference ?? "",
+            profileType: profileType || "",
           })
+          setHasPaidAnalysis(!!row?.analysis_purchased_at)
           setCurrentSupplementSpend(p.current_supplement_spend ?? "")
           setCurrentSupplements(p.current_supplements ?? "")
           setShoppingPreference(p.shopping_preference ?? "Best value")
@@ -266,17 +278,37 @@ export default function Page() {
         }
         if (b) {
           setLastBloodworkAt(b.updated_at ?? b.created_at ?? null)
-          if (Array.isArray(b.selected_panel) && b.selected_panel.length > 0) {
+          // Use new profile-based recommended panel so we show all added biomarkers; only fall back to saved panel if no profile type
+          const profileTypeForPanel =
+            (row?.profile_type && String(row.profile_type).trim()) ||
+            (p?.goal || p?.sport ? legacyGoalSportToProfileType(p?.goal ?? "", p?.sport ?? "") : "")
+          if (profileTypeForPanel) {
+            const profileForPanel: ProfileState = {
+              age: p?.age ?? "",
+              sex: p?.sex ?? "",
+              sport: p?.sport ?? "",
+              goal: p?.goal ?? "",
+              improvementPreference: (row?.improvement_preference ?? "") as string,
+              profileType: profileTypeForPanel,
+            }
+            setSelectedPanel(getAdaptiveRecommendedMarkers(profileForPanel, biomarkerKeys))
+          } else if (Array.isArray(b.selected_panel) && b.selected_panel.length > 0) {
             setSelectedPanel(b.selected_panel)
           }
           if (b.biomarker_inputs && typeof b.biomarker_inputs === "object") {
             setInputs((prev) => ({ ...prev, ...b.biomarker_inputs }))
           }
-          if (typeof b.current_step === "number" && b.current_step >= 0 && b.current_step <= 11) {
-            setCurrentStep(b.current_step)
+          const paid = !!row?.analysis_purchased_at
+          let stepToRestore: number | null = null
+          if (typeof b.current_step === "number" && b.current_step >= 0 && b.current_step <= 12) {
+            stepToRestore = b.current_step
           } else if (typeof b.current_step === "number" && b.current_step >= 1 && b.current_step <= 6) {
             const map: Record<number, number> = { 1: 1, 2: 2, 3: 5, 4: 6, 5: 8, 6: 10 }
-            setCurrentStep(map[b.current_step] ?? 8)
+            stepToRestore = map[b.current_step] ?? 8
+          }
+          if (stepToRestore !== null) {
+            if (!paid && stepToRestore >= 9) setCurrentStep(8)
+            else setCurrentStep(stepToRestore)
           }
         } else {
           setLastBloodworkAt(null)
@@ -292,8 +324,18 @@ export default function Page() {
       hasLoadedSaveRef.current = false
       setLastBloodworkAt(null)
       setRetestWeeks(8)
+      setHasPaidAnalysis(false)
     }
   }, resetDeps)
+
+  // After login redirect: start at step 1 (profile type) when URL has ?start=1
+  useEffect(() => {
+    if (authLoading || !user) return
+    if (searchParams.get("start") === "1") {
+      setCurrentStep(1)
+      router.replace("/", { scroll: false })
+    }
+  }, [authLoading, user, searchParams, router])
 
   // Fetch previous reports for logged-in users (Previous Reports section)
   const prevReportsDeps: [string | null] = [userId]
@@ -309,10 +351,12 @@ export default function Page() {
       .finally(() => setPreviousReportsLoading(false))
   }, prevReportsDeps)
 
-  // Save profile when user and profile/habits change (debounced). Tuple ensures deps array length is always 8.
+  // Save profile when user and profile/habits change (debounced).
   const saveProfileRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const profileDeps: [
     string | null,
+    string,
+    string,
     string,
     string,
     string,
@@ -326,18 +370,20 @@ export default function Page() {
     profile.sex,
     profile.sport,
     profile.goal,
+    profile.improvementPreference ?? "",
+    profile.profileType ?? "",
     currentSupplementSpend,
     currentSupplements,
     shoppingPreference,
   ]
   useEffect(() => {
     if (!userId) return
-    // Only create/update profile when user has entered at least one profile field (avoids empty row before load; creates row on first save)
     const hasProfileData =
       profile.age.trim() !== "" ||
       profile.sex.trim() !== "" ||
-      profile.sport.trim() !== "" ||
-      profile.goal.trim() !== ""
+      profile.goal.trim() !== "" ||
+      (profile.profileType ?? "").trim() !== "" ||
+      (profile.improvementPreference ?? "").trim() !== ""
     if (!hasProfileData) return
     saveProfileRef.current = setTimeout(() => {
       upsertProfile(userId, {
@@ -348,6 +394,8 @@ export default function Page() {
         current_supplement_spend: currentSupplementSpend,
         current_supplements: currentSupplements,
         shopping_preference: shoppingPreference,
+        improvement_preference: profile.improvementPreference ?? "",
+        profile_type: profile.profileType ?? "",
       }).catch(() => {})
     }, 800)
     return () => {
@@ -355,11 +403,11 @@ export default function Page() {
     }
   }, profileDeps)
 
-  // Save bloodwork panel to Supabase when user reaches step 8+ (results ready)
+  // Save bloodwork panel to Supabase when user reaches score step (9) or later
   const lastSavedStepRef = useRef(-1)
   const bloodworkSaveDeps: [string | null, number] = [userId, currentStep]
   useEffect(() => {
-    if (!userId || currentStep < 8) return
+    if (!userId || currentStep < 9) return
     if (currentStep === lastSavedStepRef.current) return
     lastSavedStepRef.current = currentStep
     const keyFlagged = analysisResults.filter((r) => r.status !== "optimal").map((r) => r.name).filter((n): n is string => Boolean(n))
@@ -462,15 +510,31 @@ export default function Page() {
     setOpenCompareCards((prev) => ({ ...prev, [key]: !prev[key] }))
   }
 
-  // Prevent skipping steps: 1->3 forces 2 (Activity), 2->4 forces 3 (Supplements)
+  // Prevent skipping steps: never jump more than one step
   const setCurrentStepSafe = useCallback((arg: number | ((prev: number) => number)) => {
     setCurrentStep((prev) => {
       const next = typeof arg === "function" ? arg(prev) : arg
-      if (prev === 1 && next === 3) return 2
-      if (prev === 2 && next === 4) return 3
+      if (next > prev + 1) return prev + 1
       return next
     })
   }, [])
+
+  const onWelcomeContinue = useCallback(() => {
+    if (!user) {
+      router.push("/login?next=" + encodeURIComponent("/?start=1"))
+      return
+    }
+    setCurrentStepSafe(1)
+  }, [user, router])
+
+  // Show loading only while auth is resolving; then show onboarding for everyone (logged-in users see "Dashboard" in header)
+  if (authLoading) {
+    return (
+      <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--clarion-bg-gradient, #0f0a1a)" }}>
+        <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 15 }}>Loading…</p>
+      </main>
+    )
+  }
 
   return (
     <OnboardingFlow
@@ -478,6 +542,8 @@ export default function Page() {
       setCurrentStep={setCurrentStepSafe}
       profile={profile}
       setProfile={setProfile}
+      onWelcomeContinue={onWelcomeContinue}
+      hasPaidAnalysis={hasPaidAnalysis}
       currentSupplementSpend={currentSupplementSpend}
       setCurrentSupplementSpend={setCurrentSupplementSpend}
       currentSupplements={currentSupplements}
@@ -513,5 +579,19 @@ export default function Page() {
       previousReportsLoading={previousReportsLoading}
       handleOpenReport={handleOpenReport}
     />
+  )
+}
+
+export default function Page() {
+  return (
+    <Suspense
+      fallback={
+        <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--clarion-bg-gradient, #0f0a1a)" }}>
+          <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 15 }}>Loading…</p>
+        </main>
+      }
+    >
+      <HomePageContent />
+    </Suspense>
   )
 }

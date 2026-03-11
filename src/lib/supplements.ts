@@ -332,10 +332,17 @@ const biomarkerAliasMap: Record<string, string> = {
   b12: "Vitamin B12",
   cobalamin: "Vitamin B12",
   crp: "CRP",
+  hscrp: "CRP",
   creactiveprotein: "CRP",
+  "hs-crp": "CRP",
   testosterone: "Testosterone",
   freetestosterone: "Testosterone",
   totaltestosterone: "Testosterone",
+  "total testosterone": "Testosterone",
+  serumiron: "Ferritin",
+  tibc: "Ferritin",
+  transferrinsaturation: "Ferritin",
+  "transferrin saturation": "Ferritin",
 }
 
 function normalize(text: string) {

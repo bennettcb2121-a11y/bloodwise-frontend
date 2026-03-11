@@ -2,23 +2,36 @@
 
 import React, { useEffect, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
-import { loadSavedState, upsertProfile } from "@/src/lib/bloodwiseDb"
-import type { BloodworkSaveRow, ProfileRow } from "@/src/lib/bloodwiseDb"
+import { loadSavedState, upsertProfile, getSubscription } from "@/src/lib/bloodwiseDb"
+import type { BloodworkSaveRow, ProfileRow, SubscriptionRow } from "@/src/lib/bloodwiseDb"
 import { analyzeBiomarkers } from "@/src/lib/analyzeBiomarkers"
 import { getRetestRecommendations } from "@/src/lib/retestEngine"
 import { scoreToLabel } from "@/src/lib/scoreEngine"
 import { SubscribeButton } from "@/src/components/SubscribeButton"
 
 export default function DashboardPage() {
+  const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const [profile, setProfile] = useState<ProfileRow | null>(null)
   const [bloodwork, setBloodwork] = useState<BloodworkSaveRow | null>(null)
+  const [subscription, setSubscription] = useState<SubscriptionRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [prefsPhone, setPrefsPhone] = useState("")
   const [prefsRetestWeeks, setPrefsRetestWeeks] = useState(8)
   const [prefsSaving, setPrefsSaving] = useState(false)
   const [prefsSaved, setPrefsSaved] = useState(false)
+
+  const hasPaidAnalysis = Boolean(profile?.analysis_purchased_at)
+  const hasActiveSubscription = subscription?.status === "active"
+
+  // Redirect unauthenticated users to login
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace("/login")
+    }
+  }, [authLoading, user, router])
 
   useEffect(() => {
     if (!user?.id) {
@@ -26,10 +39,9 @@ export default function DashboardPage() {
       return
     }
     setLoading(true)
-    loadSavedState(user.id)
-      .then(({ profile: p, bloodwork: b }) => {
+    Promise.all([loadSavedState(user.id), getSubscription(user.id)])
+      .then(([{ profile: p, bloodwork: b }, sub]) => {
         if (!p) {
-          // Ensure every user has a profile row so data saves correctly
           upsertProfile(user.id, {
             age: "",
             sex: "",
@@ -39,8 +51,9 @@ export default function DashboardPage() {
             current_supplements: "",
             shopping_preference: "Best value",
             retest_weeks: 8,
+            improvement_preference: "",
           }).then(() => {
-            setProfile({ user_id: user.id, age: "", sex: "", sport: "", goal: "", current_supplement_spend: "", current_supplements: "", shopping_preference: "Best value", retest_weeks: 8 } as ProfileRow)
+            setProfile({ user_id: user.id, age: "", sex: "", sport: "", goal: "", current_supplement_spend: "", current_supplements: "", shopping_preference: "Best value", retest_weeks: 8, improvement_preference: "" } as ProfileRow)
             setPrefsRetestWeeks(8)
           }).catch(() => {})
         } else {
@@ -49,13 +62,37 @@ export default function DashboardPage() {
           setPrefsRetestWeeks(p.retest_weeks ?? 8)
         }
         setBloodwork(b)
+        setSubscription(sub)
       })
       .catch(() => {
         setProfile(null)
         setBloodwork(null)
+        setSubscription(null)
       })
       .finally(() => setLoading(false))
   }, [user?.id])
+
+  // After returning from Stripe checkout, refetch profile and subscription
+  useEffect(() => {
+    if (!user?.id || typeof window === "undefined") return
+    const search = window.location.search
+    if (!search.includes("paid=1") && !search.includes("subscription=success")) return
+    const t = setTimeout(() => {
+      loadSavedState(user.id).then(({ profile: p }) => { if (p) setProfile(p) }).catch(() => {})
+      getSubscription(user.id).then(setSubscription).catch(() => {})
+      router.replace("/dashboard")
+    }, 1500)
+    return () => clearTimeout(t)
+  }, [user?.id, router])
+
+  // Redirect to paywall if user has not purchased analysis yet (skip when returning from checkout with ?paid=1)
+  useEffect(() => {
+    if (authLoading || !user || loading) return
+    if (typeof window !== "undefined" && window.location.search.includes("paid=1")) return
+    if (profile !== null && !profile.analysis_purchased_at) {
+      router.replace("/paywall")
+    }
+  }, [authLoading, user, loading, profile, router])
 
   const profileForAnalysis = profile
     ? { age: profile.age, sex: profile.sex, sport: profile.sport }
@@ -185,6 +222,26 @@ export default function DashboardPage() {
     )
   }
 
+  // Paid for analysis but no active subscription → gate dashboard (charts, history, full dashboard)
+  if (hasPaidAnalysis && !hasActiveSubscription) {
+    return (
+      <main className="dashboard-shell" style={{ background: "linear-gradient(165deg, #1a0a2e 0%, #1e1b4b 25%, #312e81 50%, #1e1b4b 75%, #0f0a1a 100%)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ maxWidth: 440, textAlign: "center" }}>
+          <Link href="/" style={{ color: "#fafafa", fontSize: 20, fontWeight: 700, textDecoration: "none", display: "inline-block", marginBottom: 32 }}>← Clarion</Link>
+          <h1 style={{ color: "#fef2f2", fontSize: 28, fontWeight: 700, margin: "0 0 12px" }}>Unlock your dashboard</h1>
+          <p style={{ color: "rgba(255,255,255,0.75)", fontSize: 16, lineHeight: 1.5, margin: "0 0 8px" }}>
+            You’ve unlocked your analysis. Subscribe to Clarion+ to access your dashboard, trends, charts, history, and retest reminders.
+          </p>
+          <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, margin: "0 0 28px" }}>$29.79 every 2 months · Cancel anytime</p>
+          <SubscribeButton className="dashboard-cta dashboard-cta-subscribe">Subscribe to Clarion+</SubscribeButton>
+          <p style={{ marginTop: 24 }}>
+            <Link href="/" style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, textDecoration: "none" }}>View my analysis on the main app →</Link>
+          </p>
+        </div>
+      </main>
+    )
+  }
+
   const hasBloodwork = bloodwork && (bloodwork.selected_panel?.length > 0 || bloodwork.score != null)
   const reportDate = bloodwork?.created_at
     ? new Date(bloodwork.created_at).toLocaleDateString(undefined, {
@@ -273,6 +330,8 @@ export default function DashboardPage() {
                           current_supplement_spend: profile?.current_supplement_spend ?? "",
                           current_supplements: profile?.current_supplements ?? "",
                           shopping_preference: profile?.shopping_preference ?? "Best value",
+                          improvement_preference: profile?.improvement_preference ?? "",
+                          profile_type: profile?.profile_type ?? "",
                           email: profile?.email ?? undefined,
                           phone: prefsPhone.trim() || undefined,
                           retest_weeks: prefsRetestWeeks,
@@ -292,6 +351,50 @@ export default function DashboardPage() {
                     {prefsSaving ? "Saving…" : "Save preferences"}
                   </button>
                   {prefsSaved && <span className="dashboard-prefs-saved">Saved.</span>}
+                </div>
+              </div>
+            )}
+            {user && profile && (
+              <div className="dashboard-card dashboard-prefs-card">
+                <div className="dashboard-card-label">Health & supplement preferences</div>
+                <p className="dashboard-prefs-hint">How you prefer to improve your biomarkers and what you currently take.</p>
+                <div className="dashboard-prefs-form">
+                  <label className="dashboard-prefs-field">
+                    <span>How do you prefer to improve?</span>
+                    <select
+                      value={profile.improvement_preference ?? ""}
+                      onChange={(e) => setProfile((p) => p ? { ...p, improvement_preference: e.target.value } : null)}
+                      className="dashboard-prefs-select"
+                    >
+                      <option value="">Select…</option>
+                      <option value="Supplements">Supplements</option>
+                      <option value="Diet">Diet</option>
+                      <option value="Lifestyle">Lifestyle</option>
+                      <option value="Combination">Combination (recommended)</option>
+                    </select>
+                  </label>
+                  <label className="dashboard-prefs-field">
+                    <span>Current supplements (if any)</span>
+                    <textarea
+                      value={profile.current_supplements ?? ""}
+                      onChange={(e) => setProfile((p) => p ? { ...p, current_supplements: e.target.value } : null)}
+                      placeholder="e.g. Fish oil, Vitamin D…"
+                      rows={2}
+                      className="dashboard-prefs-input"
+                      style={{ resize: "vertical" }}
+                    />
+                  </label>
+                  <label className="dashboard-prefs-field">
+                    <span>Monthly supplement spend (approx.)</span>
+                    <input
+                      type="text"
+                      value={profile.current_supplement_spend ?? ""}
+                      onChange={(e) => setProfile((p) => p ? { ...p, current_supplement_spend: e.target.value } : null)}
+                      placeholder="e.g. $50"
+                      className="dashboard-prefs-input"
+                    />
+                  </label>
+                  <p className="dashboard-prefs-hint" style={{ marginTop: 8, fontSize: 13 }}>Use &quot;Save preferences&quot; in Notification preferences to save these.</p>
                 </div>
               </div>
             )}
@@ -387,6 +490,51 @@ export default function DashboardPage() {
 
             {user && profile && (
               <div className="dashboard-card dashboard-prefs-card">
+                <div className="dashboard-card-label">Health & supplement preferences</div>
+                <p className="dashboard-prefs-hint">How you prefer to improve your biomarkers and what you currently take.</p>
+                <div className="dashboard-prefs-form">
+                  <label className="dashboard-prefs-field">
+                    <span>How do you prefer to improve?</span>
+                    <select
+                      value={profile.improvement_preference ?? ""}
+                      onChange={(e) => setProfile((p) => p ? { ...p, improvement_preference: e.target.value } : null)}
+                      className="dashboard-prefs-select"
+                    >
+                      <option value="">Select…</option>
+                      <option value="Supplements">Supplements</option>
+                      <option value="Diet">Diet</option>
+                      <option value="Lifestyle">Lifestyle</option>
+                      <option value="Combination">Combination (recommended)</option>
+                    </select>
+                  </label>
+                  <label className="dashboard-prefs-field">
+                    <span>Current supplements (if any)</span>
+                    <textarea
+                      value={profile.current_supplements ?? ""}
+                      onChange={(e) => setProfile((p) => p ? { ...p, current_supplements: e.target.value } : null)}
+                      placeholder="e.g. Fish oil, Vitamin D…"
+                      rows={2}
+                      className="dashboard-prefs-input"
+                      style={{ resize: "vertical" }}
+                    />
+                  </label>
+                  <label className="dashboard-prefs-field">
+                    <span>Monthly supplement spend (approx.)</span>
+                    <input
+                      type="text"
+                      value={profile.current_supplement_spend ?? ""}
+                      onChange={(e) => setProfile((p) => p ? { ...p, current_supplement_spend: e.target.value } : null)}
+                      placeholder="e.g. $50"
+                      className="dashboard-prefs-input"
+                    />
+                  </label>
+                  <p className="dashboard-prefs-hint" style={{ marginTop: 8, fontSize: 13 }}>Use &quot;Save preferences&quot; below to save these.</p>
+                </div>
+              </div>
+            )}
+
+            {user && profile && (
+              <div className="dashboard-card dashboard-prefs-card">
                 <div className="dashboard-card-label">Notification preferences</div>
                 <p className="dashboard-prefs-hint">When to get retest reminders; add a phone number for optional SMS.</p>
                 <div className="dashboard-prefs-form">
@@ -429,6 +577,8 @@ export default function DashboardPage() {
                           current_supplement_spend: profile.current_supplement_spend ?? "",
                           current_supplements: profile.current_supplements ?? "",
                           shopping_preference: profile.shopping_preference ?? "Best value",
+                          improvement_preference: profile.improvement_preference ?? "",
+                          profile_type: profile.profile_type ?? "",
                           email: profile.email ?? undefined,
                           phone: prefsPhone.trim() || undefined,
                           retest_weeks: prefsRetestWeeks,

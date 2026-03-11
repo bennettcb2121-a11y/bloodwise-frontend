@@ -3,7 +3,7 @@
 import React from "react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
-import { Target, Pill, Droplet, Activity, Wallet, TrendingUp, ChevronLeft } from "lucide-react"
+import { Target, Pill, Droplet, Activity, Wallet, TrendingUp, ChevronLeft, Lock } from "lucide-react"
 import { SubscribeButton } from "@/src/components/SubscribeButton"
 import { getMarkerReason, getInputPlaceholder, titleCase } from "@/src/lib/panelEngine"
 import { getStatusTone, inferWhyItMatters, inferNextStep } from "@/src/lib/priorityEngine"
@@ -11,21 +11,32 @@ import { getDisplayRange } from "@/src/lib/analyzeBiomarkers"
 import { biomarkerDatabase } from "@/src/lib/biomarkerDatabase"
 import type { ProfileState } from "@/src/lib/panelEngine"
 import type { BloodworkSaveRow } from "@/src/lib/bloodwiseDb"
+import { PROFILE_TYPE_OPTIONS } from "@/src/lib/clarionProfiles"
 
 const TRANSITION = { duration: 0.25, ease: "easeOut" as const }
-const TOTAL_STEPS = 12
+const TOTAL_STEPS = 13
 
-const GOAL_OPTIONS = [
-  { id: "Performance optimization", label: "Improve performance", description: "Optimize endurance, recovery, and oxygen transport" },
-  { id: "Energy", label: "Increase energy", description: "Support daily energy and focus" },
-  { id: "General wellness", label: "Optimize longevity", description: "Long-term health and wellness" },
-  { id: "General health", label: "General health", description: "Overall health maintenance" },
-]
-const ACTIVITY_OPTIONS = [
-  { id: "Endurance", label: "Elite athlete", description: "Competitive or high-volume training" },
-  { id: "Hybrid", label: "Train regularly", description: "Several sessions per week" },
-  { id: "General health", label: "Moderately active", description: "Light to moderate exercise" },
-  { id: "Sedentary", label: "Mostly sedentary", description: "Little or no structured exercise" },
+// Profile type → legacy sport for range adaptation (classifyUser)
+function profileTypeToSport(profileType: string): string {
+  if (profileType === "endurance_athlete" || profileType === "female_athlete") return "Endurance"
+  if (profileType === "strength_hypertrophy_athlete") return "Strength"
+  if (profileType === "mixed_sport_athlete") return "Hybrid"
+  if (profileType === "high_volume_adolescent") return "Endurance"
+  return "General health"
+}
+function profileTypeToGoal(profileType: string): string {
+  if (profileType === "fatigue_low_energy") return "Energy"
+  if (profileType === "heart_health_longevity" || profileType === "older_adult_healthy_aging") return "General wellness"
+  if (profileType === "weight_loss_insulin_resistance" || profileType === "prediabetes_metabolic_risk") return "Energy"
+  if (profileType.includes("athlete")) return "Performance optimization"
+  return "General health"
+}
+
+const IMPROVEMENT_PREFERENCE_OPTIONS = [
+  { id: "Supplements", label: "Supplements", description: "Targeted products and doses" },
+  { id: "Diet", label: "Diet", description: "Food-first optimization" },
+  { id: "Lifestyle", label: "Lifestyle", description: "Sleep, stress, training habits" },
+  { id: "Combination", label: "Combination", description: "Supplements, diet, and lifestyle (recommended)" },
 ]
 
 const ANALYSIS_MESSAGES = [
@@ -37,18 +48,6 @@ const ANALYSIS_MESSAGES = [
 
 const AUTO_ADVANCE_MS = 380
 
-// Adaptive micro-reward copy (shown after user selects)
-function getGoalResponse(goal: string): string {
-  if (!goal) return ""
-  const g = goal.toLowerCase()
-  if (g.includes("performance")) return "Got it. We'll prioritize markers linked to performance and recovery."
-  if (g.includes("energy")) return "Got it. We'll focus on markers that affect energy and focus."
-  if (g.includes("longevity") || g.includes("wellness")) return "Got it. We'll prioritize markers for long-term wellness."
-  return "Got it. We'll tailor your panel to your goals."
-}
-function getActivityResponse(): string {
-  return "Your training profile changes what \"optimal\" means for each marker."
-}
 function getSupplementSpendResponse(): string {
   return "Perfect — we'll compare your current cost against a smarter stack."
 }
@@ -98,6 +97,10 @@ type OnboardingFlowProps = {
   previousReports: BloodworkSaveRow[]
   previousReportsLoading: boolean
   handleOpenReport: (save: BloodworkSaveRow) => void
+  /** When provided, welcome "Start" uses this (e.g. redirect to login if not signed in). */
+  onWelcomeContinue?: () => void
+  /** If false and user is logged in, results steps show blur + lock overlay. */
+  hasPaidAnalysis?: boolean
 }
 
 export function OnboardingFlow(props: OnboardingFlowProps) {
@@ -139,6 +142,8 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
     previousReports,
     previousReportsLoading,
     handleOpenReport,
+    onWelcomeContinue,
+    hasPaidAnalysis = false,
   } = props
 
   const [analysisMessageIndex, setAnalysisMessageIndex] = React.useState(0)
@@ -157,7 +162,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
   React.useEffect(() => () => { if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current) }, [])
 
   React.useEffect(() => {
-    if (currentStep !== 7 || !analyzing) return
+    if (currentStep !== 8 || !analyzing) return
     const interval = setInterval(() => {
       setAnalysisMessageIndex((i) => (i + 1) % ANALYSIS_MESSAGES.length)
     }, 800)
@@ -165,17 +170,17 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
   }, [currentStep, analyzing])
 
   React.useEffect(() => {
-    if (currentStep !== 7 || !analyzing) return
+    if (currentStep !== 8 || !analyzing) return
     const t = setTimeout(() => {
       setAnalyzing(false)
-      setCurrentStep(8)
+      setCurrentStep(9)
     }, 3000)
     return () => clearTimeout(t)
   }, [currentStep, analyzing, setCurrentStep, setAnalyzing])
 
-  // Health score count-up when entering step 8
+  // Health score count-up when entering score step
   React.useEffect(() => {
-    if (currentStep !== 8) {
+    if (currentStep !== 9) {
       setDisplayedScore(0)
       return
     }
@@ -194,17 +199,17 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
     return () => cancelAnimationFrame(id)
   }, [currentStep, score])
 
-  const goNext = () => setCurrentStep((s: number) => Math.min(11, s + 1))
+  const goNext = () => setCurrentStep((s: number) => Math.min(12, s + 1))
   const goBack = () => setCurrentStep((s: number) => Math.max(0, s - 1))
 
   const handleAnalyze = () => {
-    setCurrentStep(7)
+    setCurrentStep(8)
     setAnalyzing(true)
   }
 
   const handleUseRecommended = () => {
     useRecommendedPanel()
-    setCurrentStep(6)
+    setCurrentStep(7)
   }
 
   const sliderValue = Math.min(300, Math.max(0, Number(currentSupplementSpend) || 0))
@@ -258,16 +263,20 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
             transition={TRANSITION}
           >
             <h1 className="onboarding-headline">Welcome to Clarion</h1>
-            <p className="onboarding-subtext">Personalized bloodwork analysis for performance, energy, and longevity.</p>
-            <button type="button" className="onboarding-primary-btn" onClick={goNext}>
-              Start Analysis →
+            <p className="onboarding-subtext">Pick your profile—we recommend the right biomarkers and optimal ranges for you. No one-size-fits-all panel.</p>
+            <button
+              type="button"
+              className="onboarding-primary-btn"
+              onClick={onWelcomeContinue ?? goNext}
+            >
+              {!userId && onWelcomeContinue ? "Sign in to continue →" : "Start Analysis →"}
             </button>
           </motion.section>
         )}
 
         {currentStep === 1 && (
           <motion.section
-            key="goal"
+            key="profile-type"
             className="onboarding-screen"
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
@@ -275,25 +284,42 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
             transition={TRANSITION}
           >
             <div className="onboarding-step-icon" aria-hidden><Target size={ICON_SIZE} strokeWidth={ICON_STROKE} /></div>
-            <h1 className="onboarding-headline">What do you want to improve most?</h1>
-            <p className="onboarding-subtext">We use your goal to prioritize the most relevant biomarkers first.</p>
-            {profile.goal && <p className="onboarding-adaptive-response">{getGoalResponse(profile.goal)}</p>}
-            <div className="onboarding-card-grid four">
-              {GOAL_OPTIONS.map((opt) => (
-                <motion.button
-                  key={opt.label}
-                  type="button"
-                  className={`onboarding-answer-card ${profile.goal === opt.id ? "selected" : ""}`}
-                  onClick={() => setProfile((p) => ({ ...p, goal: opt.id }))}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <span className="onboarding-answer-card-title">{opt.label}</span>
-                  <span className="onboarding-answer-card-desc">{opt.description}</span>
-                </motion.button>
-              ))}
+            <h1 className="onboarding-headline">What best describes you?</h1>
+            <p className="onboarding-subtext">We'll recommend the right biomarkers and ranges for your profile—no one-size-fits-all panel.</p>
+            {profile.profileType && <p className="onboarding-adaptive-response">We'll tailor your panel and optimal ranges to this profile.</p>}
+            <div className="onboarding-profile-groups">
+              {(["universal", "performance", "age_hormone", "clinical"] as const).map((group) => {
+                const opts = PROFILE_TYPE_OPTIONS.filter((o) => o.group === group)
+                if (opts.length === 0) return null
+                const groupLabel = { universal: "General & wellness", performance: "Athletes & training", age_hormone: "Age & longevity", clinical: "Specific concerns" }[group]
+                return (
+                  <div key={group} className="onboarding-profile-group">
+                    <h3 className="onboarding-profile-group-title">{groupLabel}</h3>
+                    <div className="onboarding-card-grid four">
+                      {opts.map((opt) => (
+                        <motion.button
+                          key={opt.id}
+                          type="button"
+                          className={`onboarding-answer-card ${profile.profileType === opt.id ? "selected" : ""}`}
+                          onClick={() => setProfile((p) => ({
+                            ...p,
+                            profileType: opt.id,
+                            sport: profileTypeToSport(opt.id),
+                            goal: profileTypeToGoal(opt.id),
+                          }))}
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          <span className="onboarding-answer-card-title">{opt.label}</span>
+                          <span className="onboarding-answer-card-desc">{opt.description}</span>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
-            <button type="button" className="onboarding-primary-btn onboarding-next-fallback" onClick={() => setCurrentStep(2)} disabled={!profile.goal}>
+            <button type="button" className="onboarding-primary-btn onboarding-next-fallback" onClick={() => setCurrentStep(2)} disabled={!profile.profileType}>
               Continue
             </button>
           </motion.section>
@@ -301,7 +327,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
 
         {currentStep === 2 && (
           <motion.section
-            key="activity"
+            key="demographics"
             className="onboarding-screen"
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
@@ -309,25 +335,8 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
             transition={TRANSITION}
           >
             <div className="onboarding-step-icon" aria-hidden><Activity size={ICON_SIZE} strokeWidth={ICON_STROKE} /></div>
-            <h1 className="onboarding-headline">Let's build your biomarker profile</h1>
-            <p className="onboarding-subtext">Your activity level changes which ranges we treat as optimal for you.</p>
-            {profile.sport && <p className="onboarding-adaptive-response">{getActivityResponse()}</p>}
-            <p className="onboarding-subtext onboarding-subtext-secondary">How active are you?</p>
-            <div className="onboarding-card-grid four">
-              {ACTIVITY_OPTIONS.map((opt) => (
-                <motion.button
-                  key={opt.label}
-                  type="button"
-                  className={`onboarding-answer-card ${profile.sport === opt.id ? "selected" : ""}`}
-                  onClick={() => setProfile((p) => ({ ...p, sport: opt.id }))}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <span className="onboarding-answer-card-title">{opt.label}</span>
-                  <span className="onboarding-answer-card-desc">{opt.description}</span>
-                </motion.button>
-              ))}
-            </div>
+            <h1 className="onboarding-headline">A few optional details</h1>
+            <p className="onboarding-subtext">Age and sex help us personalize optimal ranges. You can skip and add them later.</p>
             <div className="onboarding-quick-fields">
               <label>
                 <span>Age <span className="onboarding-optional">(optional)</span></span>
@@ -342,19 +351,46 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
                 </select>
               </label>
             </div>
-            <p className="onboarding-field-hint">Age and sex help personalize your results. You can continue and add them later.</p>
-            <button
-              type="button"
-              className="onboarding-primary-btn"
-              onClick={() => setCurrentStep(3)}
-              disabled={!profile.sport.trim() && !(profile.age.trim() && profile.sex.trim())}
-            >
+            <button type="button" className="onboarding-primary-btn" onClick={() => setCurrentStep(3)}>
               Continue
             </button>
           </motion.section>
         )}
 
         {currentStep === 3 && (
+          <motion.section
+            key="improvement"
+            className="onboarding-screen"
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -24 }}
+            transition={TRANSITION}
+          >
+            <div className="onboarding-step-icon" aria-hidden><Target size={ICON_SIZE} strokeWidth={ICON_STROKE} /></div>
+            <h1 className="onboarding-headline">How do you prefer to improve your biomarkers?</h1>
+            <p className="onboarding-subtext">Clarion can optimize through supplements, diet, lifestyle, or a combination. We'll tailor your protocol to your preference.</p>
+            <div className="onboarding-card-grid four">
+              {IMPROVEMENT_PREFERENCE_OPTIONS.map((opt) => (
+                <motion.button
+                  key={opt.id}
+                  type="button"
+                  className={`onboarding-answer-card ${profile.improvementPreference === opt.id ? "selected" : ""}`}
+                  onClick={() => setProfile((p) => ({ ...p, improvementPreference: opt.id }))}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <span className="onboarding-answer-card-title">{opt.label}</span>
+                  <span className="onboarding-answer-card-desc">{opt.description}</span>
+                </motion.button>
+              ))}
+            </div>
+            <button type="button" className="onboarding-primary-btn" onClick={() => setCurrentStep(4)} disabled={!profile.improvementPreference}>
+              Continue
+            </button>
+          </motion.section>
+        )}
+
+        {currentStep === 4 && (
           <motion.section
             key="habits"
             className="onboarding-screen"
@@ -392,13 +428,13 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
                 <textarea value={currentSupplements} onChange={(e) => setCurrentSupplements(e.target.value)} placeholder="e.g. Fish oil, Vitamin D, Magnesium…" rows={3} />
               </label>
             )}
-            <button type="button" className="onboarding-primary-btn" onClick={() => setCurrentStep(4)}>
+            <button type="button" className="onboarding-primary-btn" onClick={() => setCurrentStep(5)}>
               Continue
             </button>
           </motion.section>
         )}
 
-        {currentStep === 4 && (
+        {currentStep === 5 && (
           <motion.section
             key="spend"
             className="onboarding-screen"
@@ -421,7 +457,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
           </motion.section>
         )}
 
-        {currentStep === 5 && (
+        {currentStep === 6 && (
           <motion.section
             key="panel"
             className="onboarding-screen"
@@ -431,9 +467,11 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
             transition={TRANSITION}
           >
             <div className="onboarding-step-icon" aria-hidden><Droplet size={ICON_SIZE} strokeWidth={ICON_STROKE} /></div>
-            <h1 className="onboarding-headline">These markers matter most for your goals</h1>
-            <p className="onboarding-subtext">Based on your goal and training profile, we recommend focusing on these tests first.</p>
-            {selectedPanel.length > 0 && <p className="onboarding-adaptive-response">{getPanelResponse()}</p>}
+            <h1 className="onboarding-headline">These markers matter most for your profile</h1>
+            <p className="onboarding-subtext">Based on what you told us, we recommend focusing on these tests first. Ranges are tailored to your age, sex, and activity.</p>
+            {recommendedMarkers.length > 0 && (
+              <p className="onboarding-adaptive-response">Your recommended panel: {recommendedMarkers.length} biomarkers</p>
+            )}
             <div className="onboarding-panel-chips">
               {recommendedMarkers.map((marker) => (
                 <span key={marker} className="onboarding-panel-chip">{titleCase(marker)}</span>
@@ -459,7 +497,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
           </motion.section>
         )}
 
-        {currentStep === 6 && (
+        {currentStep === 7 && (
           <motion.section
             key="labs"
             className="onboarding-screen"
@@ -479,8 +517,10 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
                   <div key={key} className="onboarding-lab-card">
                     <label>
                       <span className="onboarding-lab-label">{titleCase(key)}</span>
-                      {hasValue && displayRange && (
-                        <span className="onboarding-lab-range">Optimal for you: {displayRange.optimalMin}–{displayRange.optimalMax}</span>
+                      {displayRange && (
+                        <span className="onboarding-lab-range">
+                          Target for you: {displayRange.optimalMin}–{displayRange.optimalMax}
+                        </span>
                       )}
                     </label>
                     <input type="text" inputMode="decimal" value={String(inputs[key] ?? "")} onChange={(e) => handleInputChange(key, e.target.value)} placeholder={getInputPlaceholder(key)} />
@@ -493,7 +533,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
           </motion.section>
         )}
 
-        {currentStep === 7 && analyzing && (
+        {currentStep === 8 && analyzing && (
           <motion.section
             key="analysis"
             className="onboarding-screen onboarding-screen-center onboarding-screen-analysis"
@@ -514,15 +554,16 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
           </motion.section>
         )}
 
-        {currentStep === 8 && (
+        {currentStep === 9 && (
           <motion.section
             key="score"
-            className="onboarding-screen onboarding-screen-score"
+            className="onboarding-screen onboarding-screen-score onboarding-results-section"
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -24 }}
             transition={TRANSITION}
           >
+            <div className={userId && !hasPaidAnalysis ? "onboarding-results-blur" : ""}>
             <h1 className="onboarding-headline onboarding-score-title">Clarion Health Score</h1>
             <div className="onboarding-score-gauge-wrap">
               <svg viewBox="0 0 120 120" className="onboarding-score-gauge-svg">
@@ -554,18 +595,30 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
               return null
             })()}
             <button type="button" className="onboarding-primary-btn" onClick={goNext}>Continue</button>
+            </div>
+            {userId && !hasPaidAnalysis && (
+              <div className="onboarding-results-lock-overlay">
+                <div className="onboarding-results-lock-card">
+                  <Lock size={40} strokeWidth={1.5} className="onboarding-results-lock-icon" />
+                  <p className="onboarding-results-lock-title">Subscription required</p>
+                  <p className="onboarding-results-lock-text">Unlock your full analysis, protocol, and stack with a one-time $49 purchase. Your first 2 months of Clarion+ are free; then $29.79 every 2 months.</p>
+                  <Link href="/paywall" className="onboarding-primary-btn onboarding-results-lock-cta">Unlock for $49</Link>
+                </div>
+              </div>
+            )}
           </motion.section>
         )}
 
-        {currentStep === 9 && (
+        {currentStep === 10 && (
           <motion.section
             key="insights"
-            className="onboarding-screen"
+            className="onboarding-screen onboarding-results-section"
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -24 }}
             transition={TRANSITION}
           >
+            <div className={userId && !hasPaidAnalysis ? "onboarding-results-blur" : ""}>
             <div className="onboarding-step-icon" aria-hidden><Droplet size={ICON_SIZE} strokeWidth={ICON_STROKE} /></div>
             <h1 className="onboarding-headline">Biomarker insights</h1>
             <p className="onboarding-subtext">What your results mean, why they matter for you, and what to do next.</p>
@@ -600,24 +653,79 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
               })}
             </div>
             <button type="button" className="onboarding-primary-btn" onClick={goNext}>Continue</button>
+            </div>
+            {userId && !hasPaidAnalysis && (
+              <div className="onboarding-results-lock-overlay">
+                <div className="onboarding-results-lock-card">
+                  <Lock size={40} strokeWidth={1.5} className="onboarding-results-lock-icon" />
+                  <p className="onboarding-results-lock-title">Subscription required</p>
+                  <p className="onboarding-results-lock-text">Unlock your full analysis, protocol, and stack with a one-time $49 purchase. Your first 2 months of Clarion+ are free; then $29.79 every 2 months.</p>
+                  <Link href="/paywall" className="onboarding-primary-btn onboarding-results-lock-cta">Unlock for $49</Link>
+                </div>
+              </div>
+            )}
           </motion.section>
         )}
 
-        {currentStep === 10 && (
+        {currentStep === 11 && (
           <motion.section
             key="stack"
-            className="onboarding-screen"
+            className="onboarding-screen onboarding-results-section"
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -24 }}
             transition={TRANSITION}
           >
+            <div className={userId && !hasPaidAnalysis ? "onboarding-results-blur" : ""}>
             <h1 className="onboarding-headline">Your 30-Day Clarion Protocol</h1>
-            <p className="onboarding-subtext">A data-informed stack built from your biomarkers, goals, and current supplement habits.</p>
+            <p className="onboarding-subtext">A data-informed protocol built from your biomarkers, goals, and how you prefer to improve — {profile.improvementPreference === "Diet" ? "diet-first" : profile.improvementPreference === "Lifestyle" ? "lifestyle-first" : profile.improvementPreference === "Combination" ? "supplements, diet, and lifestyle" : "supplements"}.</p>
+            {profile.improvementPreference && profile.improvementPreference !== "Supplements" && (() => {
+              const needsWork = (analysisResults as any[]).filter((r: any) => (r.status === "suboptimal" || r.status === "deficient") && r.name)
+              const showDiet = profile.improvementPreference === "Diet" || profile.improvementPreference === "Combination"
+              const showLifestyle = profile.improvementPreference === "Lifestyle" || profile.improvementPreference === "Combination"
+              const dietMarkers = showDiet ? needsWork.filter((r: any) => biomarkerDatabase[r.name]?.foods) : []
+              const lifestyleMarkers = showLifestyle ? needsWork.filter((r: any) => biomarkerDatabase[r.name]?.lifestyle) : []
+              if (dietMarkers.length === 0 && lifestyleMarkers.length === 0) return null
+              return (
+                <div className="onboarding-protocol-diet-lifestyle">
+                  {dietMarkers.length > 0 && (
+                    <div className="onboarding-protocol-block">
+                      <h3 className="onboarding-protocol-block-title">Diet protocol</h3>
+                      {dietMarkers.map((r: any) => {
+                        const entry = biomarkerDatabase[r.name]
+                        return entry?.foods ? (
+                          <div key={r.name} className="onboarding-protocol-item">
+                            <strong>{r.name}</strong>
+                            <p>{entry.foods}</p>
+                          </div>
+                        ) : null
+                      })}
+                    </div>
+                  )}
+                  {lifestyleMarkers.length > 0 && (
+                    <div className="onboarding-protocol-block">
+                      <h3 className="onboarding-protocol-block-title">Lifestyle</h3>
+                      {lifestyleMarkers.map((r: any) => {
+                        const entry = biomarkerDatabase[r.name]
+                        return entry?.lifestyle ? (
+                          <div key={r.name} className="onboarding-protocol-item">
+                            <strong>{r.name}</strong>
+                            <p>{entry.lifestyle}</p>
+                          </div>
+                        ) : null
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
             {!hasSupplements ? (
               <p className="onboarding-muted">No supplement recommendations from your current results.</p>
             ) : (
               <>
+                {(profile.improvementPreference === "Diet" || profile.improvementPreference === "Lifestyle") && (
+                  <p className="onboarding-protocol-optional">Optional supplement support:</p>
+                )}
                 <div className="onboarding-stack-list">
                   {optimizedStack.stack.map((rec: any, idx: number) => {
                     const best = rec.bestOverall ?? rec.bestValue
@@ -692,22 +800,34 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
               </>
             )}
             <button type="button" className="onboarding-primary-btn" onClick={goNext}>Continue</button>
+            </div>
+            {userId && !hasPaidAnalysis && (
+              <div className="onboarding-results-lock-overlay">
+                <div className="onboarding-results-lock-card">
+                  <Lock size={40} strokeWidth={1.5} className="onboarding-results-lock-icon" />
+                  <p className="onboarding-results-lock-title">Subscription required</p>
+                  <p className="onboarding-results-lock-text">Unlock your full analysis, protocol, and stack with a one-time $49 purchase. Your first 2 months of Clarion+ are free; then $29.79 every 2 months.</p>
+                  <Link href="/paywall" className="onboarding-primary-btn onboarding-results-lock-cta">Unlock for $49</Link>
+                </div>
+              </div>
+            )}
           </motion.section>
         )}
 
-        {currentStep === 11 && (
+        {currentStep === 12 && (
           <motion.section
             key="next"
-            className="onboarding-screen"
+            className="onboarding-screen onboarding-results-section"
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -24 }}
             transition={TRANSITION}
           >
+            <div className={userId && !hasPaidAnalysis ? "onboarding-results-blur" : ""}>
             <h1 className="onboarding-headline">What happens next</h1>
             <p className="onboarding-subtext">Buy your protocol, follow it consistently, retest in 8–12 weeks, then compare your new score against baseline.</p>
             <div className="onboarding-next-actions">
-              <button type="button" className="onboarding-next-btn" onClick={() => setCurrentStep(10)}>
+              <button type="button" className="onboarding-next-btn" onClick={() => setCurrentStep(11)}>
                 Buy your stack
               </button>
               <Link href="/dashboard" className="onboarding-next-btn">Save my plan</Link>
@@ -715,6 +835,17 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
               <SubscribeButton className="onboarding-next-btn onboarding-next-btn-primary">Unlock Clarion+</SubscribeButton>
             </div>
             <p className="onboarding-next-footer">Clarion+ turns one blood test into an ongoing optimization system — track history, score changes, retest reminders, and smarter recommendations.</p>
+            </div>
+            {userId && !hasPaidAnalysis && (
+              <div className="onboarding-results-lock-overlay">
+                <div className="onboarding-results-lock-card">
+                  <Lock size={40} strokeWidth={1.5} className="onboarding-results-lock-icon" />
+                  <p className="onboarding-results-lock-title">Subscription required</p>
+                  <p className="onboarding-results-lock-text">Unlock your full analysis, protocol, and stack with a one-time $49 purchase. Your first 2 months of Clarion+ are free; then $29.79 every 2 months.</p>
+                  <Link href="/paywall" className="onboarding-primary-btn onboarding-results-lock-cta">Unlock for $49</Link>
+                </div>
+              </div>
+            )}
           </motion.section>
         )}
       </AnimatePresence>
@@ -902,6 +1033,12 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
         @media (min-width: 640px) {
           .onboarding-card-grid.four { grid-template-columns: repeat(4, 1fr); }
         }
+        .onboarding-profile-groups { display: flex; flex-direction: column; gap: 24px; margin-bottom: 20px; }
+        .onboarding-profile-group { display: flex; flex-direction: column; gap: 10px; }
+        .onboarding-profile-group-title {
+          font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em;
+          color: rgba(255, 255, 255, 0.55); margin: 0;
+        }
         .onboarding-answer-card {
           background: rgba(26, 26, 31, 0.8);
           border: 1px solid rgba(255, 255, 255, 0.08);
@@ -993,6 +1130,21 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
           50% { opacity: 1; transform: scale(1); }
         }
         .onboarding-analysis-message { font-size: 18px; font-weight: 600; margin: 0; color: #fef2f2; }
+        .onboarding-results-section { position: relative; }
+        .onboarding-results-blur { filter: blur(10px); pointer-events: none; user-select: none; }
+        .onboarding-results-lock-overlay {
+          position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+          z-index: 10; padding: 24px;
+        }
+        .onboarding-results-lock-card {
+          background: rgba(15, 10, 26, 0.95); border: 1px solid rgba(255,255,255,0.12);
+          border-radius: 20px; padding: 32px; max-width: 360px; text-align: center;
+          box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+        }
+        .onboarding-results-lock-icon { color: rgba(255,255,255,0.5); margin-bottom: 16px; }
+        .onboarding-results-lock-title { font-size: 20px; font-weight: 700; color: #fef2f2; margin: 0 0 12px; }
+        .onboarding-results-lock-text { font-size: 15px; color: rgba(255,255,255,0.75); line-height: 1.5; margin: 0 0 24px; }
+        .onboarding-results-lock-cta { display: inline-block; text-decoration: none; }
         .onboarding-score-gauge-wrap { position: relative; width: 200px; height: 200px; margin: 0 auto 16px; }
         .onboarding-score-gauge-svg { position: absolute; inset: 0; width: 100%; height: 100%; color: rgba(255,255,255,0.12); }
         .onboarding-score-gauge-fill { transition: stroke-dasharray 0.08s ease-out; color: #f97316; }
@@ -1050,6 +1202,14 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
         .onboarding-stack-summary strong { color: #fafafa; }
         .onboarding-stack-savings strong { color: #4ade80; }
         .onboarding-stack-annual strong { color: #4ade80; }
+        .onboarding-protocol-diet-lifestyle { display: flex; flex-direction: column; gap: 20px; margin-bottom: 24px; }
+        .onboarding-protocol-block { background: rgba(26,26,31,0.8); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 20px; }
+        .onboarding-protocol-block-title { font-size: 16px; font-weight: 700; color: #fafafa; margin: 0 0 12px; }
+        .onboarding-protocol-item { margin-bottom: 12px; }
+        .onboarding-protocol-item:last-child { margin-bottom: 0; }
+        .onboarding-protocol-item strong { font-size: 14px; color: rgba(255,255,255,0.9); }
+        .onboarding-protocol-item p { font-size: 14px; color: rgba(255,255,255,0.7); margin: 6px 0 0; line-height: 1.5; }
+        .onboarding-protocol-optional { font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.8); margin: 0 0 12px; }
         .onboarding-what-to-expect {
           background: rgba(26,26,31,0.8);
           border: 1px solid rgba(255,255,255,0.08);

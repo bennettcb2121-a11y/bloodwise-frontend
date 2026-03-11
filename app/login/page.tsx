@@ -1,10 +1,40 @@
 "use client"
 
-import React from "react"
+import React, { useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/src/contexts/AuthContext"
 import { AuthUI } from "@/src/components/AuthUI"
 
 export default function LoginPage() {
+  const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
+
+  useEffect(() => {
+    if (!authLoading && user) router.replace("/dashboard")
+  }, [authLoading, user, router])
+
+  if (authLoading || user) {
+    return (
+      <main className="login-page">
+        <div className="login-page-container">
+          <p style={{ color: "rgba(255,255,255,0.7)" }}>Taking you to your dashboard…</p>
+        </div>
+        <style jsx>{`
+          .login-page {
+            min-height: 100vh;
+            background: linear-gradient(165deg, #1a0a2e 0%, #1e1b4b 25%, #312e81 50%, #1e1b4b 75%, #0f0a1a 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px 20px;
+          }
+          .login-page-container { text-align: center; }
+        `}</style>
+      </main>
+    )
+  }
+
   return (
     <main className="login-page">
       <div className="login-page-container">

@@ -36,9 +36,25 @@ export async function POST(request: Request) {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session
-      const userId = session.client_reference_id as string | undefined
+      const userId = (session.client_reference_id ?? session.metadata?.user_id) as string | undefined
       const customerId = session.customer as string | null
       const subscriptionId = session.subscription as string | null
+      const mode = session.mode
+
+      // One-time analysis purchase: set profiles.analysis_purchased_at (upsert so new users get a row)
+      if (mode === "payment" && userId && session.metadata?.type === "analysis") {
+        const now = new Date().toISOString()
+        await supabase.from("profiles").upsert(
+          {
+            user_id: userId,
+            analysis_purchased_at: now,
+            updated_at: now,
+          },
+          { onConflict: "user_id" }
+        )
+      }
+
+      // Subscription: update subscriptions table
       if (userId && subscriptionId) {
         const sub = await stripe.subscriptions.retrieve(subscriptionId) as Stripe.Subscription & { current_period_end?: number }
         const subUserId = sub.metadata?.user_id || userId

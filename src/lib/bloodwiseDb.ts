@@ -17,6 +17,9 @@ export type ProfileRow = {
   email?: string | null
   phone?: string | null
   retest_weeks?: number | null
+  improvement_preference?: string | null
+  profile_type?: string | null
+  analysis_purchased_at?: string | null
   updated_at?: string
 }
 
@@ -64,6 +67,27 @@ export type SavedState = {
   bloodwork: BloodworkSaveRow | null
 }
 
+export type SubscriptionRow = {
+  id?: string
+  user_id: string
+  stripe_customer_id?: string | null
+  stripe_subscription_id?: string | null
+  status: string
+  current_period_end?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export async function getSubscription(userId: string): Promise<SubscriptionRow | null> {
+  const { data, error } = await supabase
+    .from("subscriptions")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle()
+  if (error) throw error
+  return data as SubscriptionRow | null
+}
+
 export async function getProfile(userId: string): Promise<ProfileRow | null> {
   const { data, error } = await supabase
     .from("profiles")
@@ -91,6 +115,8 @@ export async function upsertProfile(
       email: profile.email ?? undefined,
       phone: profile.phone ?? undefined,
       retest_weeks: profile.retest_weeks ?? undefined,
+      improvement_preference: profile.improvement_preference ?? "",
+      profile_type: profile.profile_type ?? undefined,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" }
