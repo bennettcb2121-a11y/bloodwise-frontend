@@ -26,7 +26,14 @@ export default function PaywallPage() {
     setCheckoutLoading(true)
     try {
       const res = await fetch("/api/create-analysis-checkout", { method: "POST" })
-      const data = await res.json()
+      const text = await res.text()
+      let data: { url?: string; error?: string } = {}
+      try {
+        data = text ? JSON.parse(text) : {}
+      } catch {
+        setError(res.ok ? "Invalid response from server" : `Checkout failed (${res.status})`)
+        return
+      }
       if (!res.ok) throw new Error(data.error || "Checkout failed")
       if (data.url) window.location.href = data.url
       else throw new Error("No checkout URL returned")

@@ -21,7 +21,6 @@ export async function POST() {
     )
   }
 
-  const stripe = new Stripe(stripeSecretKey)
   const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
   const analysisPriceId = process.env.STRIPE_ANALYSIS_PRICE_ID
 
@@ -42,16 +41,21 @@ export async function POST() {
         },
       ]
 
-  const checkoutSession = await stripe.checkout.sessions.create({
-    mode: "payment",
-    allow_promotion_codes: true,
-    line_items: lineItems,
-    success_url: `${origin}/dashboard?paid=1`,
-    cancel_url: `${origin}/paywall`,
-    client_reference_id: authSession.user.id,
-    customer_email: authSession.user.email ?? undefined,
-    metadata: { user_id: authSession.user.id, type: "analysis" },
-  })
-
-  return NextResponse.json({ url: checkoutSession.url })
+  try {
+    const stripe = new Stripe(stripeSecretKey)
+    const checkoutSession = await stripe.checkout.sessions.create({
+      mode: "payment",
+      allow_promotion_codes: true,
+      line_items: lineItems,
+      success_url: `${origin}/dashboard?paid=1`,
+      cancel_url: `${origin}/paywall`,
+      client_reference_id: authSession.user.id,
+      customer_email: authSession.user.email ?? undefined,
+      metadata: { user_id: authSession.user.id, type: "analysis" },
+    })
+    return NextResponse.json({ url: checkoutSession.url })
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Stripe checkout failed"
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }
