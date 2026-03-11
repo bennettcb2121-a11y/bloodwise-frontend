@@ -298,7 +298,7 @@ function HomePageContent() {
           if (b.biomarker_inputs && typeof b.biomarker_inputs === "object") {
             setInputs((prev) => ({ ...prev, ...b.biomarker_inputs }))
           }
-          const paid = !!row?.analysis_purchased_at
+          // Never restore to results steps (9–12) on load so we don't land on a broken/empty score screen
           let stepToRestore: number | null = null
           if (typeof b.current_step === "number" && b.current_step >= 0 && b.current_step <= 12) {
             stepToRestore = b.current_step
@@ -307,8 +307,8 @@ function HomePageContent() {
             stepToRestore = map[b.current_step] ?? 8
           }
           if (stepToRestore !== null) {
-            if (!paid && stepToRestore >= 9) setCurrentStep(8)
-            else setCurrentStep(stepToRestore)
+            const capped = stepToRestore >= 9 ? 8 : stepToRestore
+            setCurrentStep(capped)
           }
         } else {
           setLastBloodworkAt(null)

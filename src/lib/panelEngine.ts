@@ -41,42 +41,72 @@ export function getBiomarkerKeys(): string[] {
   return dbKeys.length ? dbKeys : Array.from(CORE_BIOMARKER_KEYS)
 }
 
+/** Add age/sex/activity/goals-based markers to a panel (no duplicates, only existing keys). */
+function addProfileBasedMarkers(
+  basePanel: string[],
+  profile: ProfileState,
+  biomarkerKeys: string[]
+): string[] {
+  const inBase = new Set(basePanel.map((k) => normalize(k)))
+  const added: string[] = []
+  const add = (keys: string[]) => {
+    for (const k of keys) {
+      const found = biomarkerKeys.find((key) => normalize(key) === normalize(k))
+      if (found && !inBase.has(normalize(found))) {
+        inBase.add(normalize(found))
+        added.push(found)
+      }
+    }
+  }
+  const sex = normalize(profile.sex || "")
+  const sport = normalize(profile.sport || "")
+  const goal = normalize(profile.goal || "")
+  const ageNum = parseInt(profile.age || "0", 10)
+
+  if (sex.includes("female")) add(["Ferritin", "Vitamin B12", "Serum iron", "TIBC"])
+  if (sport.includes("endurance") || goal.includes("performance")) add(["Ferritin", "Vitamin D", "Magnesium", "hs-CRP"])
+  if (sport.includes("sedentary") || goal.includes("energy")) add(["Glucose", "HbA1c", "Fasting insulin", "Triglycerides", "HDL-C"])
+  if (goal.includes("heart") || goal.includes("longevity")) add(["HbA1c", "hs-CRP", "LDL-C", "ApoB", "Lipoprotein(a)"])
+  if (ageNum >= 50) add(["HbA1c", "Creatinine", "BUN", "Calcium", "Vitamin D", "Vitamin B12"])
+  if (ageNum >= 40) add(["HbA1c", "Triglycerides", "HDL-C", "LDL-C"])
+
+  return [...basePanel, ...added]
+}
+
 export function getAdaptiveRecommendedMarkers(
   profile: ProfileState,
   biomarkerKeys: string[]
 ): string[] {
-  // Prefer profile-type-based panel when user has selected a Clarion profile type
+  let base: string[] = []
+
   const profileType = (profile.profileType || "").trim()
   if (profileType) {
-    const recommended = getRecommendedPanelForProfile(profileType, biomarkerKeys)
-    if (recommended.length > 0) return recommended
+    base = getRecommendedPanelForProfile(profileType, biomarkerKeys)
   }
-
-  // Fallback: legacy goal + sport → profile type, then get panel
-  const legacyType = legacyGoalSportToProfileType(profile.goal || "", profile.sport || "")
-  const legacyPanel = getRecommendedPanelForProfile(legacyType, biomarkerKeys)
-  if (legacyPanel.length > 0) return legacyPanel
-
-  // Last resort: legacy addIfExists logic
-  const sport = normalize(profile.sport || "")
-  const goal = normalize(profile.goal || "")
-  const sex = normalize(profile.sex || "")
-  const wanted = new Set<string>()
-  const addIfExists = (aliases: string[]) => {
-    for (const alias of aliases) {
-      const found = biomarkerKeys.find((k) => normalize(k) === normalize(alias))
-      if (found) wanted.add(found)
+  if (base.length === 0) {
+    const legacyType = legacyGoalSportToProfileType(profile.goal || "", profile.sport || "")
+    base = getRecommendedPanelForProfile(legacyType, biomarkerKeys)
+  }
+  if (base.length === 0) {
+    const sport = normalize(profile.sport || "")
+    const goal = normalize(profile.goal || "")
+    const sex = normalize(profile.sex || "")
+    const wanted = new Set<string>()
+    const addIfExists = (aliases: string[]) => {
+      for (const alias of aliases) {
+        const found = biomarkerKeys.find((k) => normalize(k) === normalize(alias))
+        if (found) wanted.add(found)
+      }
     }
+    addIfExists(["Ferritin", "Vitamin D", "Magnesium", "Vitamin B12", "CRP", "hs-CRP"])
+    if (sport.includes("endurance") || goal.includes("performance")) addIfExists(["Ferritin", "Vitamin B12"])
+    if (sport.includes("sedentary") || goal.includes("energy")) addIfExists(["Glucose", "Insulin"])
+    if (sex.includes("female")) addIfExists(["Ferritin", "Vitamin B12"])
+    base = biomarkerKeys.filter((key) => wanted.has(key))
   }
-  addIfExists(["Ferritin", "Vitamin D", "Magnesium", "Vitamin B12", "CRP", "hs-CRP"])
-  if (sport.includes("endurance") || goal.includes("performance")) addIfExists(["Ferritin", "Vitamin B12"])
-  if (sport.includes("sedentary") || goal.includes("energy")) addIfExists(["Glucose", "Insulin"])
-  if (sex.includes("female")) addIfExists(["Ferritin", "Vitamin B12"])
-  const legacy = biomarkerKeys.filter((key) => wanted.has(key))
-  if (legacy.length > 0) return legacy
+  if (base.length === 0) base = getRecommendedPanelForProfile("general_health_adult", biomarkerKeys)
 
-  // Always show something: default to general health adult panel so user sees biomarkers
-  return getRecommendedPanelForProfile("general_health_adult", biomarkerKeys)
+  return addProfileBasedMarkers(base, profile, biomarkerKeys)
 }
 
 export function getMarkerReason(marker: string, profile: ProfileState): string {

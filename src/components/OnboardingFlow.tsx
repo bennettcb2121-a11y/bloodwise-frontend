@@ -468,7 +468,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
           >
             <div className="onboarding-step-icon" aria-hidden><Droplet size={ICON_SIZE} strokeWidth={ICON_STROKE} /></div>
             <h1 className="onboarding-headline">These markers matter most for your profile</h1>
-            <p className="onboarding-subtext">Based on what you told us, we recommend focusing on these tests first. Ranges are tailored to your age, sex, and activity.</p>
+            <p className="onboarding-subtext">Recommended tests are based on your age, sex, activity, and goals. Ranges are tailored to you.</p>
             {recommendedMarkers.length > 0 && (
               <p className="onboarding-adaptive-response">Your recommended panel: {recommendedMarkers.length} biomarkers</p>
             )}
