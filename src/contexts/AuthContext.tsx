@@ -49,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signInWithOAuth = useCallback(async (provider: OAuthProvider) => {
+    // Use current origin so localhost stays on localhost; Supabase must have this URL in Redirect URLs
     const origin = typeof window !== "undefined" ? window.location.origin : ""
     const { error } = await supabase.auth.signInWithOAuth({
       provider,

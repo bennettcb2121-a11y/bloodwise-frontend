@@ -3,7 +3,7 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
-import { loadSavedState, upsertProfile, saveBloodwork, getBloodworkHistory } from "@/src/lib/bloodwiseDb"
+import { loadSavedState, upsertProfile, saveBloodwork, getBloodworkHistory, getSubscription } from "@/src/lib/bloodwiseDb"
 import type { BloodworkSaveRow, SavedSupplementStackItem } from "@/src/lib/bloodwiseDb"
 import { analyzeBiomarkers } from "@/src/lib/analyzeBiomarkers"
 import { calculateScore } from "@/src/lib/calculateScore"
@@ -58,6 +58,8 @@ function HomePageContent() {
   const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
   const hasLoadedSaveRef = useRef(false)
+  // Block step 6 (Step 7) by default so no race can show it before effect runs; effect sets a 2.5s window from sign-in
+  const blockStep6UntilRef = useRef(Date.now() + 30000)
   const [hasPaidAnalysis, setHasPaidAnalysis] = useState(false)
 
   const biomarkerKeys = useMemo(() => getBiomarkerKeys(), [])
@@ -82,7 +84,14 @@ function HomePageContent() {
   const [currentSupplementSpend, setCurrentSupplementSpend] = useState("")
   const [currentSupplements, setCurrentSupplements] = useState("")
   const [shoppingPreference, setShoppingPreference] = useState("Best value")
-  const [currentStep, setCurrentStep] = useState(0)
+  const [currentStep, setCurrentStepRaw] = useState(0)
+  const setCurrentStep = useCallback((arg: React.SetStateAction<number>) => {
+    setCurrentStepRaw((prev) => {
+      const next = typeof arg === "function" ? (arg as (p: number) => number)(prev) : arg
+      if (next === 6 && Date.now() < blockStep6UntilRef.current) return 0
+      return next
+    })
+  }, [])
   const [selectedPanel, setSelectedPanel] = useState<string[]>([])
   const [hasLoadedExample, setHasLoadedExample] = useState(false)
   const [openScienceMarkers, setOpenScienceMarkers] = useState<Record<string, boolean>>({})
@@ -223,13 +232,17 @@ function HomePageContent() {
   }, [lastBloodworkAt, retestWeeks])
 
   // On login: load saved profile and bloodwork from Supabase and populate form fields
-  const loadDeps: [string | null] = [userId]
   useEffect(() => {
     if (!userId || hasLoadedSaveRef.current) return
     hasLoadedSaveRef.current = true
-    loadSavedState(userId)
-      .then(({ profile: p, bloodwork: b }) => {
+    // Force step 0 immediately so we never show a later step before/after load (avoids flash then jump to Step 7)
+    setCurrentStep(0)
+    setAnalyzing(false)
+    Promise.all([loadSavedState(userId), getSubscription(userId)])
+      .then(([{ profile: p, bloodwork: b }, subscription]) => {
         const row = p ? (p as { improvement_preference?: string; profile_type?: string; analysis_purchased_at?: string | null }) : null
+        const hasPaid = !!row?.analysis_purchased_at
+        const hasActiveSubscription = subscription?.status === "active"
         if (p) {
           const profileType =
             (row?.profile_type && row.profile_type.trim()) ||
@@ -242,7 +255,7 @@ function HomePageContent() {
             improvementPreference: row?.improvement_preference ?? "",
             profileType: profileType || "",
           })
-          setHasPaidAnalysis(!!row?.analysis_purchased_at)
+          setHasPaidAnalysis(hasPaid)
           setCurrentSupplementSpend(p.current_supplement_spend ?? "")
           setCurrentSupplements(p.current_supplements ?? "")
           setShoppingPreference(p.shopping_preference ?? "Best value")
@@ -278,46 +291,39 @@ function HomePageContent() {
         }
         if (b) {
           setLastBloodworkAt(b.updated_at ?? b.created_at ?? null)
-          // Use new profile-based recommended panel so we show all added biomarkers; only fall back to saved panel if no profile type
-          const profileTypeForPanel =
-            (row?.profile_type && String(row.profile_type).trim()) ||
-            (p?.goal || p?.sport ? legacyGoalSportToProfileType(p?.goal ?? "", p?.sport ?? "") : "")
-          if (profileTypeForPanel) {
-            const profileForPanel: ProfileState = {
-              age: p?.age ?? "",
-              sex: p?.sex ?? "",
-              sport: p?.sport ?? "",
-              goal: p?.goal ?? "",
-              improvementPreference: (row?.improvement_preference ?? "") as string,
-              profileType: profileTypeForPanel,
-            }
-            setSelectedPanel(getAdaptiveRecommendedMarkers(profileForPanel, biomarkerKeys))
-          } else if (Array.isArray(b.selected_panel) && b.selected_panel.length > 0) {
-            setSelectedPanel(b.selected_panel)
-          }
-          if (b.biomarker_inputs && typeof b.biomarker_inputs === "object") {
-            setInputs((prev) => ({ ...prev, ...b.biomarker_inputs }))
-          }
-          // Never restore to analysis (8) or results (9–12) on load: user would see "Step 9 of 13" with empty content (analyzing is false).
-          // Restore to lab input (6) when saved step is 8+ so they see their data and can click Analyze to view results.
-          let stepToRestore: number | null = null
-          if (typeof b.current_step === "number" && b.current_step >= 0 && b.current_step <= 12) {
-            stepToRestore = b.current_step
-          } else if (typeof b.current_step === "number" && b.current_step >= 1 && b.current_step <= 6) {
-            const map: Record<number, number> = { 1: 1, 2: 2, 3: 5, 4: 6, 5: 8, 6: 10 }
-            stepToRestore = map[b.current_step] ?? 6
-          }
-          if (stepToRestore !== null) {
-            const capped = stepToRestore >= 8 ? 6 : stepToRestore
-            setCurrentStep(capped)
-            if (stepToRestore >= 8) setAnalyzing(false)
-          }
+          // Do not restore selectedPanel or inputs — was causing jump to Step 7 ("These markers matter most"). Clear panel so sync effect sets it from profile.
+          setSelectedPanel([])
         } else {
           setLastBloodworkAt(null)
         }
+
+        // Completed survey + active subscription → go to dashboard to review results
+        if (hasPaid && hasActiveSubscription) {
+          router.replace("/dashboard")
+          return
+        }
+
+        // Always start at first page (welcome). Set in same batch as other state so no intermediate render shows a later step.
+        setCurrentStep(0)
+        setAnalyzing(false)
       })
       .catch(() => {})
-  }, loadDeps)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when userId changes; router is stable
+  }, [userId])
+
+  // After sign-in: block Step 7 (currentStep 6) for 2.5s and correct any jump — nothing can set step to 6 in this window
+  useEffect(() => {
+    if (!userId) return
+    blockStep6UntilRef.current = Date.now() + 2500
+    const interval = setInterval(() => {
+      setCurrentStep((s) => (s === 6 ? 0 : s))
+    }, 200)
+    const stop = setTimeout(() => clearInterval(interval), 2500)
+    return () => {
+      clearInterval(interval)
+      clearTimeout(stop)
+    }
+  }, [userId])
 
   // Reset load flag and retest state when user logs out
   const resetDeps: [string | null] = [userId]
@@ -467,7 +473,7 @@ function HomePageContent() {
 
   function useRecommendedPanel() {
     setSelectedPanel(recommendedMarkers)
-    setCurrentStep(6)
+    // Don't set step here — child handleUseRecommended advances to lab step; parent must never set 6 (Step 7 panel) or we skip to "These markers matter most" on load
   }
 
   function loadExampleData() {
@@ -501,7 +507,8 @@ function HomePageContent() {
       : typeof save.current_step === "number" && save.current_step >= 1 && save.current_step <= 6
         ? ({ 1: 1, 2: 2, 3: 5, 4: 6, 5: 8, 6: 10 } as Record<number, number>)[save.current_step] ?? 8
         : 8
-    setCurrentStep(step)
+    // Never jump to panel step (6 = Step 7) when user is on welcome/profile — prevents post-sign-in jump bug
+    setCurrentStep((prev) => (prev <= 1 && step === 6 ? prev : step))
   }
 
   function toggleScience(marker: string) {

@@ -103,7 +103,10 @@ After this you have:
 1. **Supabase (finish setup)**  
    - **Settings** → **API**: copy **Project URL**, **anon** key, **service_role** key (you’ll need these in Vercel).  
    - **Authentication** → **Providers** → **Google**: Enable, add Client ID + Secret from Google (see Part 1).  
-   - **Authentication** → **URL Configuration**: set **Site URL** (e.g. your Vercel URL) and **Redirect URLs** (`https://your-app.vercel.app/auth/callback`, `http://localhost:3000/auth/callback`).
+   - **Authentication** → **URL Configuration**: set **Site URL** (e.g. `https://clarionlabs.tech`) and **Redirect URLs**. You must add **both**:
+     - `https://clarionlabs.tech/auth/callback` (production)
+     - `http://localhost:3000/auth/callback` (local dev)
+     If localhost is missing, Google sign-in on localhost will redirect to production instead of back to localhost. See `docs/LOCALHOST_GOOGLE_LOGIN.md` if that happens.
 
 2. **Google (if using "Sign in with Google")**  
    - [Google Cloud Console](https://console.cloud.google.com) → OAuth consent screen + **Credentials** → **Create OAuth client ID** (Web application).  
