@@ -298,17 +298,19 @@ function HomePageContent() {
           if (b.biomarker_inputs && typeof b.biomarker_inputs === "object") {
             setInputs((prev) => ({ ...prev, ...b.biomarker_inputs }))
           }
-          // Never restore to results steps (9–12) on load so we don't land on a broken/empty score screen
+          // Never restore to analysis (8) or results (9–12) on load: user would see "Step 9 of 13" with empty content (analyzing is false).
+          // Restore to lab input (6) when saved step is 8+ so they see their data and can click Analyze to view results.
           let stepToRestore: number | null = null
           if (typeof b.current_step === "number" && b.current_step >= 0 && b.current_step <= 12) {
             stepToRestore = b.current_step
           } else if (typeof b.current_step === "number" && b.current_step >= 1 && b.current_step <= 6) {
             const map: Record<number, number> = { 1: 1, 2: 2, 3: 5, 4: 6, 5: 8, 6: 10 }
-            stepToRestore = map[b.current_step] ?? 8
+            stepToRestore = map[b.current_step] ?? 6
           }
           if (stepToRestore !== null) {
-            const capped = stepToRestore >= 9 ? 8 : stepToRestore
+            const capped = stepToRestore >= 8 ? 6 : stepToRestore
             setCurrentStep(capped)
+            if (stepToRestore >= 8) setAnalyzing(false)
           }
         } else {
           setLastBloodworkAt(null)
