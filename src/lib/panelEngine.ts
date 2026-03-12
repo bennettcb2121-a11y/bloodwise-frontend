@@ -8,6 +8,7 @@ import {
   legacyGoalSportToProfileType,
   CORE_BIOMARKER_KEYS,
 } from "@/src/lib/clarionProfiles"
+import { CLARION_RECOMMENDED_PANEL_KEYS } from "@/src/lib/coreBiomarkerProtocols"
 
 export type ProfileState = {
   age: string
@@ -105,6 +106,17 @@ export function getAdaptiveRecommendedMarkers(
     base = biomarkerKeys.filter((key) => wanted.has(key))
   }
   if (base.length === 0) base = getRecommendedPanelForProfile("general_health_adult", biomarkerKeys)
+
+  // When recommended panel is the 10 core (general health), don't add more markers.
+  const baseSet = new Set(base.map((k) => k.trim()))
+  const coreSet = new Set(CLARION_RECOMMENDED_PANEL_KEYS)
+  const isCorePanel =
+    profileType === "general_health_adult" ||
+    (baseSet.size === coreSet.size && [...baseSet].every((k) => coreSet.has(k)))
+  if (isCorePanel) {
+    const keySet = new Set(biomarkerKeys.map((k) => k.trim()))
+    return CLARION_RECOMMENDED_PANEL_KEYS.filter((k) => keySet.has(k))
+  }
 
   return addProfileBasedMarkers(base, profile, biomarkerKeys)
 }

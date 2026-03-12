@@ -18,6 +18,20 @@ export const CLARION_CORE_BIOMARKERS = [
   "hs-CRP",
 ] as const
 
+/** Same 10 biomarkers as panel keys (use "Vitamin D" and "Glucose" to match biomarkerDatabase). */
+export const CLARION_RECOMMENDED_PANEL_KEYS: string[] = [
+  "Ferritin",
+  "Vitamin D",
+  "Vitamin B12",
+  "Folate",
+  "Magnesium",
+  "HbA1c",
+  "Glucose",
+  "LDL-C",
+  "Triglycerides",
+  "hs-CRP",
+]
+
 export type CoreBiomarkerId = (typeof CLARION_CORE_BIOMARKERS)[number]
 
 export type ProductTier = {

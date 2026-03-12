@@ -1,7 +1,10 @@
 /**
  * Clarion profile types and panel recommendations.
  * Profile types drive which biomarkers we recommend; panels are tailored, not one-size-fits-all.
+ * Default recommended panel is the 10 core biomarkers (Ferritin, Vitamin D, B12, Folate, Mg, HbA1c, Glucose, LDL-C, TG, hs-CRP).
  */
+
+import { CLARION_RECOMMENDED_PANEL_KEYS } from "@/src/lib/coreBiomarkerProtocols"
 
 /** Core launch biomarker keys (flat list for panel recommendation). */
 export const CORE_BIOMARKER_KEYS = [
@@ -201,38 +204,9 @@ export const PROFILE_TYPE_OPTIONS: ProfileTypeOption[] = [
   },
 ]
 
-/** Panel recommendation: profile type → list of biomarker keys. */
+/** Panel recommendation: profile type → list of biomarker keys. General health uses the 10 core biomarkers. */
 const PANELS_BY_PROFILE: Record<ProfileTypeId, string[]> = {
-  general_health_adult: [
-    "Hemoglobin",
-    "Hematocrit",
-    "RBC",
-    "MCV",
-    "MCH",
-    "RDW",
-    "WBC",
-    "Platelets",
-    "Glucose",
-    "Calcium",
-    "Sodium",
-    "Potassium",
-    "Chloride",
-    "CO2",
-    "BUN",
-    "Creatinine",
-    "Albumin",
-    "Total protein",
-    "AST",
-    "ALT",
-    "Alkaline phosphatase",
-    "Bilirubin",
-    "Triglycerides",
-    "HDL-C",
-    "LDL-C",
-    "Total cholesterol",
-    "HbA1c",
-    "hs-CRP",
-  ],
+  general_health_adult: [...CLARION_RECOMMENDED_PANEL_KEYS],
   fatigue_low_energy: [
     "Hemoglobin",
     "Hematocrit",
