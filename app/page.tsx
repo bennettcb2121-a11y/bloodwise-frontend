@@ -341,26 +341,10 @@ function HomePageContent() {
     }).catch(() => router.replace("/", { scroll: false }))
   }, [userId, searchParams, router])
 
-  // After subscription success: return to app and show results flow (health score animation → insights → stack → summary), then dashboard when done
+  // After subscription success: send straight to dashboard so they never see Welcome (page 1)
   useEffect(() => {
     if (!userId || searchParams.get("subscription") !== "success") return
-    loadSavedState(userId).then(({ profile: p, bloodwork: b }) => {
-      const row = p as { analysis_purchased_at?: string | null } | null
-      if (!row?.analysis_purchased_at || !b) {
-        router.replace("/", { scroll: false })
-        return
-      }
-      if (b.biomarker_inputs && typeof b.biomarker_inputs === "object") {
-        setInputs((prev) => ({ ...prev, ...b.biomarker_inputs }))
-      }
-      if (Array.isArray(b.selected_panel) && b.selected_panel.length > 0) {
-        setSelectedPanel(b.selected_panel)
-      }
-      setHasPaidAnalysis(true)
-      setCurrentStepRaw(8) // analysis loading → then score reveal
-      setAnalyzing(true)
-      router.replace("/", { scroll: false })
-    }).catch(() => router.replace("/", { scroll: false }))
+    router.replace("/dashboard?subscription=success", { scroll: false })
   }, [userId, searchParams, router])
 
   // After sign-in: block Step 7 (currentStep 6) for 2.5s and correct any jump — nothing can set step to 6 in this window
