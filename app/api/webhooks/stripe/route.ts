@@ -65,15 +65,16 @@ export async function POST(request: Request) {
                 trial_period_days: 60,
                 metadata: { user_id: userId },
               })
-              const periodEnd = typeof sub.current_period_end === "number"
-                ? new Date(sub.current_period_end * 1000).toISOString()
+              const subWithPeriod = sub as Stripe.Subscription & { current_period_end?: number }
+              const periodEnd = typeof subWithPeriod.current_period_end === "number"
+                ? new Date(subWithPeriod.current_period_end * 1000).toISOString()
                 : null
               await supabase.from("subscriptions").upsert(
                 {
                   user_id: userId,
                   stripe_customer_id: customerId,
-                  stripe_subscription_id: sub.id,
-                  status: sub.status,
+                  stripe_subscription_id: subWithPeriod.id,
+                  status: subWithPeriod.status,
                   current_period_end: periodEnd,
                   updated_at: new Date().toISOString(),
                 },
