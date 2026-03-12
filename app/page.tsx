@@ -620,6 +620,8 @@ function HomePageContent() {
       .catch(() => router.push("/dashboard"))
   }, [router])
 
+  /** Go directly to blood-test options step (9) from "have labs?" (7) when user says No — bypasses step guard */
+  const goToBloodTestStep = useCallback(() => setCurrentStepRaw(9), [])
   /** Go directly to labs step (8) from blood-test step (9) to avoid any step-guard loop */
   const goToLabsStep = useCallback(() => setCurrentStepRaw(8), [])
 
@@ -696,6 +698,7 @@ function HomePageContent() {
       previousReportsLoading={previousReportsLoading}
       handleOpenReport={handleOpenReport}
       onGoToDashboard={onGoToDashboard}
+      goToBloodTestStep={goToBloodTestStep}
       goToLabsStep={goToLabsStep}
       hasActiveSubscription={subscription?.status === "active" || subscription?.status === "trialing"}
     />

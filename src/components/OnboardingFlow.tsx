@@ -125,6 +125,8 @@ type OnboardingFlowProps = {
   hasPaidAnalysis?: boolean
   /** When true, show "Welcome to Clarion+" instead of subscribe CTA. */
   hasActiveSubscription?: boolean
+  /** Go directly to blood-test options step (9) when user says No to "have labs?" (avoids step guard). */
+  goToBloodTestStep?: () => void
   /** Go directly to labs step from blood-test step (avoids step-guard loop). */
   goToLabsStep?: () => void
 }
@@ -172,6 +174,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
   onWelcomeContinue,
   hasPaidAnalysis = false,
   hasActiveSubscription = false,
+  goToBloodTestStep,
   goToLabsStep,
 } = props
 
@@ -660,7 +663,10 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
                 type="button"
                 className={`onboarding-answer-card ${hasLabResults === true ? "selected" : ""}`}
                 style={hasLabResults === true ? SELECTED_CARD_STYLE : undefined}
-                onClick={() => { setHasLabResults(true); setCurrentStep(STEP_LABS) }}
+                onClick={() => {
+                  setHasLabResults(true)
+                  setCurrentStep(STEP_LABS)
+                }}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
@@ -670,7 +676,11 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
                 type="button"
                 className={`onboarding-answer-card ${hasLabResults === false ? "selected" : ""}`}
                 style={hasLabResults === false ? SELECTED_CARD_STYLE : undefined}
-                onClick={() => { setHasLabResults(false); setCurrentStep(STEP_BLOOD_TEST) }}
+                onClick={() => {
+                  setHasLabResults(false)
+                  if (goToBloodTestStep) goToBloodTestStep()
+                  else setCurrentStep(STEP_BLOOD_TEST)
+                }}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
