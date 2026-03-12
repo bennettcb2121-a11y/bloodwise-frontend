@@ -21,6 +21,8 @@ export type AffiliateProduct = {
   optionType: AffiliateOptionType
   dosageOrUse?: string
   evidenceNote?: string
+  /** Optional product image (e.g. from Amazon ASIN). */
+  imageUrl?: string
 }
 
 /** Replace with your Amazon Associates tag (e.g. yourtag-20). Links use ?tag=YOURTAG-20 */
@@ -28,6 +30,9 @@ export const AFFILIATE_TAG = "clarionlabs-20"
 
 const baseUrl = (asin: string) =>
   `https://www.amazon.com/dp/${asin}?tag=${AFFILIATE_TAG}`
+
+const imageUrlFromAsin = (asin: string) =>
+  `https://m.media-amazon.com/images/P/${asin}._SL160_.jpg`
 
 export const AFFILIATE_DISCLOSURE =
   "Clarion may earn a commission from qualifying purchases made through affiliate links. Product selection is based on form, dosage, brand trust, and practical fit for the biomarker pathway."
@@ -49,6 +54,7 @@ function buildAffiliateProductsFromCore(): Record<string, AffiliateProduct[]> {
       affiliateUrl: baseUrl(products.cheapest.asin),
       optionType: "cheapest",
       dosageOrUse: suggestedProtocol?.slice(0, 120) + (suggestedProtocol && suggestedProtocol.length > 120 ? "…" : ""),
+      imageUrl: imageUrlFromAsin(products.cheapest.asin),
     })
     list.push({
       id: `${key}-premium`,
@@ -61,6 +67,7 @@ function buildAffiliateProductsFromCore(): Record<string, AffiliateProduct[]> {
       affiliateUrl: baseUrl(products.premium.asin),
       optionType: "premium",
       dosageOrUse: suggestedProtocol?.slice(0, 120) + (suggestedProtocol && suggestedProtocol.length > 120 ? "…" : ""),
+      imageUrl: imageUrlFromAsin(products.premium.asin),
     })
     list.push({
       id: `${key}-overall`,
@@ -73,6 +80,7 @@ function buildAffiliateProductsFromCore(): Record<string, AffiliateProduct[]> {
       affiliateUrl: baseUrl(products.overallWinner.asin),
       optionType: "overall_winner",
       dosageOrUse: suggestedProtocol?.slice(0, 120) + (suggestedProtocol && suggestedProtocol.length > 120 ? "…" : ""),
+      imageUrl: imageUrlFromAsin(products.overallWinner.asin),
     })
 
     if (protocol.lifestyleTools?.length) {
@@ -87,6 +95,7 @@ function buildAffiliateProductsFromCore(): Record<string, AffiliateProduct[]> {
           whyRecommended: t.why,
           affiliateUrl: baseUrl(t.asin),
           optionType: "lifestyle_tool",
+          imageUrl: imageUrlFromAsin(t.asin),
         })
       })
     }

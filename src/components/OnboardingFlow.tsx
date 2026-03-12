@@ -1,9 +1,9 @@
 "use client"
 
-import React from "react"
+import React, { useState } from "react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
-import { Target, Pill, Droplet, Activity, Wallet, TrendingUp, ChevronLeft, Lock } from "lucide-react"
+import { Target, Pill, Droplet, Activity, Wallet, TrendingUp, ChevronLeft, Lock, FileText, Stethoscope } from "lucide-react"
 import { SubscribeButton } from "@/src/components/SubscribeButton"
 import { getMarkerReason, getInputPlaceholder, titleCase } from "@/src/lib/panelEngine"
 import { getStatusTone, inferWhyItMatters, inferNextStep } from "@/src/lib/priorityEngine"
@@ -14,9 +14,26 @@ import { CLARION_RECOMMENDED_PANEL_KEYS } from "@/src/lib/coreBiomarkerProtocols
 import type { ProfileState } from "@/src/lib/panelEngine"
 import type { BloodworkSaveRow } from "@/src/lib/bloodwiseDb"
 import { PROFILE_TYPE_OPTIONS } from "@/src/lib/clarionProfiles"
+import {
+  SUPPLEMENT_PRESETS,
+  parseCurrentSupplementsList,
+  serializeCurrentSupplementsList,
+  getSupplementDisplayName,
+} from "@/src/lib/supplementMetadata"
+import { compareStackToCurrentSupplements, getUnnecessaryCurrentSupplements } from "@/src/lib/stackComparison"
+import { BLOOD_TEST_PROVIDERS } from "@/src/lib/bloodTestProviders"
+import { getEvidenceForBiomarker } from "@/src/lib/biomarkerEvidence"
 
 const TRANSITION = { duration: 0.25, ease: "easeOut" as const }
-const TOTAL_STEPS = 13
+const TOTAL_STEPS = 15
+const STEP_HAVE_LABS = 7
+const STEP_LABS = 8
+const STEP_BLOOD_TEST = 9
+const STEP_ANALYSIS = 10
+const STEP_SCORE = 11
+const STEP_INSIGHTS = 12
+const STEP_STACK = 13
+const STEP_SUMMARY = 14
 
 // Profile type → legacy sport for range adaptation (classifyUser)
 function profileTypeToSport(profileType: string): string {
@@ -155,6 +172,17 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
   hasActiveSubscription = false,
 } = props
 
+const [hasLabResults, setHasLabResults] = useState<boolean | null>(null)
+const [customSupplementInput, setCustomSupplementInput] = useState("")
+
+const supplementList =
+  currentSupplements === "No" || !currentSupplements?.trim()
+    ? []
+    : parseCurrentSupplementsList(currentSupplements)
+const setSupplementList = (list: string[]) => {
+  setCurrentSupplements(list.length === 0 ? "" : serializeCurrentSupplementsList(list))
+}
+
 // Inline selected state so it always shows regardless of CSS scope
 const SELECTED_CARD_STYLE: React.CSSProperties = {
   border: "2px solid #f97316",
@@ -178,14 +206,14 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
     if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current)
     autoAdvanceRef.current = setTimeout(() => {
       autoAdvanceRef.current = null
-      setCurrentStep((s: number) => Math.min(11, s + 1))
+      setCurrentStep((s: number) => Math.min(STEP_SUMMARY, s + 1))
     }, AUTO_ADVANCE_MS)
   }, [setCurrentStep])
 
   React.useEffect(() => () => { if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current) }, [])
 
   React.useEffect(() => {
-    if (currentStep !== 8 || !analyzing) return
+    if (currentStep !== STEP_ANALYSIS || !analyzing) return
     const interval = setInterval(() => {
       setAnalysisMessageIndex((i) => (i + 1) % ANALYSIS_MESSAGES.length)
     }, 800)
@@ -193,17 +221,17 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
   }, [currentStep, analyzing])
 
   React.useEffect(() => {
-    if (currentStep !== 8 || !analyzing) return
+    if (currentStep !== STEP_ANALYSIS || !analyzing) return
     const t = setTimeout(() => {
       setAnalyzing(false)
-      setCurrentStep(9)
+      setCurrentStep(STEP_SCORE)
     }, 3000)
     return () => clearTimeout(t)
   }, [currentStep, analyzing, setCurrentStep, setAnalyzing])
 
   // Health score count-up when entering score step
   React.useEffect(() => {
-    if (currentStep !== 9) {
+    if (currentStep !== STEP_SCORE) {
       setDisplayedScore(0)
       return
     }
@@ -222,17 +250,17 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
     return () => cancelAnimationFrame(id)
   }, [currentStep, score])
 
-  const goNext = () => setCurrentStep((s: number) => Math.min(12, s + 1))
+  const goNext = () => setCurrentStep((s: number) => Math.min(STEP_SUMMARY, s + 1))
   const goBack = () => setCurrentStep((s: number) => Math.max(0, s - 1))
 
   const handleAnalyze = () => {
-    setCurrentStep(8)
+    setCurrentStep(STEP_ANALYSIS)
     setAnalyzing(true)
   }
 
   const handleUseRecommended = () => {
     useRecommendedPanel()
-    setCurrentStep(7)
+    setCurrentStep(STEP_HAVE_LABS)
   }
 
   const sliderValue = Math.min(300, Math.max(0, Number(currentSupplementSpend) || 0))
@@ -446,13 +474,15 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
           >
             <div className="onboarding-step-icon" aria-hidden><Pill size={ICON_SIZE} strokeWidth={ICON_STROKE} /></div>
             <h1 className="onboarding-headline">Do you currently take supplements?</h1>
-            <p className="onboarding-subtext">Supplement habits help us estimate waste and build a smarter stack.</p>
+            <p className="onboarding-subtext">Select what you take so we can tailor your stack and avoid overlap.</p>
             <div className="onboarding-card-grid two">
               <motion.button
                 type="button"
-                className={`onboarding-answer-card ${currentSupplements !== "No" ? "selected" : ""}`}
-                style={currentSupplements !== "No" ? SELECTED_CARD_STYLE : undefined}
-                onClick={() => setCurrentSupplements(currentSupplements === "No" ? "" : currentSupplements)}
+                className={`onboarding-answer-card ${currentSupplements !== "No" && currentSupplements?.trim() !== "" ? "selected" : ""}`}
+                style={currentSupplements !== "No" && currentSupplements?.trim() !== "" ? SELECTED_CARD_STYLE : undefined}
+                onClick={() => {
+                  if (currentSupplements === "No") setCurrentSupplements("")
+                }}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
@@ -462,20 +492,76 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
                 type="button"
                 className={`onboarding-answer-card ${currentSupplements === "No" ? "selected" : ""}`}
                 style={currentSupplements === "No" ? SELECTED_CARD_STYLE : undefined}
-                onClick={() => { setCurrentSupplements("No"); scheduleAutoAdvance() }}
+                onClick={() => { setCurrentSupplements("No"); setSupplementList([]); scheduleAutoAdvance() }}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
                 <span className="onboarding-answer-card-title">No</span>
               </motion.button>
             </div>
-            {currentSupplements !== "No" && (
-              <label className="onboarding-textarea-label">
-                <span>List your current supplements</span>
-                <textarea value={currentSupplements} onChange={(e) => setCurrentSupplements(e.target.value)} placeholder="e.g. Fish oil, Vitamin D, Magnesium…" rows={3} />
-              </label>
+            {currentSupplements !== "No" && currentSupplements?.trim() !== "" && (
+              <>
+                <p className="onboarding-field-label" style={{ marginTop: 20, marginBottom: 10 }}>Select what you take</p>
+                <div className="onboarding-supplement-chips">
+                  {SUPPLEMENT_PRESETS.map((preset) => {
+                    const isSelected = supplementList.includes(preset.id)
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        className={`onboarding-supplement-chip ${isSelected ? "selected" : ""}`}
+                        style={isSelected ? SELECTED_PANEL_STYLE : undefined}
+                        onClick={() => {
+                          if (isSelected) setSupplementList(supplementList.filter((x) => x !== preset.id))
+                          else setSupplementList([...supplementList, preset.id])
+                        }}
+                      >
+                        {preset.displayName}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="onboarding-supplement-custom">
+                  <input
+                    type="text"
+                    className="onboarding-input onboarding-supplement-custom-input"
+                    placeholder="Add your own…"
+                    value={customSupplementInput}
+                    onChange={(e) => setCustomSupplementInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        const v = customSupplementInput.trim()
+                        if (v) { setSupplementList([...supplementList, v]); setCustomSupplementInput("") }
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="onboarding-secondary-btn onboarding-supplement-custom-btn"
+                    onClick={() => {
+                      const v = customSupplementInput.trim()
+                      if (v) { setSupplementList([...supplementList, v]); setCustomSupplementInput("") }
+                    }}
+                  >
+                    Add
+                  </button>
+                </div>
+                {supplementList.filter((id) => !SUPPLEMENT_PRESETS.some((p) => p.id === id)).length > 0 && (
+                  <div className="onboarding-supplement-custom-list">
+                    {supplementList
+                      .filter((id) => !SUPPLEMENT_PRESETS.some((p) => p.id === id))
+                      .map((custom) => (
+                        <span key={custom} className="onboarding-supplement-chip onboarding-supplement-chip-custom">
+                          {custom}
+                          <button type="button" aria-label="Remove" className="onboarding-supplement-chip-remove" onClick={() => setSupplementList(supplementList.filter((x) => x !== custom))}>×</button>
+                        </span>
+                      ))}
+                  </div>
+                )}
+              </>
             )}
-            <button type="button" className="onboarding-primary-btn" onClick={() => setCurrentStep(5)}>
+            <button type="button" className="onboarding-primary-btn" onClick={() => setCurrentStep(5)} style={{ marginTop: 24 }}>
               Continue
             </button>
           </motion.section>
@@ -553,7 +639,44 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
           </motion.section>
         )}
 
-        {currentStep === 7 && (
+        {currentStep === STEP_HAVE_LABS && (
+          <motion.section
+            key="have-labs"
+            className="onboarding-screen"
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -24 }}
+            transition={TRANSITION}
+          >
+            <div className="onboarding-step-icon" aria-hidden><FileText size={ICON_SIZE} strokeWidth={ICON_STROKE} /></div>
+            <h1 className="onboarding-headline">Do you already have lab results?</h1>
+            <p className="onboarding-subtext">If you have recent bloodwork, enter your values. If not, we’ll point you to the right tests.</p>
+            <div className="onboarding-card-grid two">
+              <motion.button
+                type="button"
+                className={`onboarding-answer-card ${hasLabResults === true ? "selected" : ""}`}
+                style={hasLabResults === true ? SELECTED_CARD_STYLE : undefined}
+                onClick={() => { setHasLabResults(true); setCurrentStep(STEP_LABS) }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <span className="onboarding-answer-card-title">Yes, I already have results</span>
+              </motion.button>
+              <motion.button
+                type="button"
+                className={`onboarding-answer-card ${hasLabResults === false ? "selected" : ""}`}
+                style={hasLabResults === false ? SELECTED_CARD_STYLE : undefined}
+                onClick={() => { setHasLabResults(false); setCurrentStep(STEP_BLOOD_TEST) }}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <span className="onboarding-answer-card-title">No, help me get the right test</span>
+              </motion.button>
+            </div>
+          </motion.section>
+        )}
+
+        {currentStep === STEP_LABS && (
           <motion.section
             key="labs"
             className="onboarding-screen"
@@ -589,7 +712,47 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
           </motion.section>
         )}
 
-        {currentStep === 8 && analyzing && (
+        {currentStep === STEP_BLOOD_TEST && (
+          <motion.section
+            key="blood-test"
+            className="onboarding-screen"
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -24 }}
+            transition={TRANSITION}
+          >
+            <div className="onboarding-step-icon" aria-hidden><Stethoscope size={ICON_SIZE} strokeWidth={ICON_STROKE} /></div>
+            <h1 className="onboarding-headline">Get the right bloodwork</h1>
+            <p className="onboarding-subtext">We recommend the biomarkers that matter most for your profile. You can request these through your doctor or order online.</p>
+            <div className="onboarding-blood-test-options">
+              <div className="onboarding-blood-test-card">
+                <h3 className="onboarding-blood-test-card-title">Use your doctor</h3>
+                <p className="onboarding-blood-test-card-desc">Ask your doctor to order the same biomarkers we recommend. Take your panel list with you.</p>
+                <p className="onboarding-blood-test-panel-hint">Your recommended panel: {activePanel.map(titleCase).join(", ")}</p>
+              </div>
+              <div className="onboarding-blood-test-card">
+                <h3 className="onboarding-blood-test-card-title">Order online</h3>
+                <p className="onboarding-blood-test-card-desc">These partners offer at-home or lab-draw options. Clarion does not run labs; we help you interpret results.</p>
+                <div className="onboarding-blood-test-providers">
+                  {BLOOD_TEST_PROVIDERS.map((provider) => (
+                    <div key={provider.id} className="onboarding-blood-test-provider">
+                      {provider.badge && <span className="onboarding-blood-test-badge">{provider.badge}</span>}
+                      <strong>{provider.name}</strong>
+                      <p>{provider.description}</p>
+                      <p className="onboarding-blood-test-meta">{provider.biomarkersIncluded} · {provider.priceDisplay}</p>
+                      <a href={provider.ctaUrl} target="_blank" rel="noreferrer noopener" className="onboarding-link-btn">{provider.ctaLabel}</a>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <button type="button" className="onboarding-primary-btn" onClick={() => setCurrentStep(STEP_LABS)} style={{ marginTop: 24 }}>
+              Continue — I’ll enter my results
+            </button>
+          </motion.section>
+        )}
+
+        {currentStep === STEP_ANALYSIS && analyzing && (
           <motion.section
             key="analysis"
             className="onboarding-screen onboarding-screen-center onboarding-screen-analysis"
@@ -610,7 +773,7 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
           </motion.section>
         )}
 
-        {currentStep === 9 && (
+        {currentStep === STEP_SCORE && (
           <motion.section
             key="score"
             className="onboarding-screen onboarding-screen-score onboarding-results-section"
@@ -665,7 +828,7 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
           </motion.section>
         )}
 
-        {currentStep === 10 && (
+        {currentStep === STEP_INSIGHTS && (
           <motion.section
             key="insights"
             className="onboarding-screen onboarding-results-section"
@@ -696,17 +859,27 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
                       <span className={`onboarding-status-badge ${tone.className}`}>{tone.label}</span>
                     </div>
                     <p className="onboarding-insight-value">{item.value ?? "—"} {item.unit || ""}{optimalRange ? <span className="onboarding-insight-optimal"> · Optimal for you: {optimalRange}</span> : null}</p>
-                    <p className="onboarding-insight-desc"><strong>What this means:</strong> {item.description || inferWhyItMatters(marker)}</p>
-                    <p className="onboarding-insight-why">Why this matters for you: {whyForYou}</p>
-                    <p className="onboarding-insight-action"><strong>Recommended action:</strong> {item.supplementNotes || inferNextStep(marker, item.status)}</p>
+                    <p className="onboarding-insight-desc"><strong>What this means for you:</strong> {item.description || inferWhyItMatters(marker)}</p>
+                    <p className="onboarding-insight-why">{whyForYou}</p>
+                    <p className="onboarding-insight-action"><strong>Recommended next steps:</strong> {item.supplementNotes || inferNextStep(marker, item.status)}</p>
                     {item.retest && <p className="onboarding-insight-retest">Retest: {item.retest}</p>}
                     <button type="button" className="onboarding-ghost-btn" onClick={() => toggleScience(marker)}>
-                      {openScienceMarkers[marker] ? "Hide science" : "Science"}
+                      {openScienceMarkers[marker] ? "Hide evidence" : "Evidence"}
                     </button>
-                    {openScienceMarkers[marker] && (item.researchSummary || item.whyItMatters) && (
+                    {openScienceMarkers[marker] && (
                       <div className="onboarding-science-drawer">
                         {item.researchSummary && <p>{item.researchSummary}</p>}
                         {item.whyItMatters && <p>{item.whyItMatters}</p>}
+                        {getEvidenceForBiomarker(marker).length > 0 && (
+                          <ul className="onboarding-evidence-list">
+                            {getEvidenceForBiomarker(marker).map((e, i) => (
+                              <li key={i}>
+                                <a href={e.url} target="_blank" rel="noreferrer noopener" className="onboarding-evidence-link">{e.title}</a>
+                                <span className="onboarding-evidence-source"> — {e.source}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                     )}
                   </div>
@@ -728,7 +901,7 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
           </motion.section>
         )}
 
-        {currentStep === 11 && (
+        {currentStep === STEP_STACK && (
           <motion.section
             key="stack"
             className="onboarding-screen onboarding-results-section"
@@ -787,21 +960,30 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
                 {(profile.improvementPreference === "Diet" || profile.improvementPreference === "Lifestyle") && (
                   <p className="onboarding-protocol-optional">Optional supplement support:</p>
                 )}
-                <div className="onboarding-stack-list">
-                  {optimizedStack.stack.map((rec: any, idx: number) => {
-                    const best = rec.bestOverall ?? rec.bestValue
-                    const key = `${rec.supplementKey}-${idx}`
-                    const leaderboard = rec.leaderboard || []
-                    const premium = leaderboard.length > 1 ? leaderboard[1] : null
-                    return (
-                      <div key={key} className="onboarding-stack-card">
-                        <div className="onboarding-stack-card-top">
-                          <div>
-                            <strong>{rec.name}</strong>
-                            <span className="onboarding-stack-dose">{rec.dose}</span>
-                          </div>
-                          <span className="onboarding-stack-price">${Number(rec.estimatedMonthlyCost || 0).toFixed(2)}/mo</span>
-                        </div>
+                {(() => {
+                  const compared = compareStackToCurrentSupplements(currentSupplements, optimizedStack.stack)
+                  const unnecessary = getUnnecessaryCurrentSupplements(currentSupplements, optimizedStack.stack)
+                  return (
+                    <>
+                      {unnecessary.length > 0 && (
+                        <p className="onboarding-stack-unnecessary">You&apos;re currently taking {unnecessary.join(", ")}; based on your biomarkers they&apos;re not a current priority. You can keep taking them or pause and retest later.</p>
+                      )}
+                      <div className="onboarding-stack-list">
+                        {compared.map((rec: any, idx: number) => {
+                          const best = rec.bestOverall ?? rec.bestValue
+                          const key = `${rec.supplementKey}-${idx}`
+                          const leaderboard = rec.leaderboard || []
+                          const premium = leaderboard.length > 1 ? leaderboard[1] : null
+                          return (
+                            <div key={key} className="onboarding-stack-card">
+                              <div className="onboarding-stack-card-top">
+                                <div>
+                                  <strong>{rec.name}</strong>
+                                  <span className="onboarding-stack-dose">{rec.dose}</span>
+                                </div>
+                                <span className="onboarding-stack-price">${Number(rec.estimatedMonthlyCost || 0).toFixed(2)}/mo</span>
+                              </div>
+                              <p className={`onboarding-stack-status onboarding-stack-status-${rec.status}`}>{rec.statusMessage}</p>
                         <p className="onboarding-stack-why">Included because: {rec.whyThisIsRecommended ?? rec.whyRecommended ?? "Supports your biomarker goals."}</p>
                         {best && (
                           <div className="onboarding-stack-pick">
@@ -836,6 +1018,9 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
                     )
                   })}
                 </div>
+                </>
+                  )
+                })()}
                 <div className="onboarding-stack-summary">
                   <p><span>Current spend:</span> <strong>${userCurrentSpend.toFixed(2)}/month</strong></p>
                   <p><span>Clarion optimized stack:</span> <strong>${optimizedSpend.toFixed(2)}/month</strong></p>
@@ -871,7 +1056,7 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
                     <SubscribeButton className="onboarding-primary-btn onboarding-cta-subscribe">Unlock ongoing tracking</SubscribeButton>
                   </div>
                 )}
-                {/* Curated affiliate product picks */}
+                {/* Curated affiliate product picks — close to protocol */}
                 {(() => {
                   const biomarkersInStack = [...new Set(optimizedStack.stack.map((r: any) => r.marker || r.name).filter(Boolean))]
                   const affiliateProducts = biomarkersInStack.flatMap((b) => getAffiliateProductsForBiomarker(b, ["cheapest", "premium", "overall_winner"]))
@@ -882,13 +1067,16 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
                       <div className="onboarding-affiliate-grid">
                         {affiliateProducts.slice(0, 6).map((p) => (
                           <div key={p.id} className="onboarding-affiliate-card">
+                            {p.imageUrl && (
+                              <div className="onboarding-affiliate-card-image-wrap">
+                                <img src={p.imageUrl} alt="" className="onboarding-affiliate-card-image" />
+                              </div>
+                            )}
                             <span className={`onboarding-affiliate-badge ${p.optionType}`}>{p.subtitle || (p.optionType === "overall_winner" ? "Overall winner" : p.optionType === "cheapest" ? "Cheapest" : "Premium")}</span>
                             <strong className="onboarding-affiliate-card-title">{p.title}</strong>
-                            {p.subtitle && <span className="onboarding-affiliate-card-subtitle">{p.subtitle}</span>}
                             <p className="onboarding-affiliate-why">{p.whyRecommended}</p>
                             {p.monthlyCostEstimate != null && <span className="onboarding-affiliate-cost">~${p.monthlyCostEstimate}/mo</span>}
                             <a href={p.affiliateUrl} target="_blank" rel="noreferrer noopener" className="onboarding-affiliate-btn">Buy on Amazon</a>
-                            {p.evidenceNote && <p className="onboarding-affiliate-note">{p.evidenceNote}</p>}
                           </div>
                         ))}
                       </div>
@@ -913,7 +1101,7 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
           </motion.section>
         )}
 
-        {currentStep === 12 && (
+        {currentStep === STEP_SUMMARY && (
           <motion.section
             key="next"
             className="onboarding-screen onboarding-results-section"
@@ -925,12 +1113,20 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
             <div className={userId && !hasPaidAnalysis ? "onboarding-results-blur" : ""}>
             <h1 className="onboarding-headline">You&apos;re all set</h1>
             <p className="onboarding-subtext">Your Clarion Health Score: <strong>{score}</strong> / 100. Follow your protocol, retest in 8–12 weeks, and track progress in your dashboard.</p>
-            <div className="onboarding-summary-stats">
-              {estimatedSavingsVsCurrent > 0 && (
-                <p className="onboarding-summary-savings">Monthly savings: ${estimatedSavingsVsCurrent.toFixed(0)} · Annual: ${annualSavings.toFixed(0)}</p>
-              )}
-              <p className="onboarding-summary-retest">Recommended retest: 8–12 weeks for key biomarkers.</p>
+            <div className="onboarding-summary-score-block">
+              <div className="onboarding-summary-score-ring">
+                <span className="onboarding-summary-score-num">{score}</span>
+                <span className="onboarding-summary-score-max">/ 100</span>
+              </div>
             </div>
+            {estimatedSavingsVsCurrent > 0 && (
+              <div className="onboarding-summary-savings-card">
+                <h3 className="onboarding-summary-savings-title">Estimated savings</h3>
+                <p className="onboarding-summary-savings-monthly">${estimatedSavingsVsCurrent.toFixed(0)} / month</p>
+                <p className="onboarding-summary-savings-annual">${annualSavings.toFixed(0)} / year</p>
+              </div>
+            )}
+            <p className="onboarding-summary-retest">Recommended retest: 8–12 weeks for key biomarkers.</p>
             <div className="onboarding-next-actions">
               {onGoToDashboard && (
                 <button type="button" className="onboarding-next-btn onboarding-next-btn-primary" onClick={onGoToDashboard}>
@@ -938,14 +1134,14 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
                 </button>
               )}
               {!onGoToDashboard && <Link href="/dashboard" className="onboarding-next-btn onboarding-next-btn-primary">Go to Dashboard</Link>}
-              <button type="button" className="onboarding-next-btn" onClick={() => setCurrentStep(11)}>Back to stack</button>
+              <button type="button" className="onboarding-next-btn onboarding-next-btn-secondary" onClick={() => setCurrentStep(STEP_STACK)}>Back to stack</button>
               {hasActiveSubscription ? (
                 <span className="onboarding-next-badge">You&apos;re a Clarion+ member</span>
               ) : (
-                <SubscribeButton className="onboarding-next-btn">Unlock Clarion+</SubscribeButton>
+                <span className="onboarding-next-clarion-link"><SubscribeButton className="onboarding-ghost-btn">Clarion+ — full history &amp; retest reminders</SubscribeButton></span>
               )}
             </div>
-            <p className="onboarding-next-footer">Your dashboard will show your score, top priorities, protocol tracker, and biomarker trends.{!hasActiveSubscription && " Clarion+ adds full history, retest reminders, and smarter recommendations."}</p>
+            <p className="onboarding-next-footer">Your dashboard will show your score, top priorities, protocol tracker, and biomarker trends.</p>
             </div>
             {userId && !hasPaidAnalysis && (
               <div className="onboarding-results-lock-overlay">
@@ -1234,6 +1430,62 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
           box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.45), 0 4px 12px rgba(249, 115, 22, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
         }
         .onboarding-customize-hint { font-size: 13px; color: rgba(255,255,255,0.55); margin-top: 12px; }
+        .onboarding-supplement-chips { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+        .onboarding-supplement-chip {
+          padding: 10px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.12); background: rgba(26,26,31,0.8);
+          font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.9); cursor: pointer; transition: border-color 0.2s, background 0.2s;
+        }
+        .onboarding-supplement-chip:hover { border-color: rgba(255,255,255,0.2); background: rgba(32,32,38,0.9); }
+        .onboarding-supplement-chip.selected { color: #fff; }
+        .onboarding-supplement-chip-custom { display: inline-flex; align-items: center; gap: 6px; padding-right: 6px; }
+        .onboarding-supplement-chip-remove { background: none; border: none; color: rgba(255,255,255,0.6); cursor: pointer; font-size: 18px; line-height: 1; padding: 0 4px; }
+        .onboarding-supplement-chip-remove:hover { color: #fafafa; }
+        .onboarding-supplement-custom { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+        .onboarding-supplement-custom-input { flex: 1; max-width: 100%; }
+        .onboarding-supplement-custom-btn { margin-top: 0; }
+        .onboarding-supplement-custom-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+        .onboarding-blood-test-options { display: flex; flex-direction: column; gap: 20px; margin-bottom: 24px; }
+        .onboarding-blood-test-card {
+          background: rgba(26,26,31,0.8); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 20px; box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+        }
+        .onboarding-blood-test-card-title { font-size: 17px; font-weight: 700; color: #fafafa; margin: 0 0 10px; }
+        .onboarding-blood-test-card-desc { font-size: 15px; color: rgba(255,255,255,0.75); line-height: 1.5; margin: 0 0 12px; }
+        .onboarding-blood-test-panel-hint { font-size: 13px; color: rgba(255,255,255,0.6); margin: 0; }
+        .onboarding-blood-test-providers { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; }
+        .onboarding-blood-test-provider {
+          padding: 14px; background: rgba(255,255,255,0.04); border-radius: 10px; border: 1px solid rgba(255,255,255,0.06);
+        }
+        .onboarding-blood-test-provider strong { display: block; margin-bottom: 6px; color: #fafafa; }
+        .onboarding-blood-test-provider p { margin: 0 0 8px; font-size: 14px; color: rgba(255,255,255,0.75); line-height: 1.45; }
+        .onboarding-blood-test-badge { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #f97316; margin-right: 8px; }
+        .onboarding-blood-test-meta { font-size: 13px !important; color: rgba(255,255,255,0.55) !important; }
+        .onboarding-evidence-list { margin: 12px 0 0; padding-left: 20px; list-style: none; }
+        .onboarding-evidence-list li { margin-bottom: 8px; }
+        .onboarding-evidence-link { color: rgba(249, 115, 22, 0.95); text-decoration: none; font-weight: 500; }
+        .onboarding-evidence-link:hover { text-decoration: underline; }
+        .onboarding-evidence-source { font-size: 13px; color: rgba(255,255,255,0.55); }
+        .onboarding-stack-status { font-size: 14px; color: rgba(255,255,255,0.85); margin: 0 0 10px; padding: 10px 12px; background: rgba(255,255,255,0.05); border-radius: 8px; border-left: 3px solid rgba(249, 115, 22, 0.5); }
+        .onboarding-stack-status-already_taking { border-left-color: rgba(74, 222, 128, 0.6); }
+        .onboarding-stack-status-upgrade_recommended { border-left-color: rgba(249, 115, 22, 0.8); }
+        .onboarding-stack-unnecessary { font-size: 14px; color: rgba(255,255,255,0.7); margin: 0 0 20px; padding: 12px 16px; background: rgba(255,255,255,0.05); border-radius: 10px; }
+        .onboarding-affiliate-card-image-wrap { width: 100%; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: rgba(255,255,255,0.06); margin-bottom: 12px; }
+        .onboarding-affiliate-card-image { width: 100%; height: 100%; object-fit: contain; }
+        .onboarding-summary-score-block { margin: 20px 0; }
+        .onboarding-summary-score-ring {
+          display: inline-flex; align-items: baseline; gap: 4px; padding: 16px 28px; background: rgba(26,26,31,0.8); border: 2px solid rgba(249, 115, 22, 0.35);
+          border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .onboarding-summary-score-num { font-size: 36px; font-weight: 800; color: #f97316; letter-spacing: -0.02em; }
+        .onboarding-summary-score-max { font-size: 18px; font-weight: 600; color: rgba(255,255,255,0.5); }
+        .onboarding-summary-savings-card {
+          background: rgba(26,26,31,0.8); border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 20px; margin: 16px 0; max-width: 320px;
+        }
+        .onboarding-summary-savings-title { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.55); margin: 0 0 8px; }
+        .onboarding-summary-savings-monthly { font-size: 22px; font-weight: 700; color: #fafafa; margin: 0; }
+        .onboarding-summary-savings-annual { font-size: 15px; color: rgba(255,255,255,0.65); margin: 4px 0 0; }
+        .onboarding-next-btn-secondary { background: transparent; color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.15); }
+        .onboarding-next-btn-secondary:hover { background: rgba(255,255,255,0.08); }
+        .onboarding-next-clarion-link { display: block; margin-top: 8px; }
         .onboarding-lab-inputs { display: flex; flex-direction: column; gap: 16px; margin-bottom: 20px; }
         .onboarding-lab-card {
           background: rgba(26,26,31,0.8); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px 18px; box-shadow: 0 2px 12px rgba(0,0,0,0.2);

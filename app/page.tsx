@@ -338,7 +338,7 @@ function HomePageContent() {
       if (Array.isArray(b?.selected_panel) && b.selected_panel.length > 0) {
         setSelectedPanel(b.selected_panel)
       }
-      setCurrentStepRaw(8) // analysis loading → score reveal
+      setCurrentStepRaw(10) // analysis loading → score reveal
       setAnalyzing(true)
       router.replace("/", { scroll: false })
     }).catch(() => router.replace("/", { scroll: false }))
@@ -353,7 +353,7 @@ function HomePageContent() {
         setInputs((prev) => ({ ...prev, ...b.biomarker_inputs }))
         if (Array.isArray(b.selected_panel) && b.selected_panel.length > 0) setSelectedPanel(b.selected_panel)
         setHasPaidAnalysis(true)
-        setCurrentStepRaw(8)
+        setCurrentStepRaw(10)
         setAnalyzing(true)
       }
       router.replace("/", { scroll: false })
@@ -399,14 +399,14 @@ function HomePageContent() {
   useEffect(() => {
     if (typeof window === "undefined") return
     const hash = window.location.hash.slice(1).toLowerCase()
-    if (hash === "insights") setCurrentStepRaw(10)
-    if (hash === "stack") setCurrentStepRaw(11)
+    if (hash === "insights") setCurrentStepRaw(12)
+    if (hash === "stack") setCurrentStepRaw(13)
   }, [])
 
   // DEV ONLY: ?preview= lets you jump to any screen (e.g. ?preview=score, ?preview=stack)
   const previewStepMap: Record<string, number> = {
-    welcome: 0, goal: 1, activity: 2, supplements: 3, spend: 4, panel: 6, labs: 7,
-    analysis: 8, score: 9, insights: 10, stack: 11, summary: 12,
+    welcome: 0, goal: 1, activity: 2, supplements: 4, spend: 5, panel: 6, havelabs: 7, labs: 8, bloodtest: 9,
+    analysis: 10, score: 11, insights: 12, stack: 13, summary: 14,
   }
   useEffect(() => {
     if (!isDev) return
@@ -419,8 +419,8 @@ function HomePageContent() {
     const step = previewStepMap[preview.toLowerCase()]
     if (typeof step === "number") {
       setCurrentStepRaw(step)
-      if (step === 8) setAnalyzing(true)
-      if (step === 9) setAnalyzing(false)
+      if (step === 10) setAnalyzing(true)
+      if (step === 11) setAnalyzing(false)
     }
   }, [isDev, searchParams, router])
 
@@ -490,11 +490,11 @@ function HomePageContent() {
     }
   }, profileDeps)
 
-  // Save bloodwork panel to Supabase when user reaches score step (9) or later
+  // Save bloodwork panel to Supabase when user reaches score step (11) or later
   const lastSavedStepRef = useRef(-1)
   const bloodworkSaveDeps: [string | null, number] = [userId, currentStep]
   useEffect(() => {
-    if (!userId || currentStep < 9) return
+    if (!userId || currentStep < 11) return
     if (currentStep === lastSavedStepRef.current) return
     lastSavedStepRef.current = currentStep
     const keyFlagged = analysisResults.filter((r) => r.status !== "optimal").map((r) => r.name).filter((n): n is string => Boolean(n))
@@ -581,12 +581,10 @@ function HomePageContent() {
     if (Array.isArray(save.selected_panel) && save.selected_panel.length > 0) {
       setSelectedPanel(save.selected_panel)
     }
-    const step = typeof save.current_step === "number" && save.current_step >= 0 && save.current_step <= 11
+    const step = typeof save.current_step === "number" && save.current_step >= 0 && save.current_step <= 14
       ? save.current_step
-      : typeof save.current_step === "number" && save.current_step >= 1 && save.current_step <= 6
-        ? ({ 1: 1, 2: 2, 3: 5, 4: 6, 5: 8, 6: 10 } as Record<number, number>)[save.current_step] ?? 8
-        : 8
-    // Never jump to panel step (6 = Step 7) when user is on welcome/profile — prevents post-sign-in jump bug
+      : 10
+    // Never jump to panel step (6) when user is on welcome/profile — prevents post-sign-in jump bug
     setCurrentStep((prev) => (prev <= 1 && step === 6 ? prev : step))
   }
 
@@ -646,7 +644,7 @@ function HomePageContent() {
       <div className="dev-preview-switcher" aria-hidden>
         <span className="dev-preview-label">Dev preview</span>
         <div className="dev-preview-links">
-          {["welcome", "goal", "activity", "supplements", "spend", "panel", "labs", "analysis", "score", "insights", "stack", "summary"].map((p) => (
+          {["welcome", "goal", "activity", "supplements", "spend", "panel", "havelabs", "labs", "bloodtest", "analysis", "score", "insights", "stack", "summary"].map((p) => (
             <Link key={p} href={"/?preview=" + p} className="dev-preview-link">{p}</Link>
           ))}
           <Link href="/dashboard" className="dev-preview-link">dashboard</Link>
