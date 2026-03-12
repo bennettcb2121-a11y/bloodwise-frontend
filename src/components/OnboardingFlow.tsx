@@ -155,6 +155,20 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
   hasActiveSubscription = false,
 } = props
 
+// Inline selected state so it always shows regardless of CSS scope
+const SELECTED_CARD_STYLE: React.CSSProperties = {
+  border: "2px solid #f97316",
+  background: "linear-gradient(145deg, rgba(249, 115, 22, 0.42) 0%, rgba(234, 88, 12, 0.34) 50%, rgba(229, 72, 77, 0.28) 100%)",
+  boxShadow: "0 0 0 2px rgba(249, 115, 22, 0.5), 0 8px 28px rgba(249, 115, 22, 0.35)",
+  color: "#fff",
+}
+const SELECTED_PANEL_STYLE: React.CSSProperties = {
+  border: "2px solid #f97316",
+  background: "linear-gradient(135deg, rgba(249, 115, 22, 0.4) 0%, rgba(229, 72, 77, 0.3) 100%)",
+  color: "#fff",
+  boxShadow: "0 0 0 2px rgba(249, 115, 22, 0.45), 0 4px 12px rgba(249, 115, 22, 0.28)",
+}
+
   const [analysisMessageIndex, setAnalysisMessageIndex] = React.useState(0)
   const [displayedScore, setDisplayedScore] = React.useState(0)
   const hasSupplements = Boolean(optimizedStack.stack?.length)
@@ -305,24 +319,28 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
                   <div key={group} className="onboarding-profile-group">
                     <h3 className="onboarding-profile-group-title">{groupLabel}</h3>
                     <div className="onboarding-card-grid four">
-                      {opts.map((opt) => (
-                        <motion.button
-                          key={opt.id}
-                          type="button"
-                          className={`onboarding-answer-card ${profile.profileType === opt.id ? "selected" : ""}`}
-                          onClick={() => setProfile((p) => ({
-                            ...p,
-                            profileType: opt.id,
-                            sport: profileTypeToSport(opt.id),
-                            goal: profileTypeToGoal(opt.id),
-                          }))}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          <span className="onboarding-answer-card-title">{opt.label}</span>
-                          <span className="onboarding-answer-card-desc">{opt.description}</span>
-                        </motion.button>
-                      ))}
+                      {opts.map((opt) => {
+                        const isSelected = profile.profileType === opt.id
+                        return (
+                          <motion.button
+                            key={opt.id}
+                            type="button"
+                            className={`onboarding-answer-card ${isSelected ? "selected" : ""}`}
+                            style={isSelected ? SELECTED_CARD_STYLE : undefined}
+                            onClick={() => setProfile((p) => ({
+                              ...p,
+                              profileType: opt.id,
+                              sport: profileTypeToSport(opt.id),
+                              goal: profileTypeToGoal(opt.id),
+                            }))}
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                          >
+                            <span className="onboarding-answer-card-title">{opt.label}</span>
+                            <span className="onboarding-answer-card-desc">{opt.description}</span>
+                          </motion.button>
+                        )
+                      })}
                     </div>
                   </div>
                 )
@@ -357,18 +375,22 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
                 { id: "Female", label: "Female" },
                 { id: "Other", label: "Other" },
                 { id: "Prefer not to say", label: "Prefer not to say" },
-              ].map((opt) => (
-                <motion.button
-                  key={opt.id}
-                  type="button"
-                  className={`onboarding-answer-card onboarding-answer-card-compact ${profile.sex === opt.id ? "selected" : ""}`}
-                  onClick={() => setProfile((p) => ({ ...p, sex: opt.id }))}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <span className="onboarding-answer-card-title">{opt.label}</span>
-                </motion.button>
-              ))}
+              ].map((opt) => {
+                const isSelected = profile.sex === opt.id
+                return (
+                  <motion.button
+                    key={opt.id}
+                    type="button"
+                    className={`onboarding-answer-card onboarding-answer-card-compact ${isSelected ? "selected" : ""}`}
+                    style={isSelected ? SELECTED_CARD_STYLE : undefined}
+                    onClick={() => setProfile((p) => ({ ...p, sex: opt.id }))}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <span className="onboarding-answer-card-title">{opt.label}</span>
+                  </motion.button>
+                )
+              })}
             </div>
             <button type="button" className="onboarding-primary-btn" onClick={() => setCurrentStep(3)}>
               Continue
@@ -389,19 +411,23 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
             <h1 className="onboarding-headline">How do you prefer to improve your biomarkers?</h1>
             <p className="onboarding-subtext">Clarion can optimize through supplements, diet, lifestyle, or a combination. We'll tailor your protocol to your preference.</p>
             <div className="onboarding-card-grid four">
-              {IMPROVEMENT_PREFERENCE_OPTIONS.map((opt) => (
-                <motion.button
-                  key={opt.id}
-                  type="button"
-                  className={`onboarding-answer-card ${profile.improvementPreference === opt.id ? "selected" : ""}`}
-                  onClick={() => setProfile((p) => ({ ...p, improvementPreference: opt.id }))}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <span className="onboarding-answer-card-title">{opt.label}</span>
-                  <span className="onboarding-answer-card-desc">{opt.description}</span>
-                </motion.button>
-              ))}
+              {IMPROVEMENT_PREFERENCE_OPTIONS.map((opt) => {
+                const isSelected = profile.improvementPreference === opt.id
+                return (
+                  <motion.button
+                    key={opt.id}
+                    type="button"
+                    className={`onboarding-answer-card ${isSelected ? "selected" : ""}`}
+                    style={isSelected ? SELECTED_CARD_STYLE : undefined}
+                    onClick={() => setProfile((p) => ({ ...p, improvementPreference: opt.id }))}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <span className="onboarding-answer-card-title">{opt.label}</span>
+                    <span className="onboarding-answer-card-desc">{opt.description}</span>
+                  </motion.button>
+                )
+              })}
             </div>
             <button type="button" className="onboarding-primary-btn" onClick={() => setCurrentStep(4)} disabled={!profile.improvementPreference}>
               Continue
@@ -425,6 +451,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
               <motion.button
                 type="button"
                 className={`onboarding-answer-card ${currentSupplements !== "No" ? "selected" : ""}`}
+                style={currentSupplements !== "No" ? SELECTED_CARD_STYLE : undefined}
                 onClick={() => setCurrentSupplements(currentSupplements === "No" ? "" : currentSupplements)}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -434,6 +461,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
               <motion.button
                 type="button"
                 className={`onboarding-answer-card ${currentSupplements === "No" ? "selected" : ""}`}
+                style={currentSupplements === "No" ? SELECTED_CARD_STYLE : undefined}
                 onClick={() => { setCurrentSupplements("No"); scheduleAutoAdvance() }}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -506,11 +534,20 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
             </div>
             <p className="onboarding-customize-label">Or select/deselect from the core set:</p>
             <div className="onboarding-panel-toggles">
-              {CLARION_RECOMMENDED_PANEL_KEYS.filter((marker) => biomarkerKeys.includes(marker)).map((marker) => (
-                <button key={marker} type="button" className={`onboarding-panel-toggle ${activePanel.includes(marker) ? "selected" : ""}`} onClick={() => togglePanelMarker(marker)}>
-                  {titleCase(marker)}
-                </button>
-              ))}
+              {CLARION_RECOMMENDED_PANEL_KEYS.filter((marker) => biomarkerKeys.includes(marker)).map((marker) => {
+                const isSelected = activePanel.includes(marker)
+                return (
+                  <button
+                    key={marker}
+                    type="button"
+                    className={`onboarding-panel-toggle ${isSelected ? "selected" : ""}`}
+                    style={isSelected ? SELECTED_PANEL_STYLE : undefined}
+                    onClick={() => togglePanelMarker(marker)}
+                  >
+                    {titleCase(marker)}
+                  </button>
+                )
+              })}
             </div>
             {activePanel.length > 0 && <div className="onboarding-customize-hint">Selected: {activePanel.map(titleCase).join(", ")}</div>}
           </motion.section>

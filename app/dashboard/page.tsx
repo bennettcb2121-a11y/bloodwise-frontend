@@ -187,13 +187,18 @@ export default function DashboardPage() {
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [user?.id, router])
 
-  // Redirect to paywall only if user has not purchased analysis yet. Anyone who paid gets dashboard access.
+  // Redirect to paywall only when we're sure they have no access: no payment, no subscription, no saved bloodwork.
+  const hasAnyAccess =
+    (profile?.analysis_purchased_at) ||
+    (subscription?.status === "active" || subscription?.status === "trialing") ||
+    (bloodwork && (bloodwork.score != null || (bloodwork.selected_panel?.length ?? 0) > 0))
   useEffect(() => {
     if (authLoading || !user || loading) return
-    if (profile !== null && !profile.analysis_purchased_at) {
+    if (profile === null && !loading) return
+    if (!hasAnyAccess && profile !== null) {
       router.replace("/paywall")
     }
-  }, [authLoading, user, loading, profile, router])
+  }, [authLoading, user, loading, profile, hasAnyAccess, router])
 
   const profileForAnalysis = profile
     ? { age: profile.age, sex: profile.sex, sport: profile.sport }

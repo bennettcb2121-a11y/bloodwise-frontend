@@ -113,3 +113,27 @@ body {
 .dev-preview-link:hover {
   background: rgba(255,255,255,0.12);
 }
+
+/* Clarion onboarding: selected state (global so it always applies) */
+[class*="onboarding-answer-card"].selected,
+button[class*="onboarding-answer-card"].selected {
+  border: 2px solid #f97316 !important;
+  background: linear-gradient(145deg, rgba(249, 115, 22, 0.4) 0%, rgba(234, 88, 12, 0.32) 50%, rgba(229, 72, 77, 0.26) 100%) !important;
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.45), 0 8px 28px rgba(249, 115, 22, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  color: #fff !important;
+}
+[class*="onboarding-answer-card"].selected .onboarding-answer-card-title,
+[class*="onboarding-answer-card"].selected [class*="onboarding-answer-card-title"] {
+  color: #fff !important;
+}
+[class*="onboarding-answer-card"].selected .onboarding-answer-card-desc,
+[class*="onboarding-answer-card"].selected [class*="onboarding-answer-card-desc"] {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+[class*="onboarding-panel-toggle"].selected,
+button[class*="onboarding-panel-toggle"].selected {
+  border: 2px solid #f97316 !important;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.38) 0%, rgba(229, 72, 77, 0.28) 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.4), 0 4px 12px rgba(249, 115, 22, 0.25) !important;
+}
