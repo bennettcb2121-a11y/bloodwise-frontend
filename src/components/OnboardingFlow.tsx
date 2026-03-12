@@ -9,6 +9,7 @@ import { getMarkerReason, getInputPlaceholder, titleCase } from "@/src/lib/panel
 import { getStatusTone, inferWhyItMatters, inferNextStep } from "@/src/lib/priorityEngine"
 import { getDisplayRange } from "@/src/lib/analyzeBiomarkers"
 import { biomarkerDatabase } from "@/src/lib/biomarkerDatabase"
+import { getAffiliateProductsForBiomarker, AFFILIATE_DISCLOSURE } from "@/src/lib/affiliateProducts"
 import type { ProfileState } from "@/src/lib/panelEngine"
 import type { BloodworkSaveRow } from "@/src/lib/bloodwiseDb"
 import { PROFILE_TYPE_OPTIONS } from "@/src/lib/clarionProfiles"
@@ -40,10 +41,11 @@ const IMPROVEMENT_PREFERENCE_OPTIONS = [
 ]
 
 const ANALYSIS_MESSAGES = [
-  "Analyzing your biomarkers",
-  "Evaluating your results",
-  "Detecting potential deficiencies",
-  "Building your optimization plan",
+  "Analyzing biomarkers",
+  "Comparing optimal ranges",
+  "Detecting opportunities",
+  "Building your protocol",
+  "Calculating savings",
 ]
 
 const AUTO_ADVANCE_MS = 380
@@ -97,6 +99,8 @@ type OnboardingFlowProps = {
   previousReports: BloodworkSaveRow[]
   previousReportsLoading: boolean
   handleOpenReport: (save: BloodworkSaveRow) => void
+  /** Called when user clicks "Go to Dashboard" on final summary (step 12). Marks results flow complete and navigates to dashboard. */
+  onGoToDashboard?: () => void
   /** When provided, welcome "Start" uses this (e.g. redirect to login if not signed in). */
   onWelcomeContinue?: () => void
   /** If false and user is logged in, results steps show blur + lock overlay. */
@@ -142,6 +146,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
     previousReports,
     previousReportsLoading,
     handleOpenReport,
+    onGoToDashboard,
     onWelcomeContinue,
     hasPaidAnalysis = false,
   } = props
@@ -621,7 +626,12 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
             <div className={userId && !hasPaidAnalysis ? "onboarding-results-blur" : ""}>
             <div className="onboarding-step-icon" aria-hidden><Droplet size={ICON_SIZE} strokeWidth={ICON_STROKE} /></div>
             <h1 className="onboarding-headline">Biomarker insights</h1>
-            <p className="onboarding-subtext">What your results mean, why they matter for you, and what to do next.</p>
+            <p className="onboarding-subtext">
+              What your results mean, why they matter for you, and what to do next.
+              {profile.improvementPreference && (
+                <span className="onboarding-preference-note"> Recommendations are tailored to your {profile.improvementPreference.toLowerCase()} approach.</span>
+              )}
+            </p>
             <div className="onboarding-insights-list">
               {analysisResults.map((item: any, idx: number) => {
                 const marker = String(item.name || item.marker || "")
@@ -797,6 +807,31 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
                   </ul>
                   <SubscribeButton className="onboarding-primary-btn onboarding-cta-subscribe">Unlock ongoing tracking</SubscribeButton>
                 </div>
+                {/* Curated affiliate product picks */}
+                {(() => {
+                  const biomarkersInStack = [...new Set(optimizedStack.stack.map((r: any) => r.marker || r.name).filter(Boolean))]
+                  const affiliateProducts = biomarkersInStack.flatMap((b) => getAffiliateProductsForBiomarker(b, ["cheapest", "premium", "overall_winner"]))
+                  if (affiliateProducts.length === 0) return null
+                  return (
+                    <div className="onboarding-affiliate-section">
+                      <h3 className="onboarding-affiliate-title">Curated product picks</h3>
+                      <div className="onboarding-affiliate-grid">
+                        {affiliateProducts.slice(0, 6).map((p) => (
+                          <div key={p.id} className="onboarding-affiliate-card">
+                            <span className={`onboarding-affiliate-badge ${p.optionType}`}>{p.subtitle || (p.optionType === "overall_winner" ? "Overall winner" : p.optionType === "cheapest" ? "Cheapest" : "Premium")}</span>
+                            <strong className="onboarding-affiliate-card-title">{p.title}</strong>
+                            {p.subtitle && <span className="onboarding-affiliate-card-subtitle">{p.subtitle}</span>}
+                            <p className="onboarding-affiliate-why">{p.whyRecommended}</p>
+                            {p.monthlyCostEstimate != null && <span className="onboarding-affiliate-cost">~${p.monthlyCostEstimate}/mo</span>}
+                            <a href={p.affiliateUrl} target="_blank" rel="noreferrer noopener" className="onboarding-affiliate-btn">Buy on Amazon</a>
+                            {p.evidenceNote && <p className="onboarding-affiliate-note">{p.evidenceNote}</p>}
+                          </div>
+                        ))}
+                      </div>
+                      <p className="onboarding-affiliate-disclosure">{AFFILIATE_DISCLOSURE}</p>
+                    </div>
+                  )
+                })()}
               </>
             )}
             <button type="button" className="onboarding-primary-btn" onClick={goNext}>Continue</button>
@@ -824,17 +859,25 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
             transition={TRANSITION}
           >
             <div className={userId && !hasPaidAnalysis ? "onboarding-results-blur" : ""}>
-            <h1 className="onboarding-headline">What happens next</h1>
-            <p className="onboarding-subtext">Buy your protocol, follow it consistently, retest in 8–12 weeks, then compare your new score against baseline.</p>
-            <div className="onboarding-next-actions">
-              <button type="button" className="onboarding-next-btn" onClick={() => setCurrentStep(11)}>
-                Buy your stack
-              </button>
-              <Link href="/dashboard" className="onboarding-next-btn">Save my plan</Link>
-              <Link href="/dashboard" className="onboarding-next-btn">Set retest reminder</Link>
-              <SubscribeButton className="onboarding-next-btn onboarding-next-btn-primary">Unlock Clarion+</SubscribeButton>
+            <h1 className="onboarding-headline">You&apos;re all set</h1>
+            <p className="onboarding-subtext">Your Clarion Health Score: <strong>{score}</strong> / 100. Follow your protocol, retest in 8–12 weeks, and track progress in your dashboard.</p>
+            <div className="onboarding-summary-stats">
+              {estimatedSavingsVsCurrent > 0 && (
+                <p className="onboarding-summary-savings">Monthly savings: ${estimatedSavingsVsCurrent.toFixed(0)} · Annual: ${annualSavings.toFixed(0)}</p>
+              )}
+              <p className="onboarding-summary-retest">Recommended retest: 8–12 weeks for key biomarkers.</p>
             </div>
-            <p className="onboarding-next-footer">Clarion+ turns one blood test into an ongoing optimization system — track history, score changes, retest reminders, and smarter recommendations.</p>
+            <div className="onboarding-next-actions">
+              {onGoToDashboard && (
+                <button type="button" className="onboarding-next-btn onboarding-next-btn-primary" onClick={onGoToDashboard}>
+                  Go to Dashboard
+                </button>
+              )}
+              {!onGoToDashboard && <Link href="/dashboard" className="onboarding-next-btn onboarding-next-btn-primary">Go to Dashboard</Link>}
+              <button type="button" className="onboarding-next-btn" onClick={() => setCurrentStep(11)}>Back to stack</button>
+              <SubscribeButton className="onboarding-next-btn">Unlock Clarion+</SubscribeButton>
+            </div>
+            <p className="onboarding-next-footer">Your dashboard will show your score, top priorities, protocol tracker, and biomarker trends. Clarion+ adds full history, retest reminders, and smarter recommendations.</p>
             </div>
             {userId && !hasPaidAnalysis && (
               <div className="onboarding-results-lock-overlay">
@@ -1181,6 +1224,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
         .onboarding-insight-optimal { font-size: 13px; color: rgba(255,255,255,0.5); margin-left: 6px; }
         .onboarding-insight-why { font-size: 14px; color: rgba(255,255,255,0.75); margin: 0 0 8px; line-height: 1.5; font-style: italic; }
         .onboarding-insight-retest { font-size: 13px; color: rgba(249, 115, 22, 0.9); margin: 0 0 8px; }
+        .onboarding-preference-note { color: rgba(255,255,255,0.7); }
         .onboarding-ghost-btn { background: none; border: none; color: #f97316; font-size: 14px; font-weight: 600; cursor: pointer; padding: 0; margin-top: 8px; }
         .onboarding-science-drawer { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 14px; color: rgba(255,255,255,0.7); line-height: 1.5; }
         .onboarding-stack-list { display: flex; flex-direction: column; gap: 20px; margin-bottom: 24px; }
@@ -1229,6 +1273,9 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
         .onboarding-why-subscribe-title { font-size: 16px; font-weight: 700; color: #fafafa; margin: 0 0 12px; }
         .onboarding-why-subscribe ul { margin: 0 0 16px; padding-left: 20px; font-size: 14px; color: rgba(255,255,255,0.8); line-height: 1.6; }
         .onboarding-cta-subscribe { display: block; width: 100%; margin-top: 8px; }
+        .onboarding-summary-stats { margin: 16px 0 24px; padding: 16px; background: rgba(255,255,255,0.04); border-radius: 12px; }
+        .onboarding-summary-savings { font-size: 15px; color: rgba(255,255,255,0.85); margin: 0 0 8px; }
+        .onboarding-summary-retest { font-size: 14px; color: rgba(255,255,255,0.6); margin: 0; }
         .onboarding-next-actions { display: flex; flex-direction: column; gap: 12px; margin: 24px 0; }
         .onboarding-next-btn {
           display: flex; align-items: center; justify-content: center;
@@ -1250,6 +1297,27 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
           box-shadow: 0 4px 20px rgba(229, 72, 77, 0.4);
         }
         .onboarding-next-btn-primary:hover { box-shadow: 0 6px 24px rgba(229, 72, 77, 0.5); }
+        .onboarding-affiliate-section { margin-top: 28px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.08); }
+        .onboarding-affiliate-title { font-size: 18px; font-weight: 600; color: #fafafa; margin: 0 0 16px; }
+        .onboarding-affiliate-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); margin-bottom: 14px; }
+        .onboarding-affiliate-card {
+          padding: 18px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
+        }
+        .onboarding-affiliate-badge { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; padding: 4px 8px; border-radius: 6px; }
+        .onboarding-affiliate-badge.cheapest { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
+        .onboarding-affiliate-badge.premium { background: rgba(168, 85, 247, 0.2); color: #a78bfa; }
+        .onboarding-affiliate-badge.overall_winner { background: rgba(249, 115, 22, 0.25); color: #fb923c; }
+        .onboarding-affiliate-card-title { display: block; font-size: 16px; color: #fafafa; margin-bottom: 4px; }
+        .onboarding-affiliate-card-subtitle { font-size: 13px; color: rgba(255,255,255,0.65); display: block; margin-bottom: 8px; }
+        .onboarding-affiliate-why { font-size: 14px; color: rgba(255,255,255,0.8); line-height: 1.45; margin: 0 0 10px; }
+        .onboarding-affiliate-cost { font-size: 13px; color: rgba(255,255,255,0.6); display: block; margin-bottom: 10px; }
+        .onboarding-affiliate-btn {
+          display: inline-block; padding: 10px 18px; border-radius: 10px; background: linear-gradient(135deg, #f97316 0%, #E5484D 100%);
+          color: #fff; font-size: 14px; font-weight: 600; text-decoration: none; margin-bottom: 8px;
+        }
+        .onboarding-affiliate-btn:hover { opacity: 0.95; }
+        .onboarding-affiliate-note { font-size: 12px; color: rgba(255,255,255,0.5); margin: 8px 0 0; line-height: 1.4; }
+        .onboarding-affiliate-disclosure { font-size: 12px; color: rgba(255,255,255,0.5); margin: 0; }
         .onboarding-next-footer { font-size: 14px; color: rgba(255,255,255,0.6); line-height: 1.5; margin: 0; text-align: center; max-width: 420px; }
         .onboarding-muted { font-size: 16px; color: rgba(255,255,255,0.6); margin: 0 0 24px; }
         .onboarding-savings-grid { display: grid; gap: 16px; margin-bottom: 28px; }

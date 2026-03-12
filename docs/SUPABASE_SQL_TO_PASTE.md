@@ -144,11 +144,23 @@ create policy "Users can read own redemptions" on public.unlock_redemptions for 
 
 ---
 
+## 8. Results flow completed (post-payment guided flow)
+
+New query → paste → Run.
+
+```sql
+alter table public.profiles
+  add column if not exists results_flow_completed_at timestamptz;
+comment on column public.profiles.results_flow_completed_at is 'Set when user completes the post-payment guided flow and clicks Go to Dashboard';
+```
+
+---
+
 ## Done
 
-After running 1–7 in order you should have:
+After running 1–8 in order you should have:
 
-- **profiles** (with email, phone, retest_weeks, improvement_preference, profile_type, analysis_purchased_at)
+- **profiles** (with email, phone, retest_weeks, improvement_preference, profile_type, analysis_purchased_at, results_flow_completed_at)
 - **bloodwork_saves** (with score, detected_patterns, key_flagged_biomarkers)
 - **subscriptions**
 - **unlock_redemptions**

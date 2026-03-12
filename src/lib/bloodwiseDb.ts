@@ -20,6 +20,7 @@ export type ProfileRow = {
   improvement_preference?: string | null
   profile_type?: string | null
   analysis_purchased_at?: string | null
+  results_flow_completed_at?: string | null
   updated_at?: string
 }
 

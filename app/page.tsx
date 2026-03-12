@@ -1,6 +1,7 @@
 "use client"
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { loadSavedState, upsertProfile, saveBloodwork, getBloodworkHistory, getSubscription } from "@/src/lib/bloodwiseDb"
@@ -61,6 +62,9 @@ function HomePageContent() {
   // Block step 6 (Step 7) by default so no race can show it before effect runs; effect sets a 2.5s window from sign-in
   const blockStep6UntilRef = useRef(Date.now() + 30000)
   const [hasPaidAnalysis, setHasPaidAnalysis] = useState(false)
+  const isDev = typeof process !== "undefined" && process.env.NODE_ENV === "development"
+  const useMockResults = isDev && searchParams.get("useMockResults") === "1"
+  const effectiveHasPaidAnalysis = useMockResults ? true : hasPaidAnalysis
 
   const biomarkerKeys = useMemo(() => getBiomarkerKeys(), [])
 
@@ -240,9 +244,9 @@ function HomePageContent() {
     setAnalyzing(false)
     Promise.all([loadSavedState(userId), getSubscription(userId)])
       .then(([{ profile: p, bloodwork: b }, subscription]) => {
-        const row = p ? (p as { improvement_preference?: string; profile_type?: string; analysis_purchased_at?: string | null }) : null
+        const row = p ? (p as { improvement_preference?: string; profile_type?: string; analysis_purchased_at?: string | null; results_flow_completed_at?: string | null }) : null
         const hasPaid = !!row?.analysis_purchased_at
-        const hasActiveSubscription = subscription?.status === "active"
+        const hasCompletedResultsFlow = !!row?.results_flow_completed_at
         if (p) {
           const profileType =
             (row?.profile_type && row.profile_type.trim()) ||
@@ -297,8 +301,8 @@ function HomePageContent() {
           setLastBloodworkAt(null)
         }
 
-        // Completed survey + active subscription → go to dashboard to review results
-        if (hasPaid && hasActiveSubscription) {
+        // Paid and finished the guided results flow (clicked "Go to Dashboard") → go to dashboard
+        if (hasPaid && hasCompletedResultsFlow) {
           router.replace("/dashboard")
           return
         }
@@ -310,6 +314,20 @@ function HomePageContent() {
       .catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when userId changes; router is stable
   }, [userId])
+
+  // After payment success: return to app and continue guided results flow (analysis → score → insights → stack → summary), not dashboard
+  useEffect(() => {
+    if (!userId || searchParams.get("paid") !== "1") return
+    loadSavedState(userId).then(({ profile: p }) => {
+      const row = p as { analysis_purchased_at?: string | null } | null
+      if (row?.analysis_purchased_at) {
+        setHasPaidAnalysis(true)
+        setCurrentStepRaw(8) // analysis loading step
+        setAnalyzing(true)
+      }
+      router.replace("/", { scroll: false })
+    }).catch(() => router.replace("/", { scroll: false }))
+  }, [userId, searchParams, router])
 
   // After sign-in: block Step 7 (currentStep 6) for 2.5s and correct any jump — nothing can set step to 6 in this window
   useEffect(() => {
@@ -344,6 +362,35 @@ function HomePageContent() {
       router.replace("/", { scroll: false })
     }
   }, [authLoading, user, searchParams, router])
+
+  // Hash deep links from dashboard "Saved plan" (e.g. /#insights, /#stack)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const hash = window.location.hash.slice(1).toLowerCase()
+    if (hash === "insights") setCurrentStepRaw(10)
+    if (hash === "stack") setCurrentStepRaw(11)
+  }, [])
+
+  // DEV ONLY: ?preview= lets you jump to any screen (e.g. ?preview=score, ?preview=stack)
+  const previewStepMap: Record<string, number> = {
+    welcome: 0, goal: 1, activity: 2, supplements: 3, spend: 4, panel: 6, labs: 7,
+    analysis: 8, score: 9, insights: 10, stack: 11, summary: 12,
+  }
+  useEffect(() => {
+    if (!isDev) return
+    const preview = searchParams.get("preview")
+    if (!preview) return
+    if (preview === "dashboard") {
+      router.replace("/dashboard")
+      return
+    }
+    const step = previewStepMap[preview.toLowerCase()]
+    if (typeof step === "number") {
+      setCurrentStepRaw(step)
+      if (step === 8) setAnalyzing(true)
+      if (step === 9) setAnalyzing(false)
+    }
+  }, [isDev, searchParams, router])
 
   // Fetch previous reports for logged-in users (Previous Reports section)
   const prevReportsDeps: [string | null] = [userId]
@@ -536,6 +583,13 @@ function HomePageContent() {
     setCurrentStepSafe(1)
   }, [user, router])
 
+  const onGoToDashboard = useCallback(() => {
+    fetch("/api/complete-results-flow", { method: "POST" })
+      .then((r) => { if (!r.ok) throw new Error("Failed to complete") })
+      .then(() => router.push("/dashboard"))
+      .catch(() => router.push("/dashboard"))
+  }, [router])
+
   // Show loading only while auth is resolving; then show onboarding for everyone (logged-in users see "Dashboard" in header)
   if (authLoading) {
     return (
@@ -546,13 +600,25 @@ function HomePageContent() {
   }
 
   return (
+    <>
+    {isDev && (
+      <div className="dev-preview-switcher" aria-hidden>
+        <span className="dev-preview-label">Dev preview</span>
+        <div className="dev-preview-links">
+          {["welcome", "goal", "activity", "supplements", "spend", "panel", "labs", "analysis", "score", "insights", "stack", "summary"].map((p) => (
+            <Link key={p} href={"/?preview=" + p} className="dev-preview-link">{p}</Link>
+          ))}
+          <Link href="/dashboard" className="dev-preview-link">dashboard</Link>
+        </div>
+      </div>
+    )}
     <OnboardingFlow
       currentStep={currentStep}
       setCurrentStep={setCurrentStepSafe}
       profile={profile}
       setProfile={setProfile}
       onWelcomeContinue={onWelcomeContinue}
-      hasPaidAnalysis={hasPaidAnalysis}
+      hasPaidAnalysis={effectiveHasPaidAnalysis}
       currentSupplementSpend={currentSupplementSpend}
       setCurrentSupplementSpend={setCurrentSupplementSpend}
       currentSupplements={currentSupplements}
@@ -587,7 +653,9 @@ function HomePageContent() {
       previousReports={previousReports}
       previousReportsLoading={previousReportsLoading}
       handleOpenReport={handleOpenReport}
+      onGoToDashboard={onGoToDashboard}
     />
+    </>
   )
 }
 

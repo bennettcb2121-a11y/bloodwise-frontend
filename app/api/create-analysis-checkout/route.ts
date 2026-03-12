@@ -21,7 +21,8 @@ export async function POST() {
     )
   }
 
-  const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  let origin = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").trim()
+  if (!origin.startsWith("http://") && !origin.startsWith("https://")) origin = `https://${origin}`
   const analysisPriceId = process.env.STRIPE_ANALYSIS_PRICE_ID
 
   const lineItems: Stripe.Checkout.SessionCreateParams["line_items"] = analysisPriceId
@@ -47,7 +48,7 @@ export async function POST() {
       mode: "payment",
       allow_promotion_codes: true,
       line_items: lineItems,
-      success_url: `${origin}/dashboard?paid=1`,
+      success_url: `${origin}/?paid=1`,
       cancel_url: `${origin}/paywall`,
       client_reference_id: authSession.user.id,
       customer_email: authSession.user.email ?? undefined,

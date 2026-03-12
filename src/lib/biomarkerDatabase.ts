@@ -38,13 +38,13 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     description:
       "Ferritin reflects stored iron and helps indicate whether iron reserves are sufficient for oxygen transport and training demands.",
     whyItMatters:
-      "Low ferritin can reduce endurance, increase fatigue, and impair adaptation even before full anemia develops. Endurance athletes often need stronger iron stores than the general population.",
+      "Low ferritin can limit energy, oxygen transport, and endurance. Iron deficiency is common; reckless supplementing is dangerous—do not supplement if ferritin is high/normal in adult men or postmenopausal women, or if anemia cause is unclear.",
     foods:
-      "Red meat, beef liver, shellfish, lentils, beans, spinach, fortified cereals. Pair iron-rich foods with vitamin C.",
+      "Heme iron first: clams, beef liver, red meat, sardines. Non-heme: lentils, beans, spinach, fortified cereals. Pair iron-rich meals with vitamin C (citrus, kiwi, peppers, berries). Avoid coffee/tea/calcium-heavy meals at iron-rich meals when repletion is the goal.",
     lifestyle:
-      "Avoid tea, coffee, and high-calcium foods right around iron-rich meals. Monitor heavy training blocks and menstrual losses.",
+      "Reduce stealth inhibitors of iron absorption around iron-heavy meals: coffee, tea, calcium supplements. If ferritin keeps falling, look for the reason: blood loss, GI issues, training load, diet quality. Retest rather than guessing.",
     supplementNotes:
-      "Iron should be used carefully and ideally with follow-up bloodwork. Dose choice depends on severity and tolerance.",
+      "If low or suboptimal: 25–65 mg elemental iron every other day or daily depending on tolerance and clinician context. Alternate-day dosing often improves tolerance. Retest in 8–12 weeks. Do not megadose; iron overdose is dangerous especially for children.",
     retest: "Retest in 8–12 weeks after intervention.",
     recommendedTests: ["CBC", "Iron Panel", "Transferrin Saturation"],
     researchSummary:
@@ -89,15 +89,15 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
 
   "Vitamin D": {
     description:
-      "Vitamin D supports musculoskeletal health, immunity, recovery, and bone function.",
+      "25-OH Vitamin D reflects vitamin D status. It supports musculoskeletal health, immunity, recovery, and bone function.",
     whyItMatters:
-      "Low vitamin D may increase risk of low energy, poor recovery, illness, and bone stress problems.",
+      "Vitamin D status is one of the most common low or low-normal findings. It connects to immunity, bone health, and general wellness. High-dose use should be personalized and clinician-supervised.",
     foods:
-      "Fatty fish, egg yolks, fortified dairy or dairy alternatives.",
+      "Salmon, sardines, egg yolks, fortified dairy or plant milks. Sun exposure contributes but food and supplements are easier to standardize.",
     lifestyle:
-      "Sun exposure, season, latitude, and indoor training all strongly affect vitamin D status.",
+      "Consistent sunlight when feasible. Pair supplementation with regular meals for adherence. Retest after a stable routine (8–12 weeks), not after a few random doses.",
     supplementNotes:
-      "D3 is commonly used. Dose depends on baseline level, body size, and sun exposure.",
+      "Low-risk maintenance: 1,000–2,000 IU/day. For clearly low values, many protocols use 2,000–5,000 IU/day for a repletion window; recheck in 8–12 weeks. D3 is the preferred form.",
     retest: "Retest in 8–12 weeks.",
     recommendedTests: ["Calcium", "PTH"],
     researchSummary:
@@ -136,15 +136,15 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
 
   Magnesium: {
     description:
-      "Magnesium supports ATP production, muscle contraction, relaxation, and nervous system function.",
+      "Magnesium supports ATP production, muscle contraction, relaxation, nervous system function, sleep, and recovery.",
     whyItMatters:
-      "Low magnesium can contribute to poor recovery, cramps, sleep issues, and reduced energy metabolism.",
+      "Low magnesium can contribute to poor recovery, cramps, sleep issues, and reduced energy metabolism. One of the most marketable and broadly applicable biomarkers in consumer health. Use caution in kidney disease.",
     foods:
-      "Pumpkin seeds, almonds, cashews, dark chocolate, beans, spinach.",
+      "Pumpkin seeds, almonds, cashews, black beans, dark chocolate, spinach and leafy greens.",
     lifestyle:
-      "Heavy sweating, poor intake, stress, and high training load can increase need.",
+      "Improve sleep timing and recovery. Review alcohol intake if magnesium stays stubbornly low. Spread supplemental intake if GI tolerance is an issue.",
     supplementNotes:
-      "Magnesium glycinate is often better tolerated than some cheaper forms.",
+      "Start 100–200 mg elemental magnesium per day, often in the evening; titrate toward 200–350 mg/day. NIH ODS supplemental UL 350 mg/day unless clinician directs otherwise. Glycinate is often better tolerated. Retest in 8–12 weeks.",
     retest: "Retest in 8–12 weeks.",
     recommendedTests: [],
     researchSummary:
@@ -183,15 +183,15 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
 
   "Vitamin B12": {
     description:
-      "Vitamin B12 supports red blood cell production, nervous system function, and energy processes.",
+      "Vitamin B12 supports red blood cell production, nervous system function, and energy metabolism.",
     whyItMatters:
-      "Low or low-normal B12 can contribute to fatigue, poor recovery, and impaired oxygen delivery support.",
+      "Low or low-normal B12 often links to fatigue, RBC support, and neurological health. Risk is higher with low animal-food intake, GI issues, PPIs, and metformin use.",
     foods:
-      "Red meat, fish, eggs, dairy, fortified foods.",
+      "Shellfish, beef, salmon, dairy, eggs. If avoiding animal foods, B12 is much harder to optimize through food alone.",
     lifestyle:
-      "Vegetarian and vegan athletes need closer monitoring.",
+      "Review medications (PPIs, metformin) that can affect absorption. Consider GI absorption issues if levels stay low despite intake. Retest rather than stacking more B12; severe deficiency or neurologic symptoms need clinician-guided treatment.",
     supplementNotes:
-      "Methylcobalamin and cyanocobalamin are both common options.",
+      "Low-normal or low: often 1,000 mcg/day oral or sublingual. Methylcobalamin and cyanocobalamin are both used. Retest in 8–12 weeks.",
     retest: "Retest in 8–12 weeks.",
     recommendedTests: ["Folate", "CBC"],
     researchSummary:
@@ -231,6 +231,26 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
       masters: {
         optimalMin: 450,
       },
+    },
+  },
+
+  Folate: {
+    description:
+      "Folate (B9) is essential for DNA synthesis, cell division, and red blood cell formation. Serum or RBC folate reflects status.",
+    whyItMatters:
+      "Folate is broadly relevant to blood health and pairs with B12; deficiency can contribute to anemia and elevated homocysteine. Do not megadose folic acid—excess can mask B12 deficiency.",
+    foods:
+      "Leafy greens (spinach, kale, romaine), lentils, beans, asparagus, avocado, fortified grains and cereals.",
+    lifestyle:
+      "If folate is low, confirm B12 status too. Avoid high-dose folic acid without clinician context.",
+    supplementNotes:
+      "400–800 mcg/day is common; avoid above 1,000 mcg/day folic acid without guidance. Methylfolate (5-MTHF) is an active form.",
+    retest: "Retest in 8–12 weeks if repleting.",
+    recommendedTests: ["Vitamin B12", "CBC", "Homocysteine"],
+    researchSummary:
+      "Folic acid fortification has reduced deficiency in many populations; active forms (5-MTHF) may be preferred when methylation is a consideration.",
+    ranges: {
+      general: { deficient: 3, suboptimalMin: 4, optimalMin: 4, optimalMax: 20, high: 24 },
     },
   },
 
@@ -275,16 +295,16 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
 
   Glucose: {
     description:
-      "Fasting glucose reflects metabolic health and day-to-day fuel regulation.",
+      "Fasting glucose reflects metabolic health and day-to-day fuel regulation. Complements HbA1c with a more immediate metabolic snapshot.",
     whyItMatters:
-      "Poor fasting glucose control can signal impaired metabolic flexibility and reduced long-term health quality.",
+      "ADA standards support lifestyle-first approaches for prevention and delay of type 2 diabetes. Poor fasting glucose can signal impaired metabolic flexibility.",
     foods:
-      "Stable mixed meals, adequate fiber, lower ultra-processed food intake.",
+      "More legumes, oats, beans, berries, vegetables; protein-forward breakfasts. Fewer sugar-sweetened beverages and refined carb snacks.",
     lifestyle:
-      "Interpret fasting glucose with sleep, stress, recent training, and prior meal timing in mind.",
+      "10–15 minute walk after meals, resistance training, sleep consistency, reduce sedentary time.",
     supplementNotes:
-      "Interventions are usually lifestyle-first unless guided by broader clinical context.",
-    retest: "Retest in 6–12 weeks.",
+      "Psyllium 5–10 g/day in divided doses before or with meals. Berberine only with clinician awareness. Lifestyle first; retest in 8–12 weeks.",
+    retest: "Retest in 8–12 weeks.",
     recommendedTests: ["HbA1c", "Insulin"],
     researchSummary:
       "Athletes usually benefit from strong insulin sensitivity and stable fasting glucose.",
@@ -498,12 +518,12 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { deficient: 15, suboptimalMin: 20, optimalMin: 20, optimalMax: 50, high: 55 } },
   },
   HbA1c: {
-    description: "Average blood glucose over ~3 months; key for metabolic health.",
-    whyItMatters: "Elevated HbA1c indicates prediabetes or diabetes risk.",
-    foods: "Fiber, whole foods, stable meal timing.",
-    lifestyle: "Sleep, stress, activity, body composition.",
-    supplementNotes: "Lifestyle-first; discuss with provider before supplement protocols.",
-    retest: "Every 3–6 months if tracking.",
+    description: "Average blood glucose over ~3 months; key for metabolic health. ADA guidance strongly supports lifestyle interventions for prevention and delay of type 2 diabetes.",
+    whyItMatters: "Elevated HbA1c indicates prediabetes or diabetes risk. One of the clearest premium health software biomarkers.",
+    foods: "Meals built around beans, lentils, intact grains, vegetables, berries; Greek yogurt or other high-protein foods. Minimize refined carbohydrate and liquid calories.",
+    lifestyle: "Post-meal walking (10–15 min), resistance training, weight loss if indicated, sleep regularity. Limit ultra-processed snacks and late-night overeating.",
+    supplementNotes: "Berberine: common protocol 500 mg with meals 2–3x/day. Can interact with diabetes meds; avoid in pregnancy. Lifestyle-first; discuss with provider. Strong in-app warnings required.",
+    retest: "Every 8–12 weeks if tracking.",
     recommendedTests: ["Fasting insulin", "Glucose"],
     researchSummary: "",
     ranges: { general: { optimalMin: 4.5, optimalMax: 5.6, high: 6 } },
@@ -520,12 +540,12 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 2, optimalMax: 8, high: 10 } },
   },
   Triglycerides: {
-    description: "Blood fats; part of lipid panel.",
-    whyItMatters: "High triglycerides increase cardiovascular risk.",
-    foods: "Limit refined carbs and excess alcohol; omega-3s, fiber.",
-    lifestyle: "Activity, weight, alcohol.",
-    supplementNotes: "Omega-3 and fiber may help; discuss with provider.",
-    retest: "With lipid panel in 3–6 months.",
+    description: "Blood fats; part of lipid panel. Highly responsive to lifestyle.",
+    whyItMatters: "High triglycerides increase cardiovascular risk. AHA guidance emphasizes diet and lifestyle; users can often see meaningful improvement with alcohol reduction, carb quality, weight loss, and omega-3.",
+    foods: "Fatty fish (salmon, sardines, mackerel). Lower alcohol and added sugar/refined carbs. Increase fiber and total protein.",
+    lifestyle: "Reduce alcohol if elevated. Improve weight, activity, and carbohydrate quality. More exercise; fewer liquid calories.",
+    supplementNotes: "General support: 1–2 g/day EPA+DHA. For high TG, AHA discusses 4 g/day omega-3 in prescription-level context—educate in-app, do not present as casual OTC dose.",
+    retest: "With lipid panel in 8–12 weeks.",
     recommendedTests: ["HDL-C", "LDL-C", "Total cholesterol"],
     researchSummary: "",
     ranges: { general: { optimalMin: 0, optimalMax: 150, high: 200 } },
@@ -542,12 +562,12 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { deficient: 35, suboptimalMin: 40, optimalMin: 40, optimalMax: 60, high: 80 } },
   },
   "LDL-C": {
-    description: "Low-density lipoprotein cholesterol.",
-    whyItMatters: "Elevated LDL is a major modifiable cardiovascular risk factor.",
-    foods: "Fiber, unsaturated fats, limit trans/saturated.",
-    lifestyle: "Activity, weight, smoking.",
-    supplementNotes: "Discuss with provider; psyllium may support; no self-directed statin.",
-    retest: "With lipid panel.",
+    description: "Low-density lipoprotein cholesterol. One of the most recognized cardiometabolic biomarkers.",
+    whyItMatters: "Elevated LDL is a major modifiable cardiovascular risk factor. Lifestyle is foundational; nudge users to clinician if LDL-C is very high or ApoB/non-HDL concerning.",
+    foods: "Oats, barley, beans, nuts, extra-virgin olive oil. More unsaturated fats; less saturated and trans fat.",
+    lifestyle: "Weight management, aerobic and resistance training. Reduce saturated fat from processed meat and high-fat dairy if intake is high.",
+    supplementNotes: "Psyllium ~10 g/day (meta-analysis ~7% LDL reduction). Plant sterols 1.5–2 g/day. Discuss with provider; no self-directed statin.",
+    retest: "With lipid panel in 8–12 weeks.",
     recommendedTests: ["HDL-C", "Triglycerides", "ApoB"],
     researchSummary: "",
     ranges: { general: { optimalMin: 0, optimalMax: 100, high: 130 } },
@@ -586,12 +606,12 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 0, optimalMax: 30, high: 50 } },
   },
   "hs-CRP": {
-    description: "High-sensitivity C-reactive protein; marker of inflammation.",
-    whyItMatters: "≥2 mg/L is risk-enhancing; useful for recovery and cardiometabolic context.",
-    foods: "Anti-inflammatory diet, omega-3s.",
-    lifestyle: "Recovery, sleep, stress, illness.",
-    supplementNotes: "Omega-3 may help; interpret in context; no aggressive self-treatment.",
-    retest: "2–6 weeks if acute; 3–6 months if tracking.",
+    description: "High-sensitivity C-reactive protein; marker of inflammation. ACC/AHA-aligned guidance emphasizes lifestyle for lowering inflammatory risk.",
+    whyItMatters: "≥2 mg/L is risk-enhancing; useful for recovery and cardiometabolic context. Users understand it as 'something is stressing the system.'",
+    foods: "Mediterranean-style pattern: fatty fish, extra-virgin olive oil, berries, legumes, nuts. More minimally processed foods.",
+    lifestyle: "150+ min/week moderate activity, weight reduction if needed, smoking cessation, better sleep regularity and stress management.",
+    supplementNotes: "Curcumin phytosome 500–1,000 mg/day. Omega-3 1–2 g/day EPA+DHA. Bleeding-risk warnings for omega-3 and curcumin if on anticoagulants.",
+    retest: "2–6 weeks if acute; 8–12 weeks if tracking.",
     recommendedTests: ["CBC"],
     researchSummary: "",
     ranges: {

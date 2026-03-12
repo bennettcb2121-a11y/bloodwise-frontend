@@ -22,7 +22,8 @@ export async function POST() {
   }
 
   const stripe = new Stripe(stripeSecretKey)
-  const origin = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  let origin = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").trim()
+  if (!origin.startsWith("http://") && !origin.startsWith("https://")) origin = `https://${origin}`
 
   const checkoutSession = await stripe.checkout.sessions.create({
     mode: "subscription",

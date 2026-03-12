@@ -1,15 +1,107 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useState, useMemo } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { loadSavedState, upsertProfile, getSubscription } from "@/src/lib/bloodwiseDb"
 import type { BloodworkSaveRow, ProfileRow, SubscriptionRow } from "@/src/lib/bloodwiseDb"
 import { analyzeBiomarkers } from "@/src/lib/analyzeBiomarkers"
 import { getRetestRecommendations } from "@/src/lib/retestEngine"
 import { scoreToLabel } from "@/src/lib/scoreEngine"
+import { buildTopFocus, getPrioritySummary, getStatusTone } from "@/src/lib/priorityEngine"
 import { SubscribeButton } from "@/src/components/SubscribeButton"
+
+/** Mock historical data for biomarker trends when no real history exists */
+function getMockBiomarkerHistory(recent?: { ferritin?: number; vitaminD?: number; magnesium?: number; b12?: number }): { date: string; ferritin: number; vitaminD: number; magnesium: number; b12: number }[] {
+  const base = recent ?? { ferritin: 22, vitaminD: 28, magnesium: 2.1, b12: 380 }
+  const now = new Date()
+  return [
+    { date: new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000).toLocaleDateString("en-US", { month: "short", year: "2-digit" }), ferritin: Math.round((base.ferritin ?? 22) * 0.7), vitaminD: Math.round((base.vitaminD ?? 28) * 0.85), magnesium: 1.6, b12: (base.b12 ?? 380) - 40 },
+    { date: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000).toLocaleDateString("en-US", { month: "short", year: "2-digit" }), ferritin: Math.round((base.ferritin ?? 22) * 0.9), vitaminD: Math.round((base.vitaminD ?? 28) * 0.95), magnesium: 1.9, b12: (base.b12 ?? 380) - 20 },
+    { date: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000).toLocaleDateString("en-US", { month: "short", year: "2-digit" }), ferritin: base.ferritin ?? 22, vitaminD: base.vitaminD ?? 28, magnesium: base.magnesium ?? 2.1, b12: base.b12 ?? 380 },
+  ]
+}
+
+const PROTOCOL_STORAGE_KEY = "clarion_protocol_log"
+function getProtocolLog(): Record<string, Record<string, boolean>> {
+  if (typeof window === "undefined") return {}
+  try {
+    const raw = localStorage.getItem(PROTOCOL_STORAGE_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+function setProtocolLog(log: Record<string, Record<string, boolean>>) {
+  if (typeof window === "undefined") return
+  try {
+    localStorage.setItem(PROTOCOL_STORAGE_KEY, JSON.stringify(log))
+  } catch {}
+}
+
+function BiomarkerTrendChart({ analysisResults }: { analysisResults: { name?: string; marker?: string; value?: number }[] }) {
+  const recent: { ferritin?: number; vitaminD?: number; magnesium?: number; b12?: number } = {}
+  analysisResults.forEach((r) => {
+    const n = (r.name || r.marker || "").toLowerCase()
+    if (n.includes("ferritin")) recent.ferritin = Number(r.value)
+    if (n.includes("vitamin d") || n.includes("vit d")) recent.vitaminD = Number(r.value)
+    if (n.includes("magnesium")) recent.magnesium = Number(r.value)
+    if (n.includes("b12") || n.includes("cobalamin")) recent.b12 = Number(r.value)
+  })
+  const data = getMockBiomarkerHistory(recent)
+  return (
+    <div style={{ width: "100%", height: 260 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+          <XAxis dataKey="date" stroke="rgba(255,255,255,0.5)" fontSize={12} />
+          <YAxis stroke="rgba(255,255,255,0.5)" fontSize={12} />
+          <Tooltip contentStyle={{ background: "#1e1b4b", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8 }} />
+          <Legend />
+          <Line type="monotone" dataKey="ferritin" name="Ferritin" stroke="#f97316" strokeWidth={2} dot={{ r: 3 }} />
+          <Line type="monotone" dataKey="vitaminD" name="Vitamin D" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3 }} />
+          <Line type="monotone" dataKey="magnesium" name="Magnesium" stroke="#22c55e" strokeWidth={2} dot={{ r: 3 }} />
+          <Line type="monotone" dataKey="b12" name="B12" stroke="#a855f7" strokeWidth={2} dot={{ r: 3 }} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+function ProtocolTracker({ stackSnapshot }: { stackSnapshot?: BloodworkSaveRow["stack_snapshot"] }) {
+  const today = new Date().toISOString().slice(0, 10)
+  const defaultItems = ["Iron protocol", "Vitamin D", "Magnesium", "Omega-3"]
+  const stack = stackSnapshot && "stack" in stackSnapshot && Array.isArray(stackSnapshot.stack)
+    ? stackSnapshot.stack.map((s: { supplementName?: string }) => s.supplementName || "").filter(Boolean)
+    : []
+  const items = stack.length > 0 ? stack : defaultItems
+  const [log, setLog] = useState<Record<string, Record<string, boolean>>>(getProtocolLog)
+  const todayLog = log[today] ?? {}
+  const completed = items.filter((i) => todayLog[i]).length
+  const pct = items.length ? Math.round((completed / items.length) * 100) : 0
+  const toggle = (item: string) => {
+    const next = { ...log, [today]: { ...todayLog, [item]: !todayLog[item] } }
+    setLog(next)
+    setProtocolLog(next)
+  }
+  return (
+    <div className="dashboard-card dashboard-protocol-tracker">
+      <div className="dashboard-protocol-pct">Today: {completed}/{items.length} · {pct}%</div>
+      <ul className="dashboard-protocol-list">
+        {items.map((item) => (
+          <li key={item}>
+            <label className="dashboard-protocol-item">
+              <input type="checkbox" checked={!!todayLog[item]} onChange={() => toggle(item)} />
+              <span>{item}</span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -72,11 +164,11 @@ export default function DashboardPage() {
       .finally(() => setLoading(false))
   }, [user?.id])
 
-  // After returning from Stripe checkout, refetch profile and subscription
+  // After returning from subscription checkout, refetch profile and subscription
   useEffect(() => {
     if (!user?.id || typeof window === "undefined") return
     const search = window.location.search
-    if (!search.includes("paid=1") && !search.includes("subscription=success")) return
+    if (!search.includes("subscription=success")) return
     const t = setTimeout(() => {
       loadSavedState(user.id).then(({ profile: p }) => { if (p) setProfile(p) }).catch(() => {})
       getSubscription(user.id).then(setSubscription).catch(() => {})
@@ -85,12 +177,16 @@ export default function DashboardPage() {
     return () => clearTimeout(t)
   }, [user?.id, router])
 
-  // Redirect to paywall if user has not purchased analysis yet (skip when returning from checkout with ?paid=1)
+  // Redirect to paywall if user has not purchased analysis yet
   useEffect(() => {
     if (authLoading || !user || loading) return
-    if (typeof window !== "undefined" && window.location.search.includes("paid=1")) return
     if (profile !== null && !profile.analysis_purchased_at) {
       router.replace("/paywall")
+      return
+    }
+    // Paid but never completed the guided results flow → send them through it first
+    if (profile !== null && profile.analysis_purchased_at && !(profile as { results_flow_completed_at?: string | null }).results_flow_completed_at) {
+      router.replace("/")
     }
   }, [authLoading, user, loading, profile, router])
 
@@ -400,92 +496,127 @@ export default function DashboardPage() {
             )}
           </div>
         ) : (
-          <div className="dashboard-grid">
-            <div className="dashboard-card dashboard-score-card">
-              <div className="dashboard-card-label">Latest health score</div>
-              <div className="dashboard-score-value">{bloodwork?.score ?? "—"}</div>
-              <div className="dashboard-score-label">
-                {bloodwork?.score != null ? scoreToLabel(bloodwork.score) : "No score"}
-              </div>
-              {reportDate ? (
-                <div className="dashboard-card-meta">From report: {reportDate}</div>
-              ) : null}
-            </div>
-
-            <div className="dashboard-card">
-              <div className="dashboard-card-label">Most recent panel</div>
-              {bloodwork?.selected_panel && bloodwork.selected_panel.length > 0 ? (
-                <ul className="dashboard-panel-list">
-                  {bloodwork.selected_panel.map((marker) => (
-                    <li key={marker}>{marker}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="dashboard-card-muted">No panel saved</p>
-              )}
-            </div>
-
-            <div className="dashboard-card">
-              <div className="dashboard-card-label">Key flagged biomarkers</div>
-              {bloodwork?.key_flagged_biomarkers && bloodwork.key_flagged_biomarkers.length > 0 ? (
-                <ul className="dashboard-flagged-list">
-                  {bloodwork.key_flagged_biomarkers.map((name) => (
-                    <li key={name}>{name}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="dashboard-card-muted">None flagged</p>
-              )}
-            </div>
-
-            <div className="dashboard-card dashboard-savings-card">
-              <div className="dashboard-card-label">Estimated monthly savings</div>
-              <div className="dashboard-savings-value">
-                ${Math.max(0, monthlySavings).toFixed(2)}/mo
-              </div>
-              {annualSavings > 0 && (
-                <div className="dashboard-savings-annual">
-                  ~${annualSavings.toFixed(2)}/yr vs. current spend
+          <div className="dashboard-main">
+            {/* 1. Hero / Summary */}
+            <section className="dashboard-hero">
+              <div className="dashboard-hero-score-wrap">
+                <div className="dashboard-hero-score-label">Clarion Health Score</div>
+                <div className="dashboard-hero-score-value">{bloodwork?.score ?? "—"}</div>
+                <div className="dashboard-hero-score-caption">
+                  {bloodwork?.score != null ? scoreToLabel(bloodwork.score) : "No score yet"}
                 </div>
-              )}
-            </div>
+                {reportDate && <div className="dashboard-hero-meta">From report: {reportDate}</div>}
+              </div>
+              {(() => {
+                const topFocus = buildTopFocus(analysisResults)
+                const summary = getPrioritySummary(analysisResults, topFocus)
+                const opportunityNames = topFocus.map((t: { name?: string; marker?: string }) => t.name || t.marker || "").filter(Boolean)
+                const summaryLine = opportunityNames.length > 0
+                  ? `Your biggest current opportunities are ${opportunityNames.join(", ").toLowerCase()}.`
+                  : summary.nextBestAction
+                return <p className="dashboard-hero-summary">{summaryLine}</p>
+              })()}
+            </section>
 
-            <div className="dashboard-card dashboard-retest-card">
-              <div className="dashboard-card-label">Next recommended retest</div>
-              {retestRecommendations.length > 0 ? (
-                <ul className="dashboard-retest-list">
-                  {retestRecommendations.slice(0, 6).map((rec, idx) => (
-                    <li key={`${rec.marker}-${idx}`}>
-                      <span className="dashboard-retest-marker">{rec.marker}</span>
-                      <span className="dashboard-retest-timing">{rec.timing}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="dashboard-card-muted">Complete a panel to see retest dates</p>
-              )}
-            </div>
+            {/* 2. Top Priorities */}
+            {analysisResults.length > 0 && (
+              <section className="dashboard-section">
+                <h2 className="dashboard-section-title">Top priorities</h2>
+                <div className="dashboard-priorities-grid">
+                  {buildTopFocus(analysisResults).slice(0, 3).map((item, idx) => {
+                    const name = String((item as { name?: string; marker?: string }).name || (item as { name?: string; marker?: string }).marker || "Marker")
+                    const tone = getStatusTone(item.status)
+                    return (
+                      <div key={`${name}-${idx}`} className="dashboard-card dashboard-priority-card">
+                        <div className="dashboard-priority-name">{name}</div>
+                        <div className={`dashboard-priority-status ${tone.className}`}>{tone.label}</div>
+                        {item.value != null && <div className="dashboard-priority-value">Current: {item.value}</div>}
+                        <p className="dashboard-priority-explanation">{item.whyItMatters || "Focus here for the biggest impact."}</p>
+                        <Link href="/" className="dashboard-priority-link">View protocol →</Link>
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
+            )}
 
-            <div className="dashboard-card dashboard-subscribe-card">
-              <div className="dashboard-card-label">Subscribe to Clarion Labs</div>
-              <p className="dashboard-card-muted">Full access, retest reminders, and optimized recommendations. Cancel anytime.</p>
-              <SubscribeButton className="dashboard-cta dashboard-cta-subscribe">Subscribe — monthly</SubscribeButton>
-            </div>
+            {/* 3. Biomarker Trends */}
+            <section className="dashboard-section">
+              <h2 className="dashboard-section-title">Biomarker trends</h2>
+              <div className="dashboard-card dashboard-chart-card">
+                <BiomarkerTrendChart analysisResults={analysisResults} />
+              </div>
+            </section>
 
-            <div className="dashboard-card dashboard-retest-status-card">
-              <div className="dashboard-card-label">Retest reminders</div>
-              {bloodwork?.updated_at ? (
-                <>
-                  <p className="dashboard-retest-status-text">
-                    {isDueForRetest
-                      ? `It's been ${retestWeeks}+ weeks since your last panel. We'll email you when it's time.`
-                      : `Last panel saved. We'll remind you in ${retestWeeks} weeks (email + in-app).`}
-                  </p>
-                  <Link href="/#step-1" className="dashboard-retest-status-link">Add new results</Link>
-                </>
-              ) : (
-                <p className="dashboard-card-muted">We'll remind you to retest based on your preference below.</p>
-              )}
+            {/* 4. Protocol Tracker */}
+            <section className="dashboard-section">
+              <h2 className="dashboard-section-title">Daily protocol tracker</h2>
+              <ProtocolTracker stackSnapshot={bloodwork?.stack_snapshot} />
+            </section>
+
+            {/* 5. Savings Snapshot */}
+            <section className="dashboard-section">
+              <h2 className="dashboard-section-title">Savings snapshot</h2>
+              <div className="dashboard-savings-grid-new">
+                <div className="dashboard-card dashboard-savings-card">
+                  <span className="dashboard-savings-label">Current spend</span>
+                  <div className="dashboard-savings-value">${userCurrentSpend.toFixed(0)}/mo</div>
+                </div>
+                <div className="dashboard-card dashboard-savings-card">
+                  <span className="dashboard-savings-label">Optimized spend</span>
+                  <div className="dashboard-savings-value highlight">${optimizedSpend.toFixed(0)}/mo</div>
+                </div>
+                <div className="dashboard-card dashboard-savings-card success">
+                  <span className="dashboard-savings-label">Monthly savings</span>
+                  <div className="dashboard-savings-value">${Math.max(0, monthlySavings).toFixed(0)}</div>
+                </div>
+                <div className="dashboard-card dashboard-savings-card success">
+                  <span className="dashboard-savings-label">Annual savings</span>
+                  <div className="dashboard-savings-value">${annualSavings.toFixed(0)}</div>
+                </div>
+              </div>
+            </section>
+
+            {/* 6. Retest Reminder */}
+            <section className="dashboard-section">
+              <h2 className="dashboard-section-title">Retest reminder</h2>
+              <div className="dashboard-card dashboard-retest-card">
+                {retestRecommendations.length > 0 ? (
+                  <>
+                    <p className="dashboard-retest-intro">Next suggested retest window: 8–12 weeks for key biomarkers.</p>
+                    <ul className="dashboard-retest-list">
+                      {retestRecommendations.slice(0, 5).map((rec, idx) => (
+                        <li key={`${rec.marker}-${idx}`}>
+                          <span className="dashboard-retest-marker">{rec.marker}</span>
+                          <span className="dashboard-retest-timing">{rec.timing}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="dashboard-card-muted">Complete a panel to see retest recommendations.</p>
+                )}
+                <Link href="/" className="dashboard-cta dashboard-retest-cta">Upload new labs</Link>
+              </div>
+            </section>
+
+            {/* 7. Saved Plan */}
+            <section className="dashboard-section">
+              <h2 className="dashboard-section-title">Saved plan</h2>
+              <div className="dashboard-card dashboard-saved-plan-card">
+                <p className="dashboard-card-muted">Your current protocol, insights, and stack are saved. Revisit them anytime.</p>
+                <div className="dashboard-saved-plan-links">
+                  <Link href="/#insights" className="dashboard-saved-plan-link">Biomarker insights</Link>
+                  <Link href="/#stack" className="dashboard-saved-plan-link">Supplement stack</Link>
+                  <Link href="/" className="dashboard-saved-plan-link">Full flow</Link>
+                </div>
+              </div>
+            </section>
+
+            <div className="dashboard-card dashboard-subscribe-card" style={{ marginTop: 24 }}>
+              <div className="dashboard-card-label">Clarion+</div>
+              <p className="dashboard-card-muted">Full access to trends, history, retest reminders, and smarter recommendations. Cancel anytime.</p>
+              <SubscribeButton className="dashboard-cta dashboard-cta-subscribe">Subscribe to Clarion+</SubscribeButton>
             </div>
 
             {user && profile && (
@@ -699,6 +830,50 @@ export default function DashboardPage() {
         .dashboard-retest-banner a:hover {
           color: #c7d2fe;
         }
+        .dashboard-main { display: flex; flex-direction: column; gap: 28px; }
+        .dashboard-hero {
+          padding: 28px 24px;
+          background: rgba(30, 27, 75, 0.5);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 16px;
+          text-align: center;
+        }
+        .dashboard-hero-score-label { font-size: 14px; color: rgba(226,232,240,0.7); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+        .dashboard-hero-score-value { font-size: 48px; font-weight: 700; color: #fafafa; line-height: 1; margin-bottom: 4px; }
+        .dashboard-hero-score-caption { font-size: 16px; color: rgba(226,232,240,0.8); margin-bottom: 8px; }
+        .dashboard-hero-meta { font-size: 13px; color: rgba(226,232,240,0.5); }
+        .dashboard-hero-summary { font-size: 15px; color: rgba(226,232,240,0.85); margin: 20px 0 0; line-height: 1.5; max-width: 420px; margin-left: auto; margin-right: auto; }
+        .dashboard-section-title { font-size: 18px; font-weight: 600; margin: 0 0 12px; color: #f8fafc; }
+        .dashboard-priorities-grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+        .dashboard-priority-card { padding: 18px; }
+        .dashboard-priority-name { font-size: 17px; font-weight: 600; color: #fafafa; margin-bottom: 4px; }
+        .dashboard-priority-status { font-size: 13px; margin-bottom: 6px; }
+        .dashboard-priority-status.tone-green { color: #4ade80; }
+        .dashboard-priority-status.tone-amber { color: #fbbf24; }
+        .dashboard-priority-status.tone-red { color: #f87171; }
+        .dashboard-priority-value { font-size: 13px; color: rgba(226,232,240,0.7); margin-bottom: 8px; }
+        .dashboard-priority-explanation { font-size: 14px; color: rgba(226,232,240,0.8); line-height: 1.45; margin: 0 0 12px; }
+        .dashboard-priority-link { font-size: 14px; font-weight: 600; color: #a5b4fc; text-decoration: none; }
+        .dashboard-priority-link:hover { text-decoration: underline; }
+        .dashboard-chart-card { padding: 16px; min-height: 280px; }
+        .dashboard-savings-grid-new { display: grid; gap: 12px; grid-template-columns: repeat(2, 1fr); }
+        .dashboard-savings-label { display: block; font-size: 13px; color: rgba(226,232,240,0.6); margin-bottom: 6px; }
+        .dashboard-savings-value.highlight { color: #f97316; }
+        .dashboard-savings-card.success .dashboard-savings-value { color: #4ade80; }
+        .dashboard-retest-intro { font-size: 14px; color: rgba(226,232,240,0.85); margin: 0 0 12px; }
+        .dashboard-retest-cta { display: inline-block; margin-top: 12px; }
+        .dashboard-saved-plan-card { padding: 20px; }
+        .dashboard-saved-plan-links { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+        .dashboard-saved-plan-link {
+          padding: 10px 18px; border-radius: 10px; background: rgba(255,255,255,0.06); color: #a5b4fc;
+          font-size: 14px; font-weight: 600; text-decoration: none; border: 1px solid rgba(255,255,255,0.1);
+        }
+        .dashboard-saved-plan-link:hover { background: rgba(255,255,255,0.1); }
+        .dashboard-protocol-tracker { padding: 18px; }
+        .dashboard-protocol-pct { font-size: 14px; font-weight: 600; color: rgba(226,232,240,0.9); margin-bottom: 14px; }
+        .dashboard-protocol-list { list-style: none; margin: 0; padding: 0; }
+        .dashboard-protocol-item { display: flex; align-items: center; gap: 12px; cursor: pointer; padding: 10px 0; font-size: 15px; color: #f8fafc; }
+        .dashboard-protocol-item input { width: 20px; height: 20px; accent-color: #6366f1; }
         .dashboard-grid {
           display: grid;
           gap: 16px;
