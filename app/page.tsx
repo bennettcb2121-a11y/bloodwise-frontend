@@ -341,10 +341,20 @@ function HomePageContent() {
     }).catch(() => router.replace("/", { scroll: false }))
   }, [userId, searchParams, router])
 
-  // After subscription success: send straight to dashboard so they never see Welcome (page 1)
+  // After subscription success: continue the survey (results flow) then they reach dashboard via "Go to Dashboard"
   useEffect(() => {
     if (!userId || searchParams.get("subscription") !== "success") return
-    router.replace("/dashboard?subscription=success", { scroll: false })
+    loadSavedState(userId).then(({ profile: p, bloodwork: b }) => {
+      const row = p as { analysis_purchased_at?: string | null } | null
+      if (row?.analysis_purchased_at && b?.biomarker_inputs && typeof b.biomarker_inputs === "object") {
+        setInputs((prev) => ({ ...prev, ...b.biomarker_inputs }))
+        if (Array.isArray(b.selected_panel) && b.selected_panel.length > 0) setSelectedPanel(b.selected_panel)
+        setHasPaidAnalysis(true)
+        setCurrentStepRaw(8)
+        setAnalyzing(true)
+      }
+      router.replace("/", { scroll: false })
+    }).catch(() => router.replace("/", { scroll: false }))
   }, [userId, searchParams, router])
 
   // After sign-in: block Step 7 (currentStep 6) for 2.5s and correct any jump — nothing can set step to 6 in this window
@@ -613,6 +623,15 @@ function HomePageContent() {
     return (
       <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--clarion-bg-gradient, #0f0a1a)" }}>
         <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 15 }}>Loading…</p>
+      </main>
+    )
+  }
+
+  // Returning from subscription: show loading briefly while we restore state and continue the survey (no Welcome)
+  if (user && searchParams.get("subscription") === "success") {
+    return (
+      <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--clarion-bg-gradient, #0f0a1a)" }}>
+        <p style={{ color: "rgba(255,255,255,0.8)", fontSize: 16 }}>Continuing your analysis…</p>
       </main>
     )
   }
