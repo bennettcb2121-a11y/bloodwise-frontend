@@ -283,7 +283,7 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
   const progressPercent = ((currentStep + 1) / TOTAL_STEPS) * 100
 
   return (
-    <main className="onboarding-shell">
+    <main className={`onboarding-shell ${currentStep === 0 ? "onboarding-shell-hero" : ""}`}>
       <header className="onboarding-header">
         <div className="onboarding-header-inner">
           {currentStep > 0 && currentStep !== STEP_ANALYSIS ? (
@@ -321,24 +321,30 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
       <div className={`onboarding-container ${currentStep === 0 ? "onboarding-container-centered" : ""}`}>
       <AnimatePresence mode="wait">
         {currentStep === 0 && (
-          <motion.section
-            key="welcome"
-            className="onboarding-screen onboarding-screen-center"
-            initial={{ opacity: 0, x: 24 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -24 }}
-            transition={TRANSITION}
-          >
-            <h1 className="onboarding-headline">Welcome to Clarion</h1>
-            <p className="onboarding-subtext">Pick your profile—we recommend the right biomarkers and optimal ranges for you. No one-size-fits-all panel.</p>
-            <button
-              type="button"
-              className="onboarding-primary-btn"
-              onClick={onWelcomeContinue ?? goNext}
+          <div className="onboarding-hero-wrap">
+            <div className="onboarding-hero-backdrop" aria-hidden>
+              <div className="onboarding-hero-pattern" />
+              <div className="onboarding-hero-glow" />
+            </div>
+            <motion.section
+              key="welcome"
+              className="onboarding-screen onboarding-screen-center onboarding-hero-content"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={TRANSITION}
             >
-              {!userId && onWelcomeContinue ? "Sign in to continue →" : "Start Analysis →"}
-            </button>
-          </motion.section>
+              <h1 className="onboarding-headline">Welcome to Clarion</h1>
+              <p className="onboarding-subtext">Pick your health profile and we&apos;ll recommend the right biomarkers and optimal ranges for you. No generic lab panels.</p>
+              <button
+                type="button"
+                className="onboarding-primary-btn onboarding-hero-cta"
+                onClick={onWelcomeContinue ?? goNext}
+              >
+                {!userId && onWelcomeContinue ? "Sign in to continue →" : "Start Analysis →"}
+              </button>
+            </motion.section>
+          </div>
         )}
 
         {currentStep === 1 && (
@@ -1199,6 +1205,14 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
           display: flex;
           flex-direction: column;
         }
+        .onboarding-shell.onboarding-shell-hero {
+          background-size: 120% 120%;
+          animation: onboarding-hero-bg-drift 38s ease-in-out infinite alternate;
+        }
+        @keyframes onboarding-hero-bg-drift {
+          0% { background-position: 0% 0%; }
+          100% { background-position: 5% 3%; }
+        }
         .onboarding-header {
           flex-shrink: 0;
           padding: 18px 20px;
@@ -1284,6 +1298,48 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
         .onboarding-container-centered {
           justify-content: center;
         }
+        .onboarding-hero-wrap {
+          position: relative;
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+        }
+        .onboarding-hero-backdrop {
+          position: absolute;
+          inset: -20%;
+          pointer-events: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .onboarding-hero-pattern {
+          position: absolute;
+          inset: 0;
+          opacity: 0.04;
+          background-image: radial-gradient(circle at center, rgba(255,255,255,0.08) 1px, transparent 1px),
+            radial-gradient(circle at 50% 50%, transparent 0%, transparent 25%, rgba(255,255,255,0.03) 25.5%, transparent 26%),
+            radial-gradient(circle at 50% 50%, transparent 0%, transparent 45%, rgba(255,255,255,0.02) 45.5%, transparent 46%),
+            radial-gradient(circle at 50% 50%, transparent 0%, transparent 65%, rgba(255,255,255,0.015) 65.5%, transparent 66%);
+          background-size: 24px 24px, 100% 100%, 100% 100%, 100% 100%;
+          background-position: 0 0, center, center, center;
+        }
+        .onboarding-hero-glow {
+          position: absolute;
+          width: 100%;
+          max-width: 480px;
+          height: 320px;
+          border-radius: 50%;
+          background: radial-gradient(ellipse at center, rgba(120, 80, 255, 0.2) 0%, rgba(80, 60, 180, 0.1) 40%, transparent 65%);
+          pointer-events: none;
+        }
+        .onboarding-hero-content.onboarding-screen-center .onboarding-headline {
+          margin-bottom: 12px;
+        }
+        .onboarding-hero-content.onboarding-screen-center .onboarding-subtext {
+          margin-bottom: 24px;
+        }
         .onboarding-screen {
           padding: 0;
           width: 100%;
@@ -1345,11 +1401,15 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
           text-decoration: none;
           text-align: center;
           box-shadow: 0 4px 20px rgba(229, 72, 77, 0.4);
-          transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+          transition: transform 140ms ease-out, box-shadow 140ms ease-out, opacity 0.2s;
         }
         .onboarding-primary-btn:hover:not(:disabled) {
           transform: translateY(-2px);
           box-shadow: 0 8px 28px rgba(229, 72, 77, 0.45);
+        }
+        .onboarding-hero-cta:hover:not(:disabled) {
+          transform: scale(1.03) translateY(-1px);
+          box-shadow: 0 10px 32px rgba(229, 72, 77, 0.5);
         }
         .onboarding-primary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .onboarding-secondary-btn {
