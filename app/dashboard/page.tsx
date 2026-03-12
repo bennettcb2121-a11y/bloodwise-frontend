@@ -117,6 +117,8 @@ export default function DashboardPage() {
 
   const hasPaidAnalysis = Boolean(profile?.analysis_purchased_at)
   const hasActiveSubscription = subscription?.status === "active"
+  const returnedFromSubscriptionCheckout =
+    typeof window !== "undefined" && window.location.search.includes("subscription=success")
 
   // Redirect unauthenticated users to login
   useEffect(() => {
@@ -164,17 +166,25 @@ export default function DashboardPage() {
       .finally(() => setLoading(false))
   }, [user?.id])
 
-  // After returning from subscription checkout, refetch profile and subscription
+  // After returning from subscription checkout, refetch a few times so webhook-updated subscription is picked up, then clean URL
   useEffect(() => {
     if (!user?.id || typeof window === "undefined") return
     const search = window.location.search
     if (!search.includes("subscription=success")) return
-    const t = setTimeout(() => {
+    const refetch = () => {
       loadSavedState(user.id).then(({ profile: p }) => { if (p) setProfile(p) }).catch(() => {})
-      getSubscription(user.id).then(setSubscription).catch(() => {})
+      getSubscription(user.id).then((sub) => {
+        setSubscription(sub)
+        if (sub?.status === "active") router.replace("/dashboard")
+      }).catch(() => {})
+    }
+    refetch()
+    const t1 = setTimeout(refetch, 1500)
+    const t2 = setTimeout(() => {
+      refetch()
       router.replace("/dashboard")
-    }, 1500)
-    return () => clearTimeout(t)
+    }, 4000)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [user?.id, router])
 
   // Redirect to paywall if user has not purchased analysis yet
@@ -184,11 +194,12 @@ export default function DashboardPage() {
       router.replace("/paywall")
       return
     }
-    // Paid but never completed the guided results flow → send them through it first
+    // Paid but never completed the guided results flow → send them through it first (unless they just returned from subscribing)
+    if (returnedFromSubscriptionCheckout) return
     if (profile !== null && profile.analysis_purchased_at && !(profile as { results_flow_completed_at?: string | null }).results_flow_completed_at) {
       router.replace("/")
     }
-  }, [authLoading, user, loading, profile, router])
+  }, [authLoading, user, loading, profile, router, returnedFromSubscriptionCheckout])
 
   const profileForAnalysis = profile
     ? { age: profile.age, sex: profile.sex, sport: profile.sport }
@@ -319,7 +330,7 @@ export default function DashboardPage() {
   }
 
   // Paid for analysis but no active subscription → gate dashboard (charts, history, full dashboard)
-  if (hasPaidAnalysis && !hasActiveSubscription) {
+  if (hasPaidAnalysis && !hasActiveSubscription && !returnedFromSubscriptionCheckout) {
     return (
       <main className="dashboard-shell" style={{ background: "linear-gradient(165deg, #1a0a2e 0%, #1e1b4b 25%, #312e81 50%, #1e1b4b 75%, #0f0a1a 100%)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <div style={{ maxWidth: 440, textAlign: "center" }}>
