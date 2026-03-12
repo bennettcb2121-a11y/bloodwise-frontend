@@ -239,9 +239,12 @@ function HomePageContent() {
   useEffect(() => {
     if (!userId || hasLoadedSaveRef.current) return
     hasLoadedSaveRef.current = true
-    // Force step 0 immediately so we never show a later step before/after load (avoids flash then jump to Step 7)
-    setCurrentStep(0)
-    setAnalyzing(false)
+    // If returning from subscription checkout, don't force welcome — subscription=success effect will show results flow
+    const isSubscriptionReturn = typeof window !== "undefined" && window.location.search.includes("subscription=success")
+    if (!isSubscriptionReturn) {
+      setCurrentStep(0)
+      setAnalyzing(false)
+    }
     Promise.all([loadSavedState(userId), getSubscription(userId)])
       .then(([{ profile: p, bloodwork: b }, subscription]) => {
         const row = p ? (p as { improvement_preference?: string; profile_type?: string; analysis_purchased_at?: string | null; results_flow_completed_at?: string | null }) : null
@@ -307,6 +310,9 @@ function HomePageContent() {
           return
         }
 
+        // If returning from subscription checkout, don't force welcome — subscription=success effect will show results flow
+        if (typeof window !== "undefined" && window.location.search.includes("subscription=success")) return
+
         // Always start at first page (welcome). Set in same batch as other state so no intermediate render shows a later step.
         setCurrentStep(0)
         setAnalyzing(false)
@@ -325,6 +331,28 @@ function HomePageContent() {
         setCurrentStepRaw(8) // analysis loading step
         setAnalyzing(true)
       }
+      router.replace("/", { scroll: false })
+    }).catch(() => router.replace("/", { scroll: false }))
+  }, [userId, searchParams, router])
+
+  // After subscription success: return to app and show results flow (health score animation → insights → stack → summary), then dashboard when done
+  useEffect(() => {
+    if (!userId || searchParams.get("subscription") !== "success") return
+    loadSavedState(userId).then(({ profile: p, bloodwork: b }) => {
+      const row = p as { analysis_purchased_at?: string | null } | null
+      if (!row?.analysis_purchased_at || !b) {
+        router.replace("/", { scroll: false })
+        return
+      }
+      if (b.biomarker_inputs && typeof b.biomarker_inputs === "object") {
+        setInputs((prev) => ({ ...prev, ...b.biomarker_inputs }))
+      }
+      if (Array.isArray(b.selected_panel) && b.selected_panel.length > 0) {
+        setSelectedPanel(b.selected_panel)
+      }
+      setHasPaidAnalysis(true)
+      setCurrentStepRaw(8) // analysis loading → then score reveal
+      setAnalyzing(true)
       router.replace("/", { scroll: false })
     }).catch(() => router.replace("/", { scroll: false }))
   }, [userId, searchParams, router])
