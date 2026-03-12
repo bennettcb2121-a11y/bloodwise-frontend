@@ -129,6 +129,8 @@ type OnboardingFlowProps = {
   goToBloodTestStep?: () => void
   /** Go directly to labs step from blood-test step (avoids step-guard loop). */
   goToLabsStep?: () => void
+  /** Go directly to analysis step (10) from labs when user clicks Analyze (bypasses step guard). */
+  goToAnalysisStep?: () => void
 }
 
 export function OnboardingFlow(props: OnboardingFlowProps) {
@@ -176,6 +178,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
   hasActiveSubscription = false,
   goToBloodTestStep,
   goToLabsStep,
+  goToAnalysisStep,
 } = props
 
 const [hasLabResults, setHasLabResults] = useState<boolean | null>(null)
@@ -257,11 +260,18 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
   }, [currentStep, score])
 
   const goNext = () => setCurrentStep((s: number) => Math.min(STEP_SUMMARY, s + 1))
-  const goBack = () => setCurrentStep((s: number) => Math.max(0, s - 1))
+  const goBack = () => {
+    if (currentStep === STEP_ANALYSIS) setCurrentStep(STEP_LABS)
+    else if (currentStep === STEP_BLOOD_TEST) setCurrentStep(STEP_HAVE_LABS)
+    else setCurrentStep((s: number) => Math.max(0, s - 1))
+  }
 
   const handleAnalyze = () => {
-    setCurrentStep(STEP_ANALYSIS)
-    setAnalyzing(true)
+    if (goToAnalysisStep) goToAnalysisStep()
+    else {
+      setCurrentStep(STEP_ANALYSIS)
+      setAnalyzing(true)
+    }
   }
 
   const handleUseRecommended = () => {
@@ -276,7 +286,7 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
     <main className="onboarding-shell">
       <header className="onboarding-header">
         <div className="onboarding-header-inner">
-          {currentStep > 0 ? (
+          {currentStep > 0 && currentStep !== STEP_ANALYSIS ? (
             <button type="button" className="onboarding-back" onClick={goBack} aria-label="Back">
               <ChevronLeft size={24} strokeWidth={2} />
             </button>

@@ -624,6 +624,11 @@ function HomePageContent() {
   const goToBloodTestStep = useCallback(() => setCurrentStepRaw(9), [])
   /** Go directly to labs step (8) from blood-test step (9) to avoid any step-guard loop */
   const goToLabsStep = useCallback(() => setCurrentStepRaw(8), [])
+  /** Go directly to analysis step (10) from labs (8) when user clicks Analyze — bypasses step guard */
+  const goToAnalysisStep = useCallback(() => {
+    setCurrentStepRaw(10)
+    setAnalyzing(true)
+  }, [])
 
   // Show loading only while auth is resolving; then show onboarding for everyone (logged-in users see "Dashboard" in header)
   if (authLoading) {
@@ -700,6 +705,7 @@ function HomePageContent() {
       onGoToDashboard={onGoToDashboard}
       goToBloodTestStep={goToBloodTestStep}
       goToLabsStep={goToLabsStep}
+      goToAnalysisStep={goToAnalysisStep}
       hasActiveSubscription={subscription?.status === "active" || subscription?.status === "trialing"}
     />
     </>
