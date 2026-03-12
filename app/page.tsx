@@ -239,9 +239,11 @@ function HomePageContent() {
   useEffect(() => {
     if (!userId || hasLoadedSaveRef.current) return
     hasLoadedSaveRef.current = true
-    // If returning from subscription checkout, don't force welcome — subscription=success effect will show results flow
-    const isSubscriptionReturn = typeof window !== "undefined" && window.location.search.includes("subscription=success")
-    if (!isSubscriptionReturn) {
+    // If returning from payment or subscription checkout, don't force welcome — dedicated effects will show results flow
+    const search = typeof window !== "undefined" ? window.location.search : ""
+    const isPaymentReturn = search.includes("paid=1")
+    const isSubscriptionReturn = search.includes("subscription=success")
+    if (!isPaymentReturn && !isSubscriptionReturn) {
       setCurrentStep(0)
       setAnalyzing(false)
     }
@@ -310,8 +312,8 @@ function HomePageContent() {
           return
         }
 
-        // If returning from subscription checkout, don't force welcome — subscription=success effect will show results flow
-        if (typeof window !== "undefined" && window.location.search.includes("subscription=success")) return
+        // If returning from payment or subscription checkout, don't force welcome — dedicated effects will show results flow
+        if (typeof window !== "undefined" && (window.location.search.includes("paid=1") || window.location.search.includes("subscription=success"))) return
 
         // Always start at first page (welcome). Set in same batch as other state so no intermediate render shows a later step.
         setCurrentStep(0)
@@ -321,16 +323,20 @@ function HomePageContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when userId changes; router is stable
   }, [userId])
 
-  // After payment success: return to app and continue guided results flow (analysis → score → insights → stack → summary), not dashboard
+  // After $49 payment success: return to app and continue guided results flow (analysis → score → insights → stack → summary)
+  // Treat ?paid=1 optimistically so we don't depend on webhook having run yet; restore bloodwork and show results
   useEffect(() => {
     if (!userId || searchParams.get("paid") !== "1") return
-    loadSavedState(userId).then(({ profile: p }) => {
-      const row = p as { analysis_purchased_at?: string | null } | null
-      if (row?.analysis_purchased_at) {
-        setHasPaidAnalysis(true)
-        setCurrentStepRaw(8) // analysis loading step
-        setAnalyzing(true)
+    loadSavedState(userId).then(({ profile: p, bloodwork: b }) => {
+      setHasPaidAnalysis(true) // optimistic: they just came from checkout
+      if (b?.biomarker_inputs && typeof b.biomarker_inputs === "object") {
+        setInputs((prev) => ({ ...prev, ...b.biomarker_inputs }))
       }
+      if (Array.isArray(b?.selected_panel) && b.selected_panel.length > 0) {
+        setSelectedPanel(b.selected_panel)
+      }
+      setCurrentStepRaw(8) // analysis loading → score reveal
+      setAnalyzing(true)
       router.replace("/", { scroll: false })
     }).catch(() => router.replace("/", { scroll: false }))
   }, [userId, searchParams, router])

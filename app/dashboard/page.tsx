@@ -116,7 +116,7 @@ export default function DashboardPage() {
   const [prefsSaved, setPrefsSaved] = useState(false)
 
   const hasPaidAnalysis = Boolean(profile?.analysis_purchased_at)
-  const hasActiveSubscription = subscription?.status === "active"
+  const hasActiveSubscription = subscription?.status === "active" || subscription?.status === "trialing"
   const returnedFromSubscriptionCheckout =
     typeof window !== "undefined" && window.location.search.includes("subscription=success")
 
@@ -175,7 +175,7 @@ export default function DashboardPage() {
       loadSavedState(user.id).then(({ profile: p }) => { if (p) setProfile(p) }).catch(() => {})
       getSubscription(user.id).then((sub) => {
         setSubscription(sub)
-        if (sub?.status === "active") router.replace("/dashboard")
+        if (sub?.status === "active" || sub?.status === "trialing") router.replace("/dashboard")
       }).catch(() => {})
     }
     refetch()

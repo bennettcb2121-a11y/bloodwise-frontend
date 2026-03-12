@@ -3,7 +3,7 @@
 import React from "react"
 import Link from "next/link"
 import { motion, AnimatePresence } from "framer-motion"
-import { Target, Pill, Droplet, Activity, Wallet, TrendingUp, ChevronLeft, Lock, Check } from "lucide-react"
+import { Target, Pill, Droplet, Activity, Wallet, TrendingUp, ChevronLeft, Lock } from "lucide-react"
 import { SubscribeButton } from "@/src/components/SubscribeButton"
 import { getMarkerReason, getInputPlaceholder, titleCase } from "@/src/lib/panelEngine"
 import { getStatusTone, inferWhyItMatters, inferNextStep } from "@/src/lib/priorityEngine"
@@ -316,7 +316,6 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                         >
-                          {profile.profileType === opt.id && <span className="onboarding-card-check" aria-hidden><Check size={20} strokeWidth={2.5} /></span>}
                           <span className="onboarding-answer-card-title">{opt.label}</span>
                           <span className="onboarding-answer-card-desc">{opt.description}</span>
                         </motion.button>
@@ -386,7 +385,6 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  {profile.improvementPreference === opt.id && <span className="onboarding-card-check" aria-hidden><Check size={20} strokeWidth={2.5} /></span>}
                   <span className="onboarding-answer-card-title">{opt.label}</span>
                   <span className="onboarding-answer-card-desc">{opt.description}</span>
                 </motion.button>
@@ -418,7 +416,6 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                {currentSupplements !== "No" && <span className="onboarding-card-check" aria-hidden><Check size={20} strokeWidth={2.5} /></span>}
                 <span className="onboarding-answer-card-title">Yes</span>
               </motion.button>
               <motion.button
@@ -428,7 +425,6 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                {currentSupplements === "No" && <span className="onboarding-card-check" aria-hidden><Check size={20} strokeWidth={2.5} /></span>}
                 <span className="onboarding-answer-card-title">No</span>
               </motion.button>
             </div>
@@ -499,7 +495,6 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
             <div className="onboarding-panel-toggles">
               {CLARION_RECOMMENDED_PANEL_KEYS.filter((marker) => biomarkerKeys.includes(marker)).map((marker) => (
                 <button key={marker} type="button" className={`onboarding-panel-toggle ${activePanel.includes(marker) ? "selected" : ""}`} onClick={() => togglePanelMarker(marker)}>
-                  {activePanel.includes(marker) && <Check size={14} strokeWidth={2.5} className="onboarding-panel-toggle-check" aria-hidden />}
                   {titleCase(marker)}
                 </button>
               ))}
@@ -1100,32 +1095,23 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
           transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
           box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
         }
-        .onboarding-card-check {
-          position: absolute;
-          top: 12px;
-          right: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          width: 28px;
-          height: 28px;
-          border-radius: 50%;
-          background: rgba(249, 115, 22, 0.35);
-          color: #fff;
-        }
         .onboarding-answer-card:hover {
           border-color: rgba(255, 255, 255, 0.14);
           box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
           background: rgba(32, 32, 38, 0.9);
         }
         .onboarding-answer-card.selected {
-          border: 2px solid rgba(249, 115, 22, 0.9);
-          background: linear-gradient(135deg, rgba(249, 115, 22, 0.22) 0%, rgba(229, 72, 77, 0.18) 100%);
-          box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.4), 0 6px 20px rgba(249, 115, 22, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+          border: 2px solid rgba(249, 115, 22, 0.95);
+          background: linear-gradient(145deg, rgba(249, 115, 22, 0.28) 0%, rgba(234, 88, 12, 0.22) 40%, rgba(229, 72, 77, 0.2) 100%);
+          box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.5), 0 8px 24px rgba(249, 115, 22, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
           color: #fef2f2;
         }
+        .onboarding-answer-card.selected:hover {
+          background: linear-gradient(145deg, rgba(249, 115, 22, 0.32) 0%, rgba(234, 88, 12, 0.26) 40%, rgba(229, 72, 77, 0.24) 100%);
+          box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.55), 0 10px 28px rgba(249, 115, 22, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+        }
         .onboarding-answer-card.selected .onboarding-answer-card-title { color: #fff; }
-        .onboarding-answer-card.selected .onboarding-answer-card-desc { color: rgba(255, 255, 255, 0.85); }
+        .onboarding-answer-card.selected .onboarding-answer-card-desc { color: rgba(255, 255, 255, 0.9); }
         .onboarding-answer-card-title {
           font-size: 18px;
           font-weight: 700;
@@ -1173,14 +1159,10 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
           gap: 6px;
         }
         .onboarding-panel-toggle.selected {
-          border: 2px solid rgba(249, 115, 22, 0.9);
-          background: linear-gradient(135deg, rgba(249, 115, 22, 0.28) 0%, rgba(229, 72, 77, 0.2) 100%);
+          border: 2px solid rgba(249, 115, 22, 0.95);
+          background: linear-gradient(135deg, rgba(249, 115, 22, 0.32) 0%, rgba(229, 72, 77, 0.24) 100%);
           color: #fff;
-          box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
-        }
-        .onboarding-panel-toggle-check {
-          flex-shrink: 0;
-          color: #fff;
+          box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.45), 0 4px 12px rgba(249, 115, 22, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
         }
         .onboarding-customize-hint { font-size: 13px; color: rgba(255,255,255,0.55); margin-top: 12px; }
         .onboarding-lab-inputs { display: flex; flex-direction: column; gap: 16px; margin-bottom: 20px; }

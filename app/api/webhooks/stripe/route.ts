@@ -41,7 +41,7 @@ export async function POST(request: Request) {
       const subscriptionId = session.subscription as string | null
       const mode = session.mode
 
-      // One-time analysis purchase: set profiles.analysis_purchased_at (upsert so new users get a row)
+      // One-time analysis purchase: set profiles.analysis_purchased_at and auto-enroll in Clarion+ with 2 months free
       if (mode === "payment" && userId && session.metadata?.type === "analysis") {
         const now = new Date().toISOString()
         await supabase.from("profiles").upsert(
@@ -52,6 +52,38 @@ export async function POST(request: Request) {
           },
           { onConflict: "user_id" }
         )
+        // Automatically create Clarion+ subscription with 2-month free trial (same customer from checkout)
+        const customerId = typeof session.customer === "string" ? session.customer : null
+        const subscriptionPriceId = process.env.STRIPE_PRICE_ID
+        if (customerId && subscriptionPriceId) {
+          try {
+            const { data: existing } = await supabase.from("subscriptions").select("user_id").eq("user_id", userId).maybeSingle()
+            if (!existing) {
+              const sub = await stripe.subscriptions.create({
+                customer: customerId,
+                items: [{ price: subscriptionPriceId }],
+                trial_period_days: 60,
+                metadata: { user_id: userId },
+              })
+              const periodEnd = typeof sub.current_period_end === "number"
+                ? new Date(sub.current_period_end * 1000).toISOString()
+                : null
+              await supabase.from("subscriptions").upsert(
+                {
+                  user_id: userId,
+                  stripe_customer_id: customerId,
+                  stripe_subscription_id: sub.id,
+                  status: sub.status,
+                  current_period_end: periodEnd,
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: "user_id" }
+              )
+            }
+          } catch (err) {
+            console.error("Stripe: auto-create subscription with trial after $49 analysis failed:", err)
+          }
+        }
       }
 
       // Subscription: update subscriptions table
