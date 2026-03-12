@@ -93,9 +93,9 @@ export default function PaywallPage() {
     <main className="paywall-shell">
       <div className="paywall-container">
         <Link href="/dashboard" className="paywall-logo">Clarion</Link>
-        <h1 className="paywall-title">Unlock your Clarion Analysis</h1>
+        <h1 className="paywall-title">Your personalized analysis is ready</h1>
         <p className="paywall-subtitle">
-          One-time $49 unlocks your full analysis, protocol, and stack. Your first 2 months of Clarion+ are free; then $29.79 every 2 months for ongoing tracking.
+          Unlock your full biomarker plan, protocol, and stack. One-time purchase — then your first 2 months of Clarion+ are free for ongoing tracking and retest reminders.
         </p>
         <div className="paywall-card">
           <div className="paywall-price">
@@ -116,7 +116,7 @@ export default function PaywallPage() {
             onClick={handleUnlock}
             disabled={checkoutLoading}
           >
-            {checkoutLoading ? "Redirecting to checkout…" : "Unlock for $49"}
+            {checkoutLoading ? "Taking you to checkout…" : "Unlock my analysis"}
           </button>
           {error && <p className="paywall-error">{error}</p>}
         </div>

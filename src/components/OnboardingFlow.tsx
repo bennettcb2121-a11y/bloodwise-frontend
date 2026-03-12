@@ -346,19 +346,29 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
             <div className="onboarding-step-icon" aria-hidden><Activity size={ICON_SIZE} strokeWidth={ICON_STROKE} /></div>
             <h1 className="onboarding-headline">A few optional details</h1>
             <p className="onboarding-subtext">Age and sex help us personalize optimal ranges. You can skip and add them later.</p>
-            <div className="onboarding-quick-fields">
-              <label>
-                <span>Age <span className="onboarding-optional">(optional)</span></span>
-                <input type="number" value={profile.age} onChange={(e) => setProfile((p) => ({ ...p, age: e.target.value }))} placeholder="25" min={1} max={120} />
-              </label>
-              <label>
-                <span>Sex <span className="onboarding-optional">(optional)</span></span>
-                <select value={profile.sex} onChange={(e) => setProfile((p) => ({ ...p, sex: e.target.value }))}>
-                  <option value="">Select</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                </select>
-              </label>
+            <label className="onboarding-field-label">
+              <span>Age <span className="onboarding-optional">(optional)</span></span>
+              <input type="number" value={profile.age} onChange={(e) => setProfile((p) => ({ ...p, age: e.target.value }))} placeholder="25" min={1} max={120} className="onboarding-input" />
+            </label>
+            <p className="onboarding-field-label" style={{ marginTop: 16, marginBottom: 8 }}>Sex <span className="onboarding-optional">(optional)</span></p>
+            <div className="onboarding-card-grid four" style={{ marginBottom: 24 }}>
+              {[
+                { id: "Male", label: "Male" },
+                { id: "Female", label: "Female" },
+                { id: "Other", label: "Other" },
+                { id: "Prefer not to say", label: "Prefer not to say" },
+              ].map((opt) => (
+                <motion.button
+                  key={opt.id}
+                  type="button"
+                  className={`onboarding-answer-card onboarding-answer-card-compact ${profile.sex === opt.id ? "selected" : ""}`}
+                  onClick={() => setProfile((p) => ({ ...p, sex: opt.id }))}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <span className="onboarding-answer-card-title">{opt.label}</span>
+                </motion.button>
+              ))}
             </div>
             <button type="button" className="onboarding-primary-btn" onClick={() => setCurrentStep(3)}>
               Continue
@@ -609,9 +619,9 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
               <div className="onboarding-results-lock-overlay">
                 <div className="onboarding-results-lock-card">
                   <Lock size={40} strokeWidth={1.5} className="onboarding-results-lock-icon" />
-                  <p className="onboarding-results-lock-title">Subscription required</p>
-                  <p className="onboarding-results-lock-text">Unlock your full analysis, protocol, and stack with a one-time $49 purchase. Your first 2 months of Clarion+ are free; then $29.79 every 2 months.</p>
-                  <Link href="/paywall" className="onboarding-primary-btn onboarding-results-lock-cta">Unlock for $49</Link>
+                  <p className="onboarding-results-lock-title">Your personalized analysis is ready</p>
+                  <p className="onboarding-results-lock-text">Unlock your full biomarker plan, protocol, and stack with a one-time purchase. You’re close — continue to see your results, recommendations, and savings.</p>
+                  <Link href="/paywall" className="onboarding-primary-btn onboarding-results-lock-cta">Unlock my analysis</Link>
                 </div>
               </div>
             )}
@@ -672,9 +682,9 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
               <div className="onboarding-results-lock-overlay">
                 <div className="onboarding-results-lock-card">
                   <Lock size={40} strokeWidth={1.5} className="onboarding-results-lock-icon" />
-                  <p className="onboarding-results-lock-title">Subscription required</p>
-                  <p className="onboarding-results-lock-text">Unlock your full analysis, protocol, and stack with a one-time $49 purchase. Your first 2 months of Clarion+ are free; then $29.79 every 2 months.</p>
-                  <Link href="/paywall" className="onboarding-primary-btn onboarding-results-lock-cta">Unlock for $49</Link>
+                  <p className="onboarding-results-lock-title">Your personalized analysis is ready</p>
+                  <p className="onboarding-results-lock-text">Unlock your full biomarker plan, protocol, and stack with a one-time purchase. You’re close — continue to see your results, recommendations, and savings.</p>
+                  <Link href="/paywall" className="onboarding-primary-btn onboarding-results-lock-cta">Unlock my analysis</Link>
                 </div>
               </div>
             )}
@@ -857,9 +867,9 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
               <div className="onboarding-results-lock-overlay">
                 <div className="onboarding-results-lock-card">
                   <Lock size={40} strokeWidth={1.5} className="onboarding-results-lock-icon" />
-                  <p className="onboarding-results-lock-title">Subscription required</p>
-                  <p className="onboarding-results-lock-text">Unlock your full analysis, protocol, and stack with a one-time $49 purchase. Your first 2 months of Clarion+ are free; then $29.79 every 2 months.</p>
-                  <Link href="/paywall" className="onboarding-primary-btn onboarding-results-lock-cta">Unlock for $49</Link>
+                  <p className="onboarding-results-lock-title">Your personalized analysis is ready</p>
+                  <p className="onboarding-results-lock-text">Unlock your full biomarker plan, protocol, and stack with a one-time purchase. You’re close — continue to see your results, recommendations, and savings.</p>
+                  <Link href="/paywall" className="onboarding-primary-btn onboarding-results-lock-cta">Unlock my analysis</Link>
                 </div>
               </div>
             )}
@@ -904,9 +914,9 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
               <div className="onboarding-results-lock-overlay">
                 <div className="onboarding-results-lock-card">
                   <Lock size={40} strokeWidth={1.5} className="onboarding-results-lock-icon" />
-                  <p className="onboarding-results-lock-title">Subscription required</p>
-                  <p className="onboarding-results-lock-text">Unlock your full analysis, protocol, and stack with a one-time $49 purchase. Your first 2 months of Clarion+ are free; then $29.79 every 2 months.</p>
-                  <Link href="/paywall" className="onboarding-primary-btn onboarding-results-lock-cta">Unlock for $49</Link>
+                  <p className="onboarding-results-lock-title">Your personalized analysis is ready</p>
+                  <p className="onboarding-results-lock-text">Unlock your full biomarker plan, protocol, and stack with a one-time purchase. You’re close — continue to see your results, recommendations, and savings.</p>
+                  <Link href="/paywall" className="onboarding-primary-btn onboarding-results-lock-cta">Unlock my analysis</Link>
                 </div>
               </div>
             )}
@@ -1121,14 +1131,15 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
           background: rgba(32, 32, 38, 0.9);
         }
         .onboarding-answer-card.selected {
-          border: 2px solid rgba(249, 115, 22, 0.95);
-          background: linear-gradient(145deg, rgba(249, 115, 22, 0.28) 0%, rgba(234, 88, 12, 0.22) 40%, rgba(229, 72, 77, 0.2) 100%);
-          box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.5), 0 8px 24px rgba(249, 115, 22, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-          color: #fef2f2;
+          border: 2px solid #f97316;
+          background: linear-gradient(145deg, rgba(249, 115, 22, 0.35) 0%, rgba(234, 88, 12, 0.28) 50%, rgba(229, 72, 77, 0.22) 100%);
+          box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.4), 0 8px 28px rgba(249, 115, 22, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+          color: #fff;
+          transform: translateY(-1px);
         }
         .onboarding-answer-card.selected:hover {
-          background: linear-gradient(145deg, rgba(249, 115, 22, 0.32) 0%, rgba(234, 88, 12, 0.26) 40%, rgba(229, 72, 77, 0.24) 100%);
-          box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.55), 0 10px 28px rgba(249, 115, 22, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+          background: linear-gradient(145deg, rgba(249, 115, 22, 0.4) 0%, rgba(234, 88, 12, 0.32) 50%, rgba(229, 72, 77, 0.26) 100%);
+          box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.5), 0 10px 32px rgba(249, 115, 22, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18);
         }
         .onboarding-answer-card.selected .onboarding-answer-card-title { color: #fff; }
         .onboarding-answer-card.selected .onboarding-answer-card-desc { color: rgba(255, 255, 255, 0.9); }
@@ -1146,13 +1157,14 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
           display: block;
           line-height: 1.45;
         }
-        .onboarding-quick-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+        .onboarding-field-label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.9); margin-bottom: 8px; }
+        .onboarding-input {
+          padding: 12px 14px; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; font-size: 16px; background: rgba(26,26,31,0.8); color: #fafafa; max-width: 120px;
+        }
         .onboarding-optional { font-weight: 400; color: rgba(255,255,255,0.5); font-size: 13px; }
         .onboarding-field-hint { font-size: 13px; color: rgba(255,255,255,0.5); margin: -8px 0 20px; line-height: 1.4; }
-        .onboarding-quick-fields label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.9); }
-        .onboarding-quick-fields input, .onboarding-quick-fields select {
-          padding: 12px 14px; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; font-size: 16px; background: rgba(26,26,31,0.8); color: #fafafa;
-        }
+        .onboarding-answer-card-compact { min-height: 64px; padding: 14px 18px; }
+        .onboarding-answer-card-compact .onboarding-answer-card-title { margin-top: 0; }
         .onboarding-textarea-label { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.9); }
         .onboarding-textarea-label textarea {
           padding: 12px 14px; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; font-size: 16px; resize: vertical; background: rgba(26,26,31,0.8); color: #fafafa;

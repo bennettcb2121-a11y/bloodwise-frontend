@@ -187,19 +187,13 @@ export default function DashboardPage() {
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [user?.id, router])
 
-  // Redirect to paywall if user has not purchased analysis yet
+  // Redirect to paywall only if user has not purchased analysis yet. Anyone who paid gets dashboard access.
   useEffect(() => {
     if (authLoading || !user || loading) return
     if (profile !== null && !profile.analysis_purchased_at) {
       router.replace("/paywall")
-      return
     }
-    // Paid but never completed the guided results flow → send them through it first (unless they just returned from subscribing)
-    if (returnedFromSubscriptionCheckout) return
-    if (profile !== null && profile.analysis_purchased_at && !(profile as { results_flow_completed_at?: string | null }).results_flow_completed_at) {
-      router.replace("/")
-    }
-  }, [authLoading, user, loading, profile, router, returnedFromSubscriptionCheckout])
+  }, [authLoading, user, loading, profile, router])
 
   const profileForAnalysis = profile
     ? { age: profile.age, sex: profile.sex, sport: profile.sport }
@@ -329,26 +323,7 @@ export default function DashboardPage() {
     )
   }
 
-  // Paid for analysis but no active subscription → gate dashboard (charts, history, full dashboard)
-  if (hasPaidAnalysis && !hasActiveSubscription && !returnedFromSubscriptionCheckout) {
-    return (
-      <main className="dashboard-shell" style={{ background: "linear-gradient(165deg, #1a0a2e 0%, #1e1b4b 25%, #312e81 50%, #1e1b4b 75%, #0f0a1a 100%)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-        <div style={{ maxWidth: 440, textAlign: "center" }}>
-          <Link href="/" style={{ color: "#fafafa", fontSize: 20, fontWeight: 700, textDecoration: "none", display: "inline-block", marginBottom: 32 }}>← Clarion</Link>
-          <h1 style={{ color: "#fef2f2", fontSize: 28, fontWeight: 700, margin: "0 0 12px" }}>Unlock your dashboard</h1>
-          <p style={{ color: "rgba(255,255,255,0.75)", fontSize: 16, lineHeight: 1.5, margin: "0 0 8px" }}>
-            You’ve unlocked your analysis. Subscribe to Clarion+ to access your dashboard, trends, charts, history, and retest reminders.
-          </p>
-          <p style={{ color: "rgba(255,255,255,0.6)", fontSize: 14, margin: "0 0 28px" }}>$29.79 every 2 months · Cancel anytime</p>
-          <SubscribeButton className="dashboard-cta dashboard-cta-subscribe">Subscribe to Clarion+</SubscribeButton>
-          <p style={{ marginTop: 24 }}>
-            <Link href="/" style={{ color: "rgba(255,255,255,0.7)", fontSize: 14, textDecoration: "none" }}>View my analysis on the main app →</Link>
-          </p>
-        </div>
-      </main>
-    )
-  }
-
+  // Everyone who has paid for the $49 analysis gets full dashboard access (no subscription gate)
   const hasBloodwork = bloodwork && (bloodwork.selected_panel?.length > 0 || bloodwork.score != null)
   const reportDate = bloodwork?.created_at
     ? new Date(bloodwork.created_at).toLocaleDateString(undefined, {
