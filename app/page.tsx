@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { loadSavedState, upsertProfile, saveBloodwork, getBloodworkHistory, getSubscription } from "@/src/lib/bloodwiseDb"
-import type { BloodworkSaveRow, SavedSupplementStackItem } from "@/src/lib/bloodwiseDb"
+import type { BloodworkSaveRow, SavedSupplementStackItem, SubscriptionRow } from "@/src/lib/bloodwiseDb"
 import { analyzeBiomarkers } from "@/src/lib/analyzeBiomarkers"
 import { calculateScore } from "@/src/lib/calculateScore"
 import { supplementRecommendations } from "@/src/lib/supplements"
@@ -105,6 +105,7 @@ function HomePageContent() {
   const [lastBloodworkAt, setLastBloodworkAt] = useState<string | null>(null)
   const [retestWeeks, setRetestWeeks] = useState(8)
   const [analyzing, setAnalyzing] = useState(false)
+  const [subscription, setSubscription] = useState<SubscriptionRow | null>(null)
 
   const isProfileReady = Boolean(
     profile.profileType?.trim() || (profile.goal.trim() && profile.sport.trim())
@@ -284,7 +285,9 @@ function HomePageContent() {
               retest_weeks: p.retest_weeks ?? 8,
             }).catch(() => {})
           }
-        } else {
+        }
+        setSubscription(subscription)
+        if (!p) {
           // Ensure every signed-in user has a profile row so their data can be saved (include email for retest reminders)
           upsertProfile(userId, {
             age: "",
@@ -379,6 +382,7 @@ function HomePageContent() {
       setLastBloodworkAt(null)
       setRetestWeeks(8)
       setHasPaidAnalysis(false)
+      setSubscription(null)
     }
   }, resetDeps)
 
@@ -691,6 +695,7 @@ function HomePageContent() {
       previousReportsLoading={previousReportsLoading}
       handleOpenReport={handleOpenReport}
       onGoToDashboard={onGoToDashboard}
+      hasActiveSubscription={subscription?.status === "active" || subscription?.status === "trialing"}
     />
     </>
   )

@@ -106,6 +106,8 @@ type OnboardingFlowProps = {
   onWelcomeContinue?: () => void
   /** If false and user is logged in, results steps show blur + lock overlay. */
   hasPaidAnalysis?: boolean
+  /** When true, show "Welcome to Clarion+" instead of subscribe CTA. */
+  hasActiveSubscription?: boolean
 }
 
 export function OnboardingFlow(props: OnboardingFlowProps) {
@@ -148,9 +150,10 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
     previousReportsLoading,
     handleOpenReport,
     onGoToDashboard,
-    onWelcomeContinue,
-    hasPaidAnalysis = false,
-  } = props
+  onWelcomeContinue,
+  hasPaidAnalysis = false,
+  hasActiveSubscription = false,
+} = props
 
   const [analysisMessageIndex, setAnalysisMessageIndex] = React.useState(0)
   const [displayedScore, setDisplayedScore] = React.useState(0)
@@ -796,18 +799,31 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
                   <h3 className="onboarding-what-to-expect-title">What to expect</h3>
                   <p>Iron support may take several weeks to materially change ferritin. Vitamin D is usually reassessed after 8–12 weeks. Magnesium may affect sleep, recovery, or muscle function sooner.</p>
                 </div>
-                <div className="onboarding-why-subscribe">
-                  <h3 className="onboarding-why-subscribe-title">Why stay with Clarion+</h3>
-                  <ul>
-                    <li>Track your biomarker history</li>
-                    <li>See whether your score improves</li>
-                    <li>Get retest reminders</li>
-                    <li>Update your protocol when labs change</li>
-                    <li>Compare future results against baseline</li>
-                    <li>Keep supplement costs optimized over time</li>
-                  </ul>
-                  <SubscribeButton className="onboarding-primary-btn onboarding-cta-subscribe">Unlock ongoing tracking</SubscribeButton>
-                </div>
+                {hasActiveSubscription ? (
+                  <motion.div
+                    className="onboarding-welcome-clarion"
+                    initial={{ opacity: 0, scale: 0.96 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.4, ease: "easeOut" }}
+                  >
+                    <div className="onboarding-welcome-clarion-badge">✓</div>
+                    <h3 className="onboarding-welcome-clarion-title">Welcome to Clarion+</h3>
+                    <p className="onboarding-welcome-clarion-desc">You have full access to tracking, history, retest reminders, and smarter recommendations.</p>
+                  </motion.div>
+                ) : (
+                  <div className="onboarding-why-subscribe">
+                    <h3 className="onboarding-why-subscribe-title">Why stay with Clarion+</h3>
+                    <ul>
+                      <li>Track your biomarker history</li>
+                      <li>See whether your score improves</li>
+                      <li>Get retest reminders</li>
+                      <li>Update your protocol when labs change</li>
+                      <li>Compare future results against baseline</li>
+                      <li>Keep supplement costs optimized over time</li>
+                    </ul>
+                    <SubscribeButton className="onboarding-primary-btn onboarding-cta-subscribe">Unlock ongoing tracking</SubscribeButton>
+                  </div>
+                )}
                 {/* Curated affiliate product picks */}
                 {(() => {
                   const biomarkersInStack = [...new Set(optimizedStack.stack.map((r: any) => r.marker || r.name).filter(Boolean))]
@@ -876,9 +892,13 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
               )}
               {!onGoToDashboard && <Link href="/dashboard" className="onboarding-next-btn onboarding-next-btn-primary">Go to Dashboard</Link>}
               <button type="button" className="onboarding-next-btn" onClick={() => setCurrentStep(11)}>Back to stack</button>
-              <SubscribeButton className="onboarding-next-btn">Unlock Clarion+</SubscribeButton>
+              {hasActiveSubscription ? (
+                <span className="onboarding-next-badge">You&apos;re a Clarion+ member</span>
+              ) : (
+                <SubscribeButton className="onboarding-next-btn">Unlock Clarion+</SubscribeButton>
+              )}
             </div>
-            <p className="onboarding-next-footer">Your dashboard will show your score, top priorities, protocol tracker, and biomarker trends. Clarion+ adds full history, retest reminders, and smarter recommendations.</p>
+            <p className="onboarding-next-footer">Your dashboard will show your score, top priorities, protocol tracker, and biomarker trends.{!hasActiveSubscription && " Clarion+ adds full history, retest reminders, and smarter recommendations."}</p>
             </div>
             {userId && !hasPaidAnalysis && (
               <div className="onboarding-results-lock-overlay">
@@ -1292,6 +1312,34 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
         .onboarding-why-subscribe-title { font-size: 16px; font-weight: 700; color: #fafafa; margin: 0 0 12px; }
         .onboarding-why-subscribe ul { margin: 0 0 16px; padding-left: 20px; font-size: 14px; color: rgba(255,255,255,0.8); line-height: 1.6; }
         .onboarding-cta-subscribe { display: block; width: 100%; margin-top: 8px; }
+        .onboarding-welcome-clarion {
+          background: linear-gradient(135deg, rgba(74, 222, 128, 0.15) 0%, rgba(249, 115, 22, 0.1) 100%);
+          border: 1px solid rgba(74, 222, 128, 0.35);
+          border-radius: 14px;
+          padding: 24px;
+          margin-bottom: 24px;
+          text-align: center;
+        }
+        .onboarding-welcome-clarion-badge {
+          width: 48px; height: 48px;
+          margin: 0 auto 14px;
+          border-radius: 50%;
+          background: rgba(74, 222, 128, 0.3);
+          color: #4ade80;
+          font-size: 24px; font-weight: 700; line-height: 48px;
+          box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.4);
+        }
+        .onboarding-welcome-clarion-title { font-size: 20px; font-weight: 700; color: #fafafa; margin: 0 0 8px; }
+        .onboarding-welcome-clarion-desc { font-size: 14px; color: rgba(255,255,255,0.8); margin: 0; line-height: 1.5; }
+        .onboarding-next-badge {
+          display: flex; align-items: center; justify-content: center;
+          min-height: 52px; padding: 0 24px;
+          background: rgba(74, 222, 128, 0.12);
+          color: #4ade80;
+          border: 1px solid rgba(74, 222, 128, 0.35);
+          border-radius: 12px;
+          font-size: 15px; font-weight: 600;
+        }
         .onboarding-summary-stats { margin: 16px 0 24px; padding: 16px; background: rgba(255,255,255,0.04); border-radius: 12px; }
         .onboarding-summary-savings { font-size: 15px; color: rgba(255,255,255,0.85); margin: 0 0 8px; }
         .onboarding-summary-retest { font-size: 14px; color: rgba(255,255,255,0.6); margin: 0; }

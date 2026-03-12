@@ -367,7 +367,11 @@ export default function DashboardPage() {
             <Link href="/" className="dashboard-back">
               ← Back to Clarion Labs
             </Link>
-            <SubscribeButton className="dashboard-subscribe-btn">Subscribe</SubscribeButton>
+            {hasActiveSubscription ? (
+              <span className="dashboard-member-badge">Clarion+ member</span>
+            ) : (
+              <SubscribeButton className="dashboard-subscribe-btn">Subscribe</SubscribeButton>
+            )}
           </div>
           <h1 className="dashboard-title">Dashboard</h1>
           <p className="dashboard-subtitle">Your latest health snapshot</p>
@@ -624,11 +628,19 @@ export default function DashboardPage() {
               </div>
             </section>
 
-            <div className="dashboard-card dashboard-subscribe-card" style={{ marginTop: 24 }}>
-              <div className="dashboard-card-label">Clarion+</div>
-              <p className="dashboard-card-muted">Full access to trends, history, retest reminders, and smarter recommendations. Cancel anytime.</p>
-              <SubscribeButton className="dashboard-cta dashboard-cta-subscribe">Subscribe to Clarion+</SubscribeButton>
-            </div>
+            {hasActiveSubscription ? (
+              <div className="dashboard-card dashboard-welcome-clarion" style={{ marginTop: 24 }}>
+                <div className="dashboard-welcome-clarion-badge">✓</div>
+                <h3 className="dashboard-welcome-clarion-title">Welcome to Clarion+</h3>
+                <p className="dashboard-card-muted">You have full access to trends, history, retest reminders, and smarter recommendations.</p>
+              </div>
+            ) : (
+              <div className="dashboard-card dashboard-subscribe-card" style={{ marginTop: 24 }}>
+                <div className="dashboard-card-label">Clarion+</div>
+                <p className="dashboard-card-muted">Full access to trends, history, retest reminders, and smarter recommendations. Cancel anytime.</p>
+                <SubscribeButton className="dashboard-cta dashboard-cta-subscribe">Subscribe to Clarion+</SubscribeButton>
+              </div>
+            )}
 
             {user && profile && (
               <div className="dashboard-card dashboard-prefs-card">
@@ -798,6 +810,39 @@ export default function DashboardPage() {
         }
         .dashboard-subscribe-btn:hover:not(:disabled) {
           background: linear-gradient(135deg, rgba(124, 140, 255, 0.5), rgba(69, 214, 255, 0.25));
+        }
+        .dashboard-member-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 8px 16px;
+          border-radius: 10px;
+          font-size: 13px;
+          font-weight: 600;
+          background: rgba(74, 222, 128, 0.15);
+          border: 1px solid rgba(74, 222, 128, 0.4);
+          color: #4ade80;
+        }
+        .dashboard-welcome-clarion {
+          text-align: center;
+          background: linear-gradient(135deg, rgba(74, 222, 128, 0.1) 0%, rgba(249, 115, 22, 0.06) 100%);
+          border: 1px solid rgba(74, 222, 128, 0.3);
+        }
+        .dashboard-welcome-clarion-badge {
+          width: 44px;
+          height: 44px;
+          margin: 0 auto 12px;
+          border-radius: 50%;
+          background: rgba(74, 222, 128, 0.25);
+          color: #4ade80;
+          font-size: 22px;
+          font-weight: 700;
+          line-height: 44px;
+        }
+        .dashboard-welcome-clarion-title {
+          font-size: 18px;
+          font-weight: 700;
+          color: #fafafa;
+          margin: 0 0 8px;
         }
         .dashboard-back {
           display: inline-block;

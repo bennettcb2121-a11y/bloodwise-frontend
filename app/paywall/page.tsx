@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
+import { loadSavedState } from "@/src/lib/bloodwiseDb"
 
 export default function PaywallPage() {
   const router = useRouter()
@@ -20,6 +21,15 @@ export default function PaywallPage() {
       router.replace("/login")
     }
   }, [authLoading, user, router])
+
+  // Already paid: don't show paywall again — send them back to continue the flow
+  useEffect(() => {
+    if (!user?.id) return
+    loadSavedState(user.id).then(({ profile: p }) => {
+      const row = p as { analysis_purchased_at?: string | null } | null
+      if (row?.analysis_purchased_at) router.replace("/")
+    }).catch(() => {})
+  }, [user?.id, router])
 
   async function handleUnlock() {
     setError(null)
