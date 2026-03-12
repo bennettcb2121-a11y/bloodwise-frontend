@@ -125,6 +125,8 @@ type OnboardingFlowProps = {
   hasPaidAnalysis?: boolean
   /** When true, show "Welcome to Clarion+" instead of subscribe CTA. */
   hasActiveSubscription?: boolean
+  /** Go directly to labs step from blood-test step (avoids step-guard loop). */
+  goToLabsStep?: () => void
 }
 
 export function OnboardingFlow(props: OnboardingFlowProps) {
@@ -170,6 +172,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
   onWelcomeContinue,
   hasPaidAnalysis = false,
   hasActiveSubscription = false,
+  goToLabsStep,
 } = props
 
 const [hasLabResults, setHasLabResults] = useState<boolean | null>(null)
@@ -478,10 +481,11 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
             <div className="onboarding-card-grid two">
               <motion.button
                 type="button"
-                className={`onboarding-answer-card ${currentSupplements !== "No" && currentSupplements?.trim() !== "" ? "selected" : ""}`}
-                style={currentSupplements !== "No" && currentSupplements?.trim() !== "" ? SELECTED_CARD_STYLE : undefined}
+                className={`onboarding-answer-card ${currentSupplements !== "No" ? "selected" : ""}`}
+                style={currentSupplements !== "No" ? SELECTED_CARD_STYLE : undefined}
                 onClick={() => {
-                  if (currentSupplements === "No") setCurrentSupplements("")
+                  setCurrentSupplements("")
+                  setSupplementList([])
                 }}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -499,7 +503,7 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
                 <span className="onboarding-answer-card-title">No</span>
               </motion.button>
             </div>
-            {currentSupplements !== "No" && currentSupplements?.trim() !== "" && (
+            {currentSupplements !== "No" && (
               <>
                 <p className="onboarding-field-label" style={{ marginTop: 20, marginBottom: 10 }}>Select what you take</p>
                 <div className="onboarding-supplement-chips">
@@ -746,7 +750,16 @@ const SELECTED_PANEL_STYLE: React.CSSProperties = {
                 </div>
               </div>
             </div>
-            <button type="button" className="onboarding-primary-btn" onClick={() => setCurrentStep(STEP_LABS)} style={{ marginTop: 24 }}>
+            <button
+              type="button"
+              className="onboarding-primary-btn"
+              onClick={() => {
+                setHasLabResults(true)
+                if (goToLabsStep) goToLabsStep()
+                else setCurrentStep(STEP_LABS)
+              }}
+              style={{ marginTop: 24 }}
+            >
               Continue — I’ll enter my results
             </button>
           </motion.section>

@@ -620,6 +620,9 @@ function HomePageContent() {
       .catch(() => router.push("/dashboard"))
   }, [router])
 
+  /** Go directly to labs step (8) from blood-test step (9) to avoid any step-guard loop */
+  const goToLabsStep = useCallback(() => setCurrentStepRaw(8), [])
+
   // Show loading only while auth is resolving; then show onboarding for everyone (logged-in users see "Dashboard" in header)
   if (authLoading) {
     return (
@@ -693,6 +696,7 @@ function HomePageContent() {
       previousReportsLoading={previousReportsLoading}
       handleOpenReport={handleOpenReport}
       onGoToDashboard={onGoToDashboard}
+      goToLabsStep={goToLabsStep}
       hasActiveSubscription={subscription?.status === "active" || subscription?.status === "trialing"}
     />
     </>
