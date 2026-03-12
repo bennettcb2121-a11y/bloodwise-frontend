@@ -10,6 +10,7 @@ import { getStatusTone, inferWhyItMatters, inferNextStep } from "@/src/lib/prior
 import { getDisplayRange } from "@/src/lib/analyzeBiomarkers"
 import { biomarkerDatabase } from "@/src/lib/biomarkerDatabase"
 import { getAffiliateProductsForBiomarker, AFFILIATE_DISCLOSURE } from "@/src/lib/affiliateProducts"
+import { CLARION_RECOMMENDED_PANEL_KEYS } from "@/src/lib/coreBiomarkerProtocols"
 import type { ProfileState } from "@/src/lib/panelEngine"
 import type { BloodworkSaveRow } from "@/src/lib/bloodwiseDb"
 import { PROFILE_TYPE_OPTIONS } from "@/src/lib/clarionProfiles"
@@ -490,9 +491,9 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
                 Customize Panel
               </button>
             </div>
-            <p className="onboarding-customize-label">Or select/deselect biomarkers:</p>
+            <p className="onboarding-customize-label">Or select/deselect from the core set:</p>
             <div className="onboarding-panel-toggles">
-              {biomarkerKeys.map((marker) => (
+              {CLARION_RECOMMENDED_PANEL_KEYS.filter((marker) => biomarkerKeys.includes(marker)).map((marker) => (
                 <button key={marker} type="button" className={`onboarding-panel-toggle ${activePanel.includes(marker) ? "selected" : ""}`} onClick={() => togglePanelMarker(marker)}>
                   {titleCase(marker)}
                 </button>
