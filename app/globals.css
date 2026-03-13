@@ -137,3 +137,63 @@ button[class*="onboarding-panel-toggle"].selected {
   color: #fff !important;
   box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.4), 0 4px 12px rgba(249, 115, 22, 0.25) !important;
 }
+
+/* Landing hero: radial glow, pattern, motion (global so they always apply) */
+.onboarding-shell.onboarding-shell-hero {
+  background-size: 120% 120%;
+  animation: clarion-hero-bg-drift 38s ease-in-out infinite alternate;
+}
+@keyframes clarion-hero-bg-drift {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 5% 3%; }
+}
+.onboarding-hero-wrap {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.onboarding-hero-backdrop {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.onboarding-hero-pattern {
+  position: absolute;
+  inset: 0;
+  opacity: 0.06;
+  background-image:
+    radial-gradient(circle at 50% 50%, transparent 0%, transparent 22%, rgba(255,255,255,0.04) 22.5%, transparent 24%),
+    radial-gradient(circle at 50% 50%, transparent 0%, transparent 42%, rgba(255,255,255,0.03) 42.5%, transparent 44%),
+    radial-gradient(circle at 50% 50%, transparent 0%, transparent 62%, rgba(255,255,255,0.02) 62.5%, transparent 64%),
+    radial-gradient(circle at center, rgba(255,255,255,0.06) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 20px 20px;
+  background-position: center, center, center, 0 0;
+}
+.onboarding-hero-glow {
+  position: absolute;
+  width: 100%;
+  max-width: 520px;
+  height: 360px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(120, 80, 255, 0.28) 0%, rgba(80, 60, 180, 0.14) 35%, transparent 62%);
+  pointer-events: none;
+}
+.onboarding-hero-content.onboarding-screen-center .onboarding-headline {
+  margin-bottom: 12px;
+}
+.onboarding-hero-content.onboarding-screen-center .onboarding-subtext {
+  margin-bottom: 24px;
+}
+.onboarding-hero-cta {
+  transition: transform 140ms ease-out, box-shadow 140ms ease-out, opacity 0.2s;
+}
+.onboarding-hero-cta:hover:not(:disabled) {
+  transform: scale(1.03) translateY(-1px);
+  box-shadow: 0 10px 32px rgba(229, 72, 77, 0.5);
+}
