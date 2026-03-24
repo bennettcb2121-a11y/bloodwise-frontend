@@ -2,13 +2,13 @@
 
 import React, { useState } from "react"
 import { useAuth } from "@/src/contexts/AuthContext"
+import { getReauthOAuthNext } from "@/src/lib/reauthPrompt"
 import type { OAuthProvider } from "@/src/contexts/AuthContext"
 
 type Mode = "idle" | "login" | "signup"
 
 const OAUTH_PROVIDERS: { provider: OAuthProvider; label: string }[] = [
   { provider: "google", label: "Continue with Google" },
-  { provider: "github", label: "Continue with GitHub" },
 ]
 
 export function AuthUI() {
@@ -68,7 +68,8 @@ export function AuthUI() {
               className="auth-ui-btn auth-ui-btn-oauth"
               onClick={async () => {
                 setMessage(null)
-                const { error } = await signInWithOAuth(provider)
+                const next = typeof window !== "undefined" ? getReauthOAuthNext() : null
+                const { error } = await signInWithOAuth(provider, next ? { next } : undefined)
                 if (error) setMessage({ type: "error", text: error.message })
               }}
             >
@@ -121,7 +122,8 @@ export function AuthUI() {
               className="auth-ui-btn auth-ui-btn-oauth"
               onClick={async () => {
                 setMessage(null)
-                const { error } = await signInWithOAuth(provider)
+                const next = typeof window !== "undefined" ? getReauthOAuthNext() : null
+                const { error } = await signInWithOAuth(provider, next ? { next } : undefined)
                 if (error) setMessage({ type: "error", text: error.message })
               }}
             >

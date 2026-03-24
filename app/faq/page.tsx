@@ -1,0 +1,68 @@
+import Link from "next/link"
+import { FAQ_ITEMS, getSupportEmail } from "@/src/lib/faqContent"
+
+export const metadata = {
+  title: "FAQ & Help | Clarion Labs",
+  description: "Common questions about Clarion Labs—account, billing, labs, dashboard, and support.",
+}
+
+export default function FaqPage() {
+  const supportEmail = getSupportEmail()
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: FAQ_ITEMS.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
+  }
+
+  return (
+    <main className="terms-shell">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <div className="terms-container">
+        <Link href="/" className="terms-logo">
+          Clarion
+        </Link>
+        <h1 className="terms-title">Frequently asked questions</h1>
+        <p className="terms-body" style={{ marginBottom: 24 }}>
+          Quick answers about accounts, labs, the dashboard, and how Clarion fits alongside your clinician.
+        </p>
+
+        {FAQ_ITEMS.map((item) => (
+          <section key={item.id} className="terms-section" id={item.id} aria-labelledby={`faq-${item.id}-heading`}>
+            <h2 id={`faq-${item.id}-heading`} className="terms-heading">
+              {item.question}
+            </h2>
+            <p className="terms-body">{item.answer}</p>
+          </section>
+        ))}
+
+        <section className="terms-section" aria-labelledby="faq-email-heading">
+          <h2 id="faq-email-heading" className="terms-heading">
+            Email support
+          </h2>
+          <p className="terms-body">
+            For billing, access, or bugs we can’t resolve in the Help chat, reach us at{" "}
+            <a href={`mailto:${supportEmail}`} className="faq-inline-link">
+              {supportEmail}
+            </a>
+            .
+          </p>
+        </section>
+
+        <p className="terms-footer-note">For education only. Not medical advice.</p>
+
+        <p className="terms-back">
+          <Link href="/">← Back to home</Link>
+          {" · "}
+          <Link href="/terms">Terms &amp; Disclaimer</Link>
+        </p>
+      </div>
+    </main>
+  )
+}

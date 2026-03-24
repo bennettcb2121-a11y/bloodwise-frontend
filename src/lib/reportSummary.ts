@@ -1,6 +1,6 @@
 type BiomarkerResult = {
   name: string
-  status: "deficient" | "suboptimal" | "optimal" | "high"
+  status: "deficient" | "suboptimal" | "optimal" | "high" | "unknown"
 }
 
 type Profile = {
@@ -35,7 +35,14 @@ export function buildReportSummary(
     .filter((item) => item.status === "high")
     .map((item) => item.name)
 
+  const unknown = report
+    .filter((item) => item.status === "unknown")
+    .map((item) => item.name)
+
   if (deficient.length === 0 && suboptimal.length === 0 && high.length === 0) {
+    if (unknown.length > 0) {
+      return `Some entries (${joinNames(unknown)}) aren’t in Clarion’s marker library yet, so they weren’t scored. Use the exact names from your lab or supported markers when possible.`
+    }
     return "Your biomarkers appear within optimal performance ranges."
   }
 

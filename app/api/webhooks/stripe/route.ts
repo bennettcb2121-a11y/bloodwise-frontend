@@ -1,6 +1,125 @@
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
-import { createClient } from "@supabase/supabase-js"
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+import { isDuplicateKeyError } from "@/src/lib/stripeWebhookIdempotency"
+import { CLARION_SUBSCRIPTION_TRIAL_DAYS } from "@/src/lib/analysisPricing"
+
+async function processStripeEvent(event: Stripe.Event, stripe: Stripe, supabase: SupabaseClient) {
+  switch (event.type) {
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.Checkout.Session
+      const userId = (session.client_reference_id ?? session.metadata?.user_id) as string | undefined
+      const customerId = session.customer as string | null
+      const subscriptionId = session.subscription as string | null
+      const mode = session.mode
+
+      if (mode === "payment" && userId && session.metadata?.type === "protocol" && session.metadata?.protocol_slug) {
+        const slug = String(session.metadata.protocol_slug)
+        const paymentId =
+          typeof session.payment_intent === "string"
+            ? session.payment_intent
+            : session.payment_intent != null
+              ? String(session.payment_intent)
+              : session.id
+        const now = new Date().toISOString()
+        await supabase.from("user_protocol_purchases").upsert(
+          {
+            user_id: userId,
+            protocol_slug: slug,
+            stripe_payment_id: paymentId,
+            purchased_at: now,
+          },
+          { onConflict: "user_id,protocol_slug" }
+        )
+      }
+
+      if (mode === "payment" && userId && session.metadata?.type === "analysis") {
+        const now = new Date().toISOString()
+        await supabase.from("profiles").upsert(
+          {
+            user_id: userId,
+            analysis_purchased_at: now,
+            updated_at: now,
+          },
+          { onConflict: "user_id" }
+        )
+        const customerIdStr = typeof session.customer === "string" ? session.customer : null
+        const subscriptionPriceId =
+          process.env.STRIPE_SUBSCRIPTION_PRICE_ID?.trim() || process.env.STRIPE_PRICE_ID?.trim()
+        if (customerIdStr && subscriptionPriceId) {
+          try {
+            const { data: existing } = await supabase.from("subscriptions").select("user_id").eq("user_id", userId).maybeSingle()
+            if (!existing) {
+              const sub = await stripe.subscriptions.create({
+                customer: customerIdStr,
+                items: [{ price: subscriptionPriceId }],
+                trial_period_days: CLARION_SUBSCRIPTION_TRIAL_DAYS,
+                metadata: { user_id: userId, type: "clarion_plus" },
+              })
+              const subWithPeriod = sub as Stripe.Subscription & { current_period_end?: number }
+              const periodEnd =
+                typeof subWithPeriod.current_period_end === "number"
+                  ? new Date(subWithPeriod.current_period_end * 1000).toISOString()
+                  : null
+              await supabase.from("subscriptions").upsert(
+                {
+                  user_id: userId,
+                  stripe_customer_id: customerIdStr,
+                  stripe_subscription_id: subWithPeriod.id,
+                  status: subWithPeriod.status,
+                  current_period_end: periodEnd,
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: "user_id" }
+              )
+            }
+          } catch (err) {
+            console.error("Stripe: auto-create subscription with trial after $49 analysis failed:", err)
+          }
+        }
+      }
+
+      if (userId && subscriptionId) {
+        const sub = (await stripe.subscriptions.retrieve(subscriptionId)) as Stripe.Subscription & {
+          current_period_end?: number
+        }
+        const subUserId = sub.metadata?.user_id || userId
+        const periodEnd =
+          typeof sub.current_period_end === "number" ? new Date(sub.current_period_end * 1000).toISOString() : null
+        await supabase.from("subscriptions").upsert(
+          {
+            user_id: subUserId,
+            stripe_customer_id: customerId,
+            stripe_subscription_id: subscriptionId,
+            status: sub.status,
+            current_period_end: periodEnd,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        )
+      }
+      break
+    }
+    case "customer.subscription.updated":
+    case "customer.subscription.deleted": {
+      const sub = event.data.object as Stripe.Subscription & { current_period_end?: number }
+      const status = event.type === "customer.subscription.deleted" ? "canceled" : sub.status
+      const periodEnd =
+        typeof sub.current_period_end === "number" ? new Date(sub.current_period_end * 1000).toISOString() : null
+      await supabase
+        .from("subscriptions")
+        .update({
+          status,
+          current_period_end: periodEnd,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("stripe_subscription_id", sub.id)
+      break
+    }
+    default:
+      break
+  }
+}
 
 export async function POST(request: Request) {
   const body = await request.text()
@@ -33,101 +152,22 @@ export async function POST(request: Request) {
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-  switch (event.type) {
-    case "checkout.session.completed": {
-      const session = event.data.object as Stripe.Checkout.Session
-      const userId = (session.client_reference_id ?? session.metadata?.user_id) as string | undefined
-      const customerId = session.customer as string | null
-      const subscriptionId = session.subscription as string | null
-      const mode = session.mode
+  const { error: insertError } = await supabase.from("stripe_webhook_events").insert({ id: event.id, type: event.type })
 
-      // One-time analysis purchase: set profiles.analysis_purchased_at and auto-enroll in Clarion+ with 2 months free
-      if (mode === "payment" && userId && session.metadata?.type === "analysis") {
-        const now = new Date().toISOString()
-        await supabase.from("profiles").upsert(
-          {
-            user_id: userId,
-            analysis_purchased_at: now,
-            updated_at: now,
-          },
-          { onConflict: "user_id" }
-        )
-        // Automatically create Clarion+ subscription with 2-month free trial (same customer from checkout)
-        const customerId = typeof session.customer === "string" ? session.customer : null
-        const subscriptionPriceId = process.env.STRIPE_PRICE_ID
-        if (customerId && subscriptionPriceId) {
-          try {
-            const { data: existing } = await supabase.from("subscriptions").select("user_id").eq("user_id", userId).maybeSingle()
-            if (!existing) {
-              const sub = await stripe.subscriptions.create({
-                customer: customerId,
-                items: [{ price: subscriptionPriceId }],
-                trial_period_days: 60,
-                metadata: { user_id: userId },
-              })
-              const subWithPeriod = sub as Stripe.Subscription & { current_period_end?: number }
-              const periodEnd = typeof subWithPeriod.current_period_end === "number"
-                ? new Date(subWithPeriod.current_period_end * 1000).toISOString()
-                : null
-              await supabase.from("subscriptions").upsert(
-                {
-                  user_id: userId,
-                  stripe_customer_id: customerId,
-                  stripe_subscription_id: subWithPeriod.id,
-                  status: subWithPeriod.status,
-                  current_period_end: periodEnd,
-                  updated_at: new Date().toISOString(),
-                },
-                { onConflict: "user_id" }
-              )
-            }
-          } catch (err) {
-            console.error("Stripe: auto-create subscription with trial after $49 analysis failed:", err)
-          }
-        }
-      }
+  if (insertError) {
+    if (isDuplicateKeyError(insertError)) {
+      return NextResponse.json({ received: true, duplicate: true })
+    }
+    console.error("stripe_webhook_events insert:", insertError)
+    return NextResponse.json({ error: "Failed to record event" }, { status: 500 })
+  }
 
-      // Subscription: update subscriptions table
-      if (userId && subscriptionId) {
-        const sub = await stripe.subscriptions.retrieve(subscriptionId) as Stripe.Subscription & { current_period_end?: number }
-        const subUserId = sub.metadata?.user_id || userId
-        const periodEnd = typeof sub.current_period_end === "number"
-          ? new Date(sub.current_period_end * 1000).toISOString()
-          : null
-        await supabase.from("subscriptions").upsert(
-          {
-            user_id: subUserId,
-            stripe_customer_id: customerId,
-            stripe_subscription_id: subscriptionId,
-            status: sub.status,
-            current_period_end: periodEnd,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "user_id" }
-        )
-      }
-      break
-    }
-    case "customer.subscription.updated":
-    case "customer.subscription.deleted": {
-      const sub = event.data.object as Stripe.Subscription & { current_period_end?: number }
-      const status = event.type === "customer.subscription.deleted" ? "canceled" : sub.status
-      const periodEnd = typeof sub.current_period_end === "number"
-        ? new Date(sub.current_period_end * 1000).toISOString()
-        : null
-      await supabase
-        .from("subscriptions")
-        .update({
-          status,
-          current_period_end: periodEnd,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("stripe_subscription_id", sub.id)
-      break
-    }
-    default:
-      // Unhandled event type
-      break
+  try {
+    await processStripeEvent(event, stripe, supabase)
+  } catch (e) {
+    console.error("Stripe webhook processing error:", e)
+    await supabase.from("stripe_webhook_events").delete().eq("id", event.id)
+    return NextResponse.json({ error: "Processing failed" }, { status: 500 })
   }
 
   return NextResponse.json({ received: true })

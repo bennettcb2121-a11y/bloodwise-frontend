@@ -1,10 +1,12 @@
 "use client"
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react"
+import { clearBrandIntroSessionFlag } from "@/src/lib/brandIntro"
+import { setReauthPromptAfterLogout, setPostAuthRedirectCookieFromPath } from "@/src/lib/reauthPrompt"
 import { supabase } from "@/src/lib/supabase"
 import type { User, Session } from "@supabase/supabase-js"
 
-export type OAuthProvider = "google" | "github" | "apple"
+export type OAuthProvider = "google" | "apple"
 
 type AuthContextValue = {
   user: User | null
@@ -12,7 +14,7 @@ type AuthContextValue = {
   loading: boolean
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
-  signInWithOAuth: (provider: OAuthProvider) => Promise<{ error: Error | null }>
+  signInWithOAuth: (provider: OAuthProvider, options?: { next?: string }) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
 }
 
@@ -24,6 +26,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false)
+      return
+    }
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s)
       setUser(s?.user ?? null)
@@ -39,27 +45,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const signUp = useCallback(async (email: string, password: string) => {
+    if (!supabase) return { error: new Error("Supabase not configured") as Error }
     const { error } = await supabase.auth.signUp({ email, password })
     return { error: error ?? null }
   }, [])
 
   const signIn = useCallback(async (email: string, password: string) => {
+    if (!supabase) return { error: new Error("Supabase not configured") as Error }
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     return { error: error ?? null }
   }, [])
 
-  const signInWithOAuth = useCallback(async (provider: OAuthProvider) => {
-    // Use current origin so localhost stays on localhost; Supabase must have this URL in Redirect URLs
+  const signInWithOAuth = useCallback(async (provider: OAuthProvider, options?: { next?: string }) => {
+    if (!supabase) return { error: new Error("Supabase not configured") as Error }
     const origin = typeof window !== "undefined" ? window.location.origin : ""
+    const nextPath = options?.next?.startsWith("/") ? options.next : "/dashboard"
+    if (options?.next?.startsWith("/")) {
+      setPostAuthRedirectCookieFromPath(nextPath)
+    }
+    const redirectTo = `${origin}/auth/callback?next=${encodeURIComponent(nextPath)}`
+    if (process.env.NODE_ENV === "development" && typeof window !== "undefined") {
+      const callbackBase = `${origin}/auth/callback`
+      console.info(
+        `[Clarion] OAuth redirectTo → ${callbackBase} (and ?next=…)\n` +
+          `If Google sends you to production (e.g. clarionlabs.tech) instead of this origin, add this to Supabase → Authentication → URL Configuration → Redirect URLs:\n` +
+          `  ${callbackBase}\n` +
+          `or: ${origin}/**\n` +
+          `Docs: docs/LOCALHOST_GOOGLE_LOGIN.md`
+      )
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${origin}/auth/callback` },
+      options: { redirectTo },
     })
     return { error: error ?? null }
   }, [])
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
+    clearBrandIntroSessionFlag()
+    setReauthPromptAfterLogout()
+    if (supabase) await supabase.auth.signOut()
   }, [])
 
   const value: AuthContextValue = {

@@ -33,7 +33,10 @@ export async function POST(request: Request) {
 
   if (!validCodes.length) {
     return NextResponse.json(
-      { error: "Unlock codes are not configured" },
+      {
+        error:
+          "Unlock codes are not configured. Add CLARION_UNLOCK_CODES to the server environment (comma-separated codes) and redeploy.",
+      },
       { status: 503 }
     )
   }

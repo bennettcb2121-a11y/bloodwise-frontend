@@ -6,9 +6,11 @@ import { biomarkerDatabase } from "@/src/lib/biomarkerDatabase"
 import {
   getRecommendedPanelForProfile,
   legacyGoalSportToProfileType,
+  healthGoalToProfileType,
   CORE_BIOMARKER_KEYS,
 } from "@/src/lib/clarionProfiles"
 import { CLARION_RECOMMENDED_PANEL_KEYS } from "@/src/lib/coreBiomarkerProtocols"
+import { getHealthContext } from "@/src/lib/healthContext"
 
 export type ProfileState = {
   age: string
@@ -19,6 +21,24 @@ export type ProfileState = {
   improvementPreference?: string
   /** Clarion profile type (e.g. endurance_athlete, fatigue_low_energy). Drives panel recommendation. */
   profileType?: string
+  /** Height in cm (optional; used for health context and test recommendations). */
+  heightCm?: string
+  /** Weight in kg (optional; used for health context and test recommendations). */
+  weightKg?: string
+  /** When "no_pills", recommendations prefer gummies, powder, or drinks. */
+  supplementFormPreference?: "any" | "no_pills"
+  /** Lifestyle: activity level (e.g. sedentary, light, moderate, very_active). */
+  activityLevel?: string
+  /** Lifestyle: typical hours of sleep per night. */
+  sleepHours?: string
+  /** Lifestyle: exercise regularly Yes/No. */
+  exerciseRegularly?: string
+  /** Lifestyle: alcohol consumption (e.g. no, occasionally, regularly). */
+  alcohol?: string
+  /** Main health goal from onboarding (maps to profileType via healthGoalToProfileType). */
+  healthGoal?: string
+  /** Symptoms from onboarding (comma-separated or array for multi-select). */
+  symptoms?: string
 }
 
 export function normalize(text: string): string {
@@ -74,15 +94,53 @@ function addProfileBasedMarkers(
   return [...basePanel, ...added]
 }
 
+export type AdaptivePanelOptions = {
+  /** Marker keys already at optimal status — sorted to the end so the UI de-emphasizes redundant retests. */
+  deprioritizeOptimalKeys?: string[]
+}
+
+function deprioritizeOptimalMarkers(
+  markers: string[],
+  optimalKeys: string[] | undefined
+): string[] {
+  if (!optimalKeys?.length) return markers
+  const opt = new Set(optimalKeys.map((k) => normalize(k)))
+  return [...markers].sort((a, b) => {
+    const ao = opt.has(normalize(a)) ? 1 : 0
+    const bo = opt.has(normalize(b)) ? 1 : 0
+    return ao - bo
+  })
+}
+
 export function getAdaptiveRecommendedMarkers(
   profile: ProfileState,
-  biomarkerKeys: string[]
+  biomarkerKeys: string[],
+  options?: AdaptivePanelOptions
 ): string[] {
   let base: string[] = []
 
   const profileType = (profile.profileType || "").trim()
   if (profileType) {
     base = getRecommendedPanelForProfile(profileType, biomarkerKeys)
+  }
+  if (base.length === 0 && (profile.healthGoal || "").trim()) {
+    const typeFromGoal = healthGoalToProfileType(profile.healthGoal!.trim())
+    base = getRecommendedPanelForProfile(typeFromGoal, biomarkerKeys)
+  }
+  if (base.length === 0 && (profile.symptoms || "").trim()) {
+    const sym = normalize(profile.symptoms || "")
+    if (sym.includes("fatigue") || sym.includes("energy") || sym.includes("tired")) {
+      base = getRecommendedPanelForProfile("fatigue_low_energy", biomarkerKeys)
+    } else if (
+      sym.includes("weight") ||
+      sym.includes("insulin") ||
+      sym.includes("bloodsugar") ||
+      sym.includes("sugar")
+    ) {
+      base = getRecommendedPanelForProfile("weight_loss_insulin_resistance", biomarkerKeys)
+    } else if (sym.includes("heart") || sym.includes("cholesterol") || sym.includes("lipid")) {
+      base = getRecommendedPanelForProfile("heart_health_longevity", biomarkerKeys)
+    }
   }
   if (base.length === 0) {
     const legacyType = legacyGoalSportToProfileType(profile.goal || "", profile.sport || "")
@@ -107,6 +165,31 @@ export function getAdaptiveRecommendedMarkers(
   }
   if (base.length === 0) base = getRecommendedPanelForProfile("general_health_adult", biomarkerKeys)
 
+  // Health context (height/weight + profile type) can add metabolic or iron emphasis
+  const healthContext = getHealthContext({
+    height_cm: profile.heightCm ? Number(profile.heightCm) : undefined,
+    weight_kg: profile.weightKg ? Number(profile.weightKg) : undefined,
+    profile_type: profile.profileType,
+    goal: profile.goal,
+    sex: profile.sex,
+  })
+  const inBase = new Set(base.map((k) => normalize(k)))
+  const addIfExists = (keys: string[]) => {
+    for (const k of keys) {
+      const found = biomarkerKeys.find((key) => normalize(key) === normalize(k))
+      if (found && !inBase.has(normalize(found))) {
+        inBase.add(normalize(found))
+        base = [...base, found]
+      }
+    }
+  }
+  if (healthContext?.emphasizeMetabolic) {
+    addIfExists(["HbA1c", "Fasting insulin", "Glucose", "Triglycerides", "HDL-C"])
+  }
+  if (healthContext?.emphasizeIron) {
+    addIfExists(["Ferritin", "Serum iron", "TIBC", "Hemoglobin", "Vitamin B12"])
+  }
+
   // When recommended panel is the 10 core (general health), don't add more markers.
   const baseSet = new Set(base.map((k) => k.trim()))
   const coreSet = new Set(CLARION_RECOMMENDED_PANEL_KEYS)
@@ -115,10 +198,16 @@ export function getAdaptiveRecommendedMarkers(
     (baseSet.size === coreSet.size && [...baseSet].every((k) => coreSet.has(k)))
   if (isCorePanel) {
     const keySet = new Set(biomarkerKeys.map((k) => k.trim()))
-    return CLARION_RECOMMENDED_PANEL_KEYS.filter((k) => keySet.has(k))
+    return deprioritizeOptimalMarkers(
+      CLARION_RECOMMENDED_PANEL_KEYS.filter((k) => keySet.has(k)),
+      options?.deprioritizeOptimalKeys
+    )
   }
 
-  return addProfileBasedMarkers(base, profile, biomarkerKeys)
+  return deprioritizeOptimalMarkers(
+    addProfileBasedMarkers(base, profile, biomarkerKeys),
+    options?.deprioritizeOptimalKeys
+  )
 }
 
 export function getMarkerReason(marker: string, profile: ProfileState): string {
@@ -226,6 +315,21 @@ export function getActivePanel(
   recommendedMarkers: string[]
 ): string[] {
   return selectedPanel.length ? selectedPanel : recommendedMarkers
+}
+
+/** Tier counts for onboarding biomarker screen: first 2 = high, next 3 = moderate, rest = optional. */
+const BIOMARKER_TIER_HIGH = 2
+const BIOMARKER_TIER_MODERATE = 3
+
+export function getBiomarkerTiers(markers: string[]): {
+  high: string[]
+  moderate: string[]
+  optional: string[]
+} {
+  const high = markers.slice(0, BIOMARKER_TIER_HIGH)
+  const moderate = markers.slice(BIOMARKER_TIER_HIGH, BIOMARKER_TIER_HIGH + BIOMARKER_TIER_MODERATE)
+  const optional = markers.slice(BIOMARKER_TIER_HIGH + BIOMARKER_TIER_MODERATE)
+  return { high, moderate, optional }
 }
 
 export function getEnteredBiomarkers(

@@ -1,6 +1,6 @@
 type BiomarkerResult = {
   name: string
-  status: "deficient" | "suboptimal" | "optimal" | "high"
+  status: "deficient" | "suboptimal" | "optimal" | "high" | "unknown"
   value: number
   optimalMin: number | null
   optimalMax: number | null

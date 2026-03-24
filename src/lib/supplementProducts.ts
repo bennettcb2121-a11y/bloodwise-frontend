@@ -17,10 +17,27 @@ export type SupplementProduct = {
   assumptions?: string[];
   caution?: string[];
   evidenceNote?: string;
+  /** For intermittent dosing (e.g. weekly vitamin D). Default 7 = daily. */
+  servingsPerWeek?: number;
 };
 
 export const supplementProducts: Record<string, SupplementProduct[]> = {
   vitamin_d3: [
+    {
+      id: "vitd_nm_2000_90",
+      supplementKey: "vitamin_d3",
+      productName: "Vitamin D3 2000 IU, 90 softgels",
+      brand: "Nature Made",
+      form: "Softgel",
+      activeAmountPerUnit: 2000,
+      activeUnit: "IU",
+      unitsPerBottle: 90,
+      priceUSD: 9.99,
+      sourceLabel: "Walmart",
+      costPerActiveUnit: 9.99 / (2000 * 90),
+      costPer1000IU: 0.0555,
+      notes: "Common maintenance-strength daily softgel."
+    },
     {
       id: "vitd_now_50000_50",
       supplementKey: "vitamin_d3",
@@ -39,7 +56,7 @@ export const supplementProducts: Record<string, SupplementProduct[]> = {
         "High-potency vitamin D can exceed common maintenance dosing.",
         "Use dosing frequency appropriate to the user’s actual recommendation."
       ],
-      evidenceNote: "Best value vitamin D3 product in the research dataset."
+      evidenceNote: "Excluded from automated default picks; very high IU per unit."
     },
     {
       id: "vitd_now_10000_240",
@@ -69,6 +86,7 @@ export const supplementProducts: Record<string, SupplementProduct[]> = {
       sourceLabel: "Celebrate Vitamins",
       costPerActiveUnit: 21.99 / (25000 * 90),
       costPer1000IU: 0.00977,
+      servingsPerWeek: 1,
       notes: "Product page notes 1 capsule once per week."
     }
   ],

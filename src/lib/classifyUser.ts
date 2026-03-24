@@ -6,6 +6,10 @@ export type UserProfile = {
   sport?: string
   volume?: string
   diet?: string
+  height_cm?: number | null
+  weight_kg?: number | null
+  profile_type?: string | null
+  goal?: string | null
 }
 
 export type ClassifiedUser = {

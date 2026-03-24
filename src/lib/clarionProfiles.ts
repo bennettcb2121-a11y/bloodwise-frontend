@@ -451,6 +451,26 @@ const PANELS_BY_PROFILE: Record<ProfileTypeId, string[]> = {
 }
 
 /**
+ * Onboarding health goal options (simple labels → profileType).
+ */
+export const HEALTH_GOAL_OPTIONS: { id: string; label: string; profileType: ProfileTypeId }[] = [
+  { id: "more_energy", label: "More energy", profileType: "fatigue_low_energy" },
+  { id: "improve_fitness", label: "Improve fitness", profileType: "mixed_sport_athlete" },
+  { id: "longevity", label: "Longevity", profileType: "heart_health_longevity" },
+  { id: "better_sleep", label: "Better sleep", profileType: "sleep_stress_overreaching" },
+  { id: "improve_recovery", label: "Improve recovery", profileType: "high_inflammation_poor_recovery" },
+  { id: "general_health", label: "General health", profileType: "general_health_adult" },
+]
+
+/**
+ * Map onboarding health goal id to profile type for panel recommendation.
+ */
+export function healthGoalToProfileType(healthGoalId: string): ProfileTypeId {
+  const opt = HEALTH_GOAL_OPTIONS.find((o) => o.id === healthGoalId)
+  return opt?.profileType ?? "general_health_adult"
+}
+
+/**
  * Returns recommended biomarker keys for a profile type.
  * Filters to only keys that exist in the provided allKeys (so we don't recommend markers we don't have in DB yet).
  */

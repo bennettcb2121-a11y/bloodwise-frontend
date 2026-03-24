@@ -85,8 +85,10 @@ export async function GET(request: Request) {
         html: `
           <p>It’s been ${u.retest_weeks}+ weeks since your last blood panel.</p>
           <p>Retesting helps you see how your habits and supplements are affecting your results.</p>
-          <p><a href="${appUrl}">Add new results</a></p>
-          <p>— Clarion Labs</p>
+          <p>Add your new labs to get your updated Clarion score and plan.</p>
+          <p><strong>Tip:</strong> Log your protocol today to keep your streak and track progress.</p>
+          <p><a href="${appUrl}/?step=labs" style="display:inline-block;padding:12px 20px;background:#1F6F5B;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Add new results</a></p>
+          <p style="font-size:12px;color:#666;">Clarion Labs — for education only; not medical advice.</p>
         `,
       })
       if (!error) sent++

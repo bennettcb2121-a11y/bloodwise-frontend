@@ -37,6 +37,10 @@ const imageUrlFromAsin = (asin: string) =>
 export const AFFILIATE_DISCLOSURE =
   "Clarion may earn a commission from qualifying purchases made through affiliate links. Product selection is based on form, dosage, brand trust, and practical fit for the biomarker pathway."
 
+/** Stack / leaderboard monthly estimates — prices are static snapshots; dosing varies by product. */
+export const MONTHLY_COST_DISCLAIMER =
+  "Monthly costs are approximate: they use listed bottle prices and typical serving frequency (e.g. daily or weekly for some vitamin D products). Check the label and current retailer prices."
+
 function buildAffiliateProductsFromCore(): Record<string, AffiliateProduct[]> {
   const out: Record<string, AffiliateProduct[]> = {}
   for (const [key, protocol] of Object.entries(coreBiomarkerProtocols)) {

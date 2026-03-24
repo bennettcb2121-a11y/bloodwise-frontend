@@ -21,6 +21,21 @@ export type ProfileRow = {
   profile_type?: string | null
   analysis_purchased_at?: string | null
   results_flow_completed_at?: string | null
+  height_cm?: number | null
+  weight_kg?: number | null
+  supplement_form_preference?: string | null
+  /** Diet preference for contextual insights (e.g. vegetarian, vegan). */
+  diet_preference?: string | null
+  /** Show in-app toast when protocol streak hits a milestone (e.g. 7, 10, 30 days). */
+  streak_milestones?: boolean | null
+  /** Include daily protocol reminder in retest/reminder emails when true. */
+  daily_reminder?: boolean | null
+  /** Optional health score goal (e.g. 80) for dashboard progress. */
+  score_goal?: number | null
+  /** Email when a supplement is running low (reorder reminder). */
+  notify_reorder_email?: boolean | null
+  /** Days before run-out to send reorder reminder (default 7). */
+  notify_reorder_days?: number | null
   updated_at?: string
 }
 
@@ -40,6 +55,8 @@ export type SavedSupplementStackItem = {
   monthlyCost: number
   recommendationType: string
   reason: string
+  /** Biomarker this supplement supports (e.g. Ferritin, Vitamin D); used for affiliate/reorder lookup */
+  marker?: string
 }
 
 /** Stack snapshot stored with each bloodwork save */
@@ -68,6 +85,37 @@ export type SavedState = {
   bloodwork: BloodworkSaveRow | null
 }
 
+/** Per-supplement inventory for run-out tracking and reorder reminders. */
+export type SupplementInventoryRow = {
+  id?: string
+  user_id: string
+  supplement_name: string
+  pills_per_bottle: number
+  dose_per_day: number
+  opened_at: string
+  created_at?: string
+  updated_at?: string
+}
+
+/** Compute run-out date from opened_at + (pills_per_bottle / dose_per_day) days. */
+export function getRunOutDate(openedAt: string, pillsPerBottle: number, dosePerDay: number): string {
+  const opened = new Date(openedAt)
+  if (dosePerDay <= 0) return openedAt
+  const daysSupply = Math.floor(pillsPerBottle / dosePerDay)
+  const runOut = new Date(opened)
+  runOut.setDate(runOut.getDate() + daysSupply)
+  return runOut.toISOString().slice(0, 10)
+}
+
+/** Days until run-out (negative = already run out). */
+export function getDaysUntilRunOut(runOutDate: string): number {
+  const runOut = new Date(runOutDate)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  runOut.setHours(0, 0, 0, 0)
+  return Math.ceil((runOut.getTime() - today.getTime()) / (24 * 60 * 60 * 1000))
+}
+
 export type SubscriptionRow = {
   id?: string
   user_id: string
@@ -80,6 +128,7 @@ export type SubscriptionRow = {
 }
 
 export async function getSubscription(userId: string): Promise<SubscriptionRow | null> {
+  if (!supabase) return null
   const { data, error } = await supabase
     .from("subscriptions")
     .select("*")
@@ -90,6 +139,7 @@ export async function getSubscription(userId: string): Promise<SubscriptionRow |
 }
 
 export async function getProfile(userId: string): Promise<ProfileRow | null> {
+  if (!supabase) return null
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
@@ -103,6 +153,7 @@ export async function upsertProfile(
   userId: string,
   profile: Omit<ProfileRow, "user_id" | "updated_at">
 ): Promise<void> {
+  if (!supabase) return
   const { error } = await supabase.from("profiles").upsert(
     {
       user_id: userId,
@@ -118,6 +169,15 @@ export async function upsertProfile(
       retest_weeks: profile.retest_weeks ?? undefined,
       improvement_preference: profile.improvement_preference ?? "",
       profile_type: profile.profile_type ?? undefined,
+      height_cm: profile.height_cm ?? undefined,
+      weight_kg: profile.weight_kg ?? undefined,
+      supplement_form_preference: profile.supplement_form_preference ?? "any",
+      diet_preference: profile.diet_preference ?? undefined,
+      streak_milestones: profile.streak_milestones ?? undefined,
+      daily_reminder: profile.daily_reminder ?? undefined,
+      score_goal: profile.score_goal ?? undefined,
+      notify_reorder_email: profile.notify_reorder_email ?? undefined,
+      notify_reorder_days: profile.notify_reorder_days ?? undefined,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" }
@@ -128,6 +188,7 @@ export async function upsertProfile(
 export async function getLatestBloodwork(
   userId: string
 ): Promise<BloodworkSaveRow | null> {
+  if (!supabase) return null
   const { data, error } = await supabase
     .from("bloodwork_saves")
     .select("*")
@@ -144,6 +205,7 @@ export async function getBloodworkHistory(
   userId: string,
   limit = 20
 ): Promise<BloodworkSaveRow[]> {
+  if (!supabase) return []
   const { data, error } = await supabase
     .from("bloodwork_saves")
     .select("*")
@@ -158,6 +220,7 @@ export async function saveBloodwork(
   userId: string,
   payload: Omit<BloodworkSaveRow, "user_id" | "id" | "created_at" | "updated_at">
 ): Promise<void> {
+  if (!supabase) return
   const now = new Date().toISOString()
   const { error } = await supabase.from("bloodwork_saves").insert({
     user_id: userId,
@@ -181,4 +244,119 @@ export async function loadSavedState(userId: string): Promise<SavedState> {
     getLatestBloodwork(userId),
   ])
   return { profile, bloodwork }
+}
+
+/** Get protocol log for a date. */
+export async function getProtocolLog(
+  userId: string,
+  logDate: string
+): Promise<Record<string, boolean>> {
+  if (!supabase) return {}
+  const { data, error } = await supabase
+    .from("protocol_log")
+    .select("checks")
+    .eq("user_id", userId)
+    .eq("log_date", logDate)
+    .maybeSingle()
+  if (error) throw error
+  if (!data?.checks || typeof data.checks !== "object") return {}
+  return data.checks as Record<string, boolean>
+}
+
+/** Get protocol log entries for the last N days (for streak and weekly summary). */
+export async function getProtocolLogHistory(
+  userId: string,
+  lastNDays: number = 14
+): Promise<{ log_date: string; checks: Record<string, boolean> }[]> {
+  if (!supabase) return []
+  const end = new Date()
+  const start = new Date(end)
+  start.setDate(start.getDate() - lastNDays)
+  const startStr = start.toISOString().slice(0, 10)
+  const endStr = end.toISOString().slice(0, 10)
+  const { data, error } = await supabase
+    .from("protocol_log")
+    .select("log_date, checks")
+    .eq("user_id", userId)
+    .gte("log_date", startStr)
+    .lte("log_date", endStr)
+    .order("log_date", { ascending: false })
+  if (error) throw error
+  if (!Array.isArray(data)) return []
+  return data.map((row) => ({
+    log_date: row.log_date,
+    checks: (row.checks as Record<string, boolean>) || {},
+  }))
+}
+
+/** Check if user has purchased a protocol (client or server with supabase client). */
+export async function getProtocolPurchase(
+  userId: string,
+  protocolSlug: string
+): Promise<{ user_id: string; protocol_slug: string; purchased_at: string } | null> {
+  if (!supabase) return null
+  const { data, error } = await supabase
+    .from("user_protocol_purchases")
+    .select("user_id, protocol_slug, purchased_at")
+    .eq("user_id", userId)
+    .eq("protocol_slug", protocolSlug)
+    .maybeSingle()
+  if (error) throw error
+  return data as { user_id: string; protocol_slug: string; purchased_at: string } | null
+}
+
+/** Upsert protocol log for a date. */
+export async function upsertProtocolLog(
+  userId: string,
+  logDate: string,
+  checks: Record<string, boolean>
+): Promise<void> {
+  if (!supabase) return
+  const now = new Date().toISOString()
+  const { error } = await supabase.from("protocol_log").upsert(
+    { user_id: userId, log_date: logDate, checks, updated_at: now },
+    { onConflict: "user_id,log_date" }
+  )
+  if (error) throw error
+}
+
+/** Get all supplement inventory rows for a user. */
+export async function getSupplementInventory(userId: string): Promise<SupplementInventoryRow[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from("supplement_inventory")
+    .select("*")
+    .eq("user_id", userId)
+  if (error) throw error
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    user_id: row.user_id,
+    supplement_name: row.supplement_name,
+    pills_per_bottle: Number(row.pills_per_bottle) || 60,
+    dose_per_day: Number(row.dose_per_day) || 1,
+    opened_at: row.opened_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  })) as SupplementInventoryRow[]
+}
+
+/** Upsert a single supplement inventory row (by user_id + supplement_name). */
+export async function upsertSupplementInventory(
+  userId: string,
+  row: Omit<SupplementInventoryRow, "user_id" | "id" | "created_at" | "updated_at">
+): Promise<void> {
+  if (!supabase) return
+  const now = new Date().toISOString()
+  const payload = {
+    user_id: userId,
+    supplement_name: row.supplement_name,
+    pills_per_bottle: row.pills_per_bottle,
+    dose_per_day: row.dose_per_day,
+    opened_at: row.opened_at,
+    updated_at: now,
+  }
+  const { error } = await supabase.from("supplement_inventory").upsert(payload, {
+    onConflict: "user_id,supplement_name",
+  })
+  if (error) throw error
 }

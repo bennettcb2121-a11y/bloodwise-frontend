@@ -8,9 +8,13 @@
 
 1. Open **[Supabase Dashboard](https://supabase.com/dashboard)** → your project.
 2. Go to **Authentication** → **URL Configuration**.
-3. Under **Redirect URLs**, click **Add URL** and add exactly:
+3. Under **Redirect URLs**, click **Add URL** and add one of:
    ```text
    http://localhost:3000/auth/callback
+   ```
+   Or use a wildcard (covers other ports/paths on localhost):
+   ```text
+   http://localhost:3000/**
    ```
 4. Save.
 

@@ -1,4 +1,23 @@
+import {
+  filterVitaminDCatalog,
+  type VitaminDProductLike,
+} from "./dosingTargets";
 import { supplementProducts, SupplementProduct } from "./supplementProducts";
+
+function toVitaminDProductLike(p: SupplementProduct): VitaminDProductLike {
+  return {
+    id: p.id,
+    brand: p.brand,
+    productName: p.productName,
+    form: p.form,
+    price: p.priceUSD,
+    unitsPerBottle: p.unitsPerBottle,
+    amountPerUnit: p.activeAmountPerUnit,
+    activeUnit: p.activeUnit,
+    costPerUnitActive: p.costPerActiveUnit,
+    servingsPerWeek: p.servingsPerWeek,
+  };
+}
 
 export type SupplementLeaderboardEntry = SupplementProduct & {
   rankByValue: number;
@@ -20,7 +39,19 @@ function sameUnit(products: SupplementProduct[]) {
 export function buildSupplementLeaderboard(
   supplementKey: string
 ): SupplementLeaderboard {
-  const products = supplementProducts[supplementKey] ?? [];
+  let products = supplementProducts[supplementKey] ?? [];
+
+  if (supplementKey === "vitamin_d3" && products.length) {
+    const mapped = products.map(toVitaminDProductLike);
+    const filtered = filterVitaminDCatalog(mapped, "maintenance");
+    const allowed = new Set(filtered.map((p) => p.id));
+    products = products.filter((p) => allowed.has(p.id));
+    if (products.length === 0) {
+      products = (supplementProducts[supplementKey] ?? []).filter(
+        (p) => p.id !== "vitd_now_50000_50"
+      );
+    }
+  }
 
   if (!products.length) {
     return {

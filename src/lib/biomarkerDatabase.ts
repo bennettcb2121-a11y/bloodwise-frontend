@@ -30,6 +30,12 @@ export type BiomarkerDatabaseEntry = {
   retest?: string
   recommendedTests?: string[]
   researchSummary?: string
+  /** What the biomarker does (bullet list for UI). */
+  whatItDoes?: string[]
+  /** Symptoms when low. */
+  symptomsLow?: string[]
+  /** Symptoms when high. */
+  symptomsHigh?: string[]
   ranges: BiomarkerProfileRanges
 }
 
@@ -49,6 +55,15 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     recommendedTests: ["CBC", "Iron Panel", "Transferrin Saturation"],
     researchSummary:
       "Endurance athletes often perform better with ferritin clearly above minimum clinical norms.",
+    whatItDoes: [
+      "Stores iron for the body",
+      "Supports oxygen transport",
+      "Supports energy production",
+      "Supports cognitive function",
+      "Supports hair growth",
+    ],
+    symptomsLow: ["Fatigue", "Poor endurance", "Brain fog", "Hair shedding", "Restless legs"],
+    symptomsHigh: ["Nausea", "Organ stress if very high"],
     ranges: {
       general: {
         deficient: 20,
@@ -92,6 +107,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
       "25-OH Vitamin D reflects vitamin D status. It supports musculoskeletal health, immunity, recovery, and bone function.",
     whyItMatters:
       "Vitamin D status is one of the most common low or low-normal findings. It connects to immunity, bone health, and general wellness. High-dose use should be personalized and clinician-supervised.",
+    whatItDoes: ["Bone health", "Immune function", "Mood", "Muscle function", "Calcium absorption"],
+    symptomsLow: ["Fatigue", "Weaker immunity", "Low mood", "Bone or muscle aches"],
+    symptomsHigh: ["Nausea", "Weakness", "Confusion (rare)"],
     foods:
       "Salmon, sardines, egg yolks, fortified dairy or plant milks. Sun exposure contributes but food and supplements are easier to standardize.",
     lifestyle:
@@ -137,6 +155,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
   Magnesium: {
     description:
       "Magnesium supports ATP production, muscle contraction, relaxation, nervous system function, sleep, and recovery.",
+    whatItDoes: ["ATP production", "Muscle function", "Nervous system", "Sleep", "Recovery"],
+    symptomsLow: ["Muscle cramps", "Fatigue", "Poor sleep", "Restlessness"],
+    symptomsHigh: ["Diarrhea", "Weakness (rare)"],
     whyItMatters:
       "Low magnesium can contribute to poor recovery, cramps, sleep issues, and reduced energy metabolism. One of the most marketable and broadly applicable biomarkers in consumer health. Use caution in kidney disease.",
     foods:
@@ -186,6 +207,8 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
       "Vitamin B12 supports red blood cell production, nervous system function, and energy metabolism.",
     whyItMatters:
       "Low or low-normal B12 often links to fatigue, RBC support, and neurological health. Risk is higher with low animal-food intake, GI issues, PPIs, and metformin use.",
+    whatItDoes: ["Red blood cell production", "Nervous system", "Energy metabolism", "DNA synthesis"],
+    symptomsLow: ["Fatigue", "Brain fog", "Numbness or tingling", "Anemia"],
     foods:
       "Shellfish, beef, salmon, dairy, eggs. If avoiding animal foods, B12 is much harder to optimize through food alone.",
     lifestyle:
@@ -239,6 +262,8 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
       "Folate (B9) is essential for DNA synthesis, cell division, and red blood cell formation. Serum or RBC folate reflects status.",
     whyItMatters:
       "Folate is broadly relevant to blood health and pairs with B12; deficiency can contribute to anemia and elevated homocysteine. Do not megadose folic acid—excess can mask B12 deficiency.",
+    whatItDoes: ["DNA synthesis", "Cell division", "Red blood cell formation", "Homocysteine metabolism"],
+    symptomsLow: ["Fatigue", "Anemia", "Elevated homocysteine", "Poor concentration"],
     foods:
       "Leafy greens (spinach, kale, romaine), lentils, beans, asparagus, avocado, fortified grains and cereals.",
     lifestyle:

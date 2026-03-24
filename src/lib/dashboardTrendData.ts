@@ -1,0 +1,34 @@
+import type { BloodworkSaveRow } from "@/src/lib/bloodwiseDb"
+
+export type TrendPoint = { date: string; ferritin: number; vitaminD: number; magnesium: number; b12: number }
+
+export function pickNumber(inputs: Record<string, string | number>, ...names: (string | string[])[]): number | undefined {
+  const flat = names.flat().map((n) => (typeof n === "string" ? [n] : n)).flat()
+  for (const key of Object.keys(inputs)) {
+    const lower = key.toLowerCase()
+    if (flat.some((n) => lower.includes(String(n).toLowerCase()))) {
+      const v = inputs[key]
+      if (v !== undefined && v !== "") return Number(v)
+    }
+  }
+  return undefined
+}
+
+/** Build trend data from real bloodwork history only (≥2 saves). No synthetic/demo series. */
+export function getTrendData(history: BloodworkSaveRow[]): TrendPoint[] {
+  if (history.length < 2) return []
+  return history
+    .slice()
+    .reverse()
+    .map((row) => {
+      const in_ = row.biomarker_inputs ?? {}
+      const ferritin = pickNumber(in_, "ferritin") ?? 0
+      const vitaminD = pickNumber(in_, "vitamin d", "vitamin_d", "vitd") ?? 0
+      const magnesium = pickNumber(in_, "magnesium", "mg") ?? 0
+      const b12 = pickNumber(in_, "b12", "cobalamin", "vitamin b12") ?? 0
+      const date = row.created_at
+        ? new Date(row.created_at).toLocaleDateString("en-US", { month: "short", year: "2-digit" })
+        : ""
+      return { date, ferritin, vitaminD, magnesium, b12 }
+    })
+}

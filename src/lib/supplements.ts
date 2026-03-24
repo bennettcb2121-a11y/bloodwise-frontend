@@ -1,3 +1,12 @@
+import type { VitaminDBand } from "@/src/lib/dosingTargets"
+import {
+  filterVitaminDCatalog,
+  pickVitaminDProductByTarget,
+  resolveVitaminDBand,
+  targetVitaminDIuPerDay,
+  vitaminDRecommendationDisplayName,
+} from "@/src/lib/dosingTargets"
+
 type ActiveUnit = "mg" | "mcg" | "IU"
 
 type SupplementProduct = {
@@ -11,6 +20,8 @@ type SupplementProduct = {
   activeUnit: ActiveUnit
   costPerUnitActive: number
   costPer1000IU?: number
+  /** Servings per week (default 7 = once daily). Use 1 for weekly-dose products. */
+  servingsPerWeek?: number
   notes?: string
   assumptions?: string[]
   caution?: string[]
@@ -21,6 +32,8 @@ type AnalysisItem = {
   name?: string
   marker?: string
   status?: string
+  /** Numeric lab value when analysis comes from analyzeBiomarkers (e.g. ng/mL for Vitamin D). */
+  value?: number
 }
 
 type SupplementLeaderboardEntry = SupplementProduct & {
@@ -39,7 +52,7 @@ export type MonthlyCostBreakdown = {
   monthlyCost: number
 }
 
-type SupplementRecommendation = {
+export type SupplementRecommendation = {
   name: string
   brand: string
   marker: string
@@ -57,6 +70,14 @@ type SupplementRecommendation = {
   leaderboard: SupplementLeaderboardEntry[]
   estimatedMonthlyCost: number
   monthlyCostBreakdown: MonthlyCostBreakdown
+  /** Shown when user prefers no pills but only pill form was available. */
+  formNote?: string
+}
+
+/** True for gummy, powder, liquid, drink (case-insensitive). */
+function isNonPillForm(form: string): boolean {
+  const f = (form || "").toLowerCase()
+  return f.includes("gummy") || f.includes("powder") || f.includes("liquid") || f.includes("drink")
 }
 
 const supplementDatabase: Record<string, SupplementProduct[]> = {
@@ -118,6 +139,19 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
 
   "Vitamin D": [
     {
+      id: "vitd_gummy_2000_60",
+      brand: "Nature Made",
+      productName: "Vitamin D3 2000 IU Gummies, 60 count",
+      form: "Gummy",
+      price: 9.99,
+      unitsPerBottle: 60,
+      amountPerUnit: 2000,
+      activeUnit: "IU",
+      costPerUnitActive: 9.99 / (2000 * 60),
+      costPer1000IU: 0.08325,
+      notes: "Gummy form for those who prefer not to take pills.",
+    },
+    {
       id: "vitd_now_50000_50",
       brand: "NOW Foods",
       productName: "Vitamin D-3 50,000 IU, 50 softgels",
@@ -158,6 +192,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       activeUnit: "IU",
       costPerUnitActive: 21.99 / (25000 * 90),
       costPer1000IU: 0.00977,
+      servingsPerWeek: 1,
       notes: "Product page notes 1 capsule once per week.",
     },
   ],
@@ -369,6 +404,17 @@ function shouldRecommendIronForFerritin(status?: string): boolean {
   return s === "deficient" || s === "suboptimal"
 }
 
+/** True if Magnesium is its own flagged marker (avoid duplicating magnesium in CRP picks). */
+function magnesiumMarkerFlaggedInAnalysis(analysis: AnalysisItem[]): boolean {
+  for (const item of analysis) {
+    const biomarkerName = item?.name || item?.marker
+    const status = item?.status
+    if (!biomarkerName || !isFlaggedStatus(status)) continue
+    if (resolveMarkerKey(biomarkerName) === "Magnesium") return true
+  }
+  return false
+}
+
 function resolveMarkerKey(text?: string) {
   if (!text) return null
 
@@ -402,17 +448,21 @@ function buildLeaderboard(products: SupplementProduct[]): SupplementLeaderboardE
   }))
 }
 
-function estimateMonthlyCost(product: SupplementProduct, unitsPerDay = 1) {
+/** Effective daily servings from optional servingsPerWeek (default 7 = once daily). */
+function servingsPerDayFromProduct(product: SupplementProduct): number {
+  const perWeek = product.servingsPerWeek ?? 7
+  return perWeek / 7
+}
+
+function estimateMonthlyCost(product: SupplementProduct) {
+  const unitsPerDay = servingsPerDayFromProduct(product)
   return Number((((product.price / product.unitsPerBottle) * 30) * unitsPerDay).toFixed(2))
 }
 
-const UNITS_PER_DAY_DEFAULT = 1
 const DAYS_PER_MONTH = 30
 
-function getMonthlyCostBreakdown(
-  product: SupplementProduct,
-  unitsPerDay = UNITS_PER_DAY_DEFAULT
-): MonthlyCostBreakdown {
+function getMonthlyCostBreakdown(product: SupplementProduct): MonthlyCostBreakdown {
+  const unitsPerDay = servingsPerDayFromProduct(product)
   const pricePerServing = product.price / product.unitsPerBottle
   const servingsPerMonth = unitsPerDay * DAYS_PER_MONTH
   const monthlyCost = Number((pricePerServing * servingsPerMonth).toFixed(2))
@@ -439,7 +489,7 @@ function getRecommendationType(
   if (s === "deficient") {
     return "Core"
   }
-  if (s === "suboptimal" || s === "borderline" || s === "low") {
+  if (s === "suboptimal" || s === "low") {
     return "Conditional"
   }
   return "Context-dependent"
@@ -474,6 +524,9 @@ function getWhyRecommendedShort(
     return "B12 in context; useful when intake or absorption is limited."
   }
   if (m.includes("crp")) {
+    if (s === "high") {
+      return "Elevated CRP can reflect acute illness, hard training, or chronic inflammation—interpret with symptoms and context; supplements don’t replace finding the cause."
+    }
     return "CRP reflects inflammation; support is context-dependent (stress, recovery, diet)."
   }
   if (m.includes("testosterone")) {
@@ -488,6 +541,7 @@ function getExpectedBenefit(
   recType: RecommendationType = "Context-dependent"
 ): string {
   const m = normalize(marker)
+  const s = (status || "").toLowerCase()
   if (m.includes("ferritin")) {
     if (recType === "Core") return "Can support repletion of iron stores and improve energy, endurance capacity, and recovery from fatigue."
     if (recType === "Conditional") return "May help raise ferritin toward optimal range and support energy and recovery; retest to confirm response."
@@ -509,6 +563,9 @@ function getExpectedBenefit(
     return "Supports B12 status when intake or absorption is limited; benefits include energy and red blood cell support."
   }
   if (m.includes("crp")) {
+    if (s === "high") {
+      return "Omega-3s and related supports are sometimes used alongside lifestyle change; benefits vary and acute causes (e.g. infection) need different action—discuss with your clinician."
+    }
     return "Anti-inflammatory and recovery support are context-dependent; benefits may include supporting a healthy inflammatory response and recovery."
   }
   if (m.includes("testosterone")) {
@@ -556,12 +613,15 @@ function pickBestOverall(leaderboard: SupplementLeaderboardEntry[]): SupplementL
   )[0]
 }
 
-function inferDoseText(marker: string) {
+function inferDoseText(marker: string, vitaminDBand?: VitaminDBand) {
   switch (marker) {
     case "Ferritin":
       return "Context-dependent iron protocol"
-    case "Vitamin D":
-      return "Dose depends on current blood level and frequency plan"
+    case "Vitamin D": {
+      const t = vitaminDBand ? targetVitaminDIuPerDay(vitaminDBand) : 2000
+      if (vitaminDBand === "high") return "Elevated level — do not supplement unless your clinician advises"
+      return `Typical discussion range ~${t} IU/day with food; confirm with your clinician`
+    }
     case "Magnesium":
       return "Typically daily"
     case "Vitamin B12":
@@ -575,8 +635,16 @@ function inferDoseText(marker: string) {
   }
 }
 
-export function supplementRecommendations(analysis: AnalysisItem[] = []): SupplementRecommendation[] {
+export type SupplementRecommendationsOptions = {
+  supplementFormPreference?: "any" | "no_pills"
+}
+
+export function supplementRecommendations(
+  analysis: AnalysisItem[] = [],
+  options: SupplementRecommendationsOptions = {}
+): SupplementRecommendation[] {
   if (!Array.isArray(analysis)) return []
+  const preferNoPills = options.supplementFormPreference === "no_pills"
 
   const recommendations: SupplementRecommendation[] = []
   const usedMarkers = new Set<string>()
@@ -593,15 +661,60 @@ export function supplementRecommendations(analysis: AnalysisItem[] = []): Supple
 
     if (matchedKey === "Ferritin" && !shouldRecommendIronForFerritin(status)) continue
 
-    const options = supplementDatabase[matchedKey]
-    if (!Array.isArray(options) || options.length === 0) continue
+    /** High testosterone: do not suggest zinc/adaptogens as “fixes”—see your clinician. */
+    if (matchedKey === "Testosterone" && (status || "").toLowerCase() === "high") continue
 
-    const leaderboard = buildLeaderboard(options)
+    /** High vitamin D: do not recommend oral D3 here — clinician should advise. */
+    if (matchedKey === "Vitamin D" && (status || "").toLowerCase() === "high") continue
+
+    let optionsList = supplementDatabase[matchedKey]
+    if (!Array.isArray(optionsList) || optionsList.length === 0) continue
+
+    if (matchedKey === "CRP" && magnesiumMarkerFlaggedInAnalysis(analysis)) {
+      optionsList = optionsList.filter((o) => o.id !== "mag_sv_400_250_crp")
+      if (optionsList.length === 0) continue
+    }
+
+    let vitDBand: VitaminDBand | undefined
+    let vitDTargetIu = 2000
+    let displayNameOverride: string | undefined
+
+    if (matchedKey === "Vitamin D") {
+      vitDBand = resolveVitaminDBand(status, item.value)
+      vitDTargetIu = targetVitaminDIuPerDay(vitDBand)
+      let vdList = filterVitaminDCatalog(optionsList, vitDBand)
+      if (vdList.length === 0) {
+        vdList = optionsList.filter((o) => o.id === "vitd_gummy_2000_60" || o.amountPerUnit <= 2000)
+      }
+      if (vdList.length === 0) vdList = optionsList.filter((o) => o.id !== "vitd_now_50000_50")
+      optionsList = vdList as SupplementProduct[]
+    }
+
+    if (preferNoPills) {
+      const nonPill = optionsList.filter((o) => isNonPillForm(o.form))
+      if (nonPill.length > 0) optionsList = nonPill
+    }
+
+    if (matchedKey === "Vitamin D" && vitDBand) {
+      const picked = pickVitaminDProductByTarget(optionsList, vitDTargetIu)
+      if (picked) {
+        displayNameOverride = vitaminDRecommendationDisplayName(picked, vitDTargetIu)
+      }
+    }
+
+    const leaderboard = buildLeaderboard(optionsList)
     const bestValue = leaderboard[0]
     const highestPotency = [...leaderboard].sort(
       (a, b) => a.rankByPotency - b.rankByPotency
     )[0]
-    const bestOverall = pickBestOverall(leaderboard)
+    let bestOverall = pickBestOverall(leaderboard)
+    if (matchedKey === "Vitamin D" && vitDBand) {
+      const picked = pickVitaminDProductByTarget(optionsList, vitDTargetIu)
+      if (picked) {
+        bestOverall = leaderboard.find((e) => e.id === picked.id) ?? bestOverall
+      }
+    }
+    const hadToUsePill = preferNoPills && !isNonPillForm(bestOverall.form)
 
     const recommendationType = getRecommendationType(matchedKey, status)
     const whyRecommended = getWhyRecommendedShort(matchedKey, status, recommendationType)
@@ -611,11 +724,11 @@ export function supplementRecommendations(analysis: AnalysisItem[] = []): Supple
     const monthlyCostBreakdown = getMonthlyCostBreakdown(bestOverall)
 
     recommendations.push({
-      name: bestOverall.productName,
+      name: displayNameOverride ?? bestOverall.productName,
       brand: bestOverall.brand,
       marker: matchedKey,
       supplementKey: normalize(matchedKey),
-      dose: inferDoseText(matchedKey),
+      dose: inferDoseText(matchedKey, matchedKey === "Vitamin D" ? vitDBand : undefined),
       status,
       recommendationType,
       whyRecommended,
@@ -628,6 +741,7 @@ export function supplementRecommendations(analysis: AnalysisItem[] = []): Supple
       leaderboard,
       estimatedMonthlyCost,
       monthlyCostBreakdown,
+      formNote: hadToUsePill ? "Pill form; gummy or powder options may be available in stores." : undefined,
     })
 
     usedMarkers.add(matchedKey)

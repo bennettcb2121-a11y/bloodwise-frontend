@@ -26,6 +26,9 @@ export type AnalysisItem = {
 export function getStatusTone(status?: string): StatusTone {
   const s = (status || "").toLowerCase()
 
+  if (s === "unknown") {
+    return { label: "Not in library", className: "tone-neutral", icon: "?" }
+  }
   if (s === "optimal" || s === "normal" || s === "in range") {
     return { label: "Optimal", className: "tone-green", icon: "●" }
   }

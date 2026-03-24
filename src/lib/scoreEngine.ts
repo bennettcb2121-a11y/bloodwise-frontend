@@ -25,6 +25,7 @@ export function countByStatus(
       if (s === "optimal" || s === "normal" || s === "in range") acc.optimal += 1
       else if (s === "suboptimal") acc.borderline += 1
       else if (s === "deficient" || s === "high") acc.flagged += 1
+      else if (s === "unknown") acc.unknown += 1
       else acc.unknown += 1
       return acc
     },

@@ -11,6 +11,7 @@ type SupplementProduct = {
   activeUnit: ActiveUnit
   costPerUnitActive: number
   costPer1000IU?: number
+  servingsPerWeek?: number
   notes?: string
   assumptions?: string[]
   caution?: string[]
@@ -55,10 +56,8 @@ function normalize(text: string) {
   return text.toLowerCase().replace(/\s+/g, "").replace(/_/g, "").replace(/-/g, "")
 }
 
-function estimateMonthlyCostForProduct(
-  product: SupplementProduct,
-  unitsPerDay = 1
-) {
+function estimateMonthlyCostForProduct(product: SupplementProduct) {
+  const unitsPerDay = (product.servingsPerWeek ?? 7) / 7
   return round2(((product.price / product.unitsPerBottle) * 30) * unitsPerDay)
 }
 

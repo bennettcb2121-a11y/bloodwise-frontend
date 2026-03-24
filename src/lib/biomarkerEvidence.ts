@@ -15,11 +15,11 @@ export type BiomarkerEvidenceMap = Record<string, EvidenceEntry[]>
 export const BIOMARKER_EVIDENCE: BiomarkerEvidenceMap = {
   Ferritin: [
     { title: "Iron deficiency and repletion in athletes", source: "ODS / NIH", url: "https://ods.od.nih.gov/factsheets/Iron-HealthProfessional/" },
-    { title: "Alternate-day iron supplementation", source: "Blood", url: "https://pubmed.ncbi.nlm.nih.gov/28385754/" },
+    { title: "Iron status and the acute post-exercise hepcidin response in athletes", source: "PLOS ONE (PubMed)", url: "https://pubmed.ncbi.nlm.nih.gov/24667393/" },
   ],
   "Vitamin D": [
     { title: "Vitamin D and health", source: "NIH Office of Dietary Supplements", url: "https://ods.od.nih.gov/factsheets/VitaminD-HealthProfessional/" },
-    { title: "Vitamin D and athletic performance", source: "Nutrients", url: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6071314/" },
+    { title: "Vitamin D and the Athlete: Current Perspectives and New Challenges", source: "Sports Med (PubMed)", url: "https://pubmed.ncbi.nlm.nih.gov/29368183/" },
   ],
   "Vitamin B12": [
     { title: "B12 deficiency and supplementation", source: "NIH ODS", url: "https://ods.od.nih.gov/factsheets/VitaminB12-HealthProfessional/" },
@@ -29,22 +29,30 @@ export const BIOMARKER_EVIDENCE: BiomarkerEvidenceMap = {
   ],
   Magnesium: [
     { title: "Magnesium in health and disease", source: "NIH ODS", url: "https://ods.od.nih.gov/factsheets/Magnesium-HealthProfessional/" },
-    { title: "Magnesium glycinate absorption", source: "Nutrients", url: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5786912/" },
+    { title: "Subclinical magnesium deficiency and cardiovascular disease", source: "Open Heart (PMC)", url: "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5786912/" },
   ],
   HbA1c: [
-    { title: "ADA Standards of Medical Care in Diabetes", source: "Diabetes Care", url: "https://diabetesjournals.org/care/article/47/Supplement_1/S1/153960/Standards-of-Care-in-Diabetes-2024" },
+    { title: "Standards of Medical Care in Diabetes (ADA)", source: "American Diabetes Association", url: "https://professional.diabetes.org/standards-of-care" },
+    { title: "Standards of Care in Diabetes 2024 (full text)", source: "Diabetes Care", url: "https://diabetesjournals.org/care/article/47/Supplement_1/S1/153952/Introduction-and-Methodology-Standards-of-Care-in" },
   ],
   Glucose: [
-    { title: "Fasting glucose and metabolic health", source: "ADA", url: "https://diabetesjournals.org/care/article/47/Supplement_1/S1/153960/Standards-of-Care-in-Diabetes-2024" },
+    { title: "Standards of Medical Care in Diabetes (ADA)", source: "American Diabetes Association", url: "https://professional.diabetes.org/standards-of-care" },
+    { title: "Standards of Care in Diabetes 2024 (full text)", source: "Diabetes Care", url: "https://diabetesjournals.org/care/article/47/Supplement_1/S1/153952/Introduction-and-Methodology-Standards-of-Care-in" },
   ],
   "LDL-C": [
-    { title: "Cholesterol and cardiovascular risk", source: "AHA/ACC", url: "https://www.acc.org/guidelines" },
+    { title: "Cholesterol guidelines and risk assessment", source: "ACC", url: "https://www.acc.org/guidelines" },
+    { title: "Cholesterol and heart disease", source: "AHA", url: "https://www.heart.org/en/health-topics/cholesterol" },
   ],
   Triglycerides: [
-    { title: "Triglycerides and cardiovascular risk", source: "AHA", url: "https://www.heart.org/en/health-topics/cholesterol" },
+    { title: "Cholesterol and triglycerides (lipid health)", source: "AHA", url: "https://www.heart.org/en/health-topics/cholesterol" },
   ],
   "hs-CRP": [
-    { title: "hs-CRP and cardiovascular risk", source: "CDC / AHA", url: "https://www.cdc.gov/heartdisease/crp.htm" },
+    { title: "Markers of inflammation and cardiovascular disease (CDC/AHA statement)", source: "Circulation / PubMed", url: "https://pubmed.ncbi.nlm.nih.gov/12551878/" },
+    { title: "Physical activity and serum C-reactive protein: systematic review", source: "JACC (PubMed)", url: "https://pubmed.ncbi.nlm.nih.gov/15893167/" },
+  ],
+  CRP: [
+    { title: "Markers of inflammation and cardiovascular disease (CDC/AHA statement)", source: "Circulation / PubMed", url: "https://pubmed.ncbi.nlm.nih.gov/12551878/" },
+    { title: "Physical activity and serum C-reactive protein: systematic review", source: "JACC (PubMed)", url: "https://pubmed.ncbi.nlm.nih.gov/15893167/" },
   ],
 }
 

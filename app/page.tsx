@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { loadSavedState, upsertProfile, saveBloodwork, getBloodworkHistory, getSubscription } from "@/src/lib/bloodwiseDb"
-import type { BloodworkSaveRow, SavedSupplementStackItem, SubscriptionRow } from "@/src/lib/bloodwiseDb"
+import type { BloodworkSaveRow, ProfileRow, SavedSupplementStackItem, SubscriptionRow } from "@/src/lib/bloodwiseDb"
 import { analyzeBiomarkers } from "@/src/lib/analyzeBiomarkers"
 import { calculateScore } from "@/src/lib/calculateScore"
 import { supplementRecommendations } from "@/src/lib/supplements"
@@ -20,6 +20,7 @@ import {
   hasEnoughLabs,
   type ProfileState,
 } from "@/src/lib/panelEngine"
+import { isDevPaywallBypass } from "@/src/lib/accessGate"
 import { legacyGoalSportToProfileType } from "@/src/lib/clarionProfiles"
 import { computeSavings } from "@/src/lib/savingsEngine"
 import {
@@ -33,6 +34,7 @@ import { detectPatterns } from "@/src/lib/patternEngine"
 import { getRetestRecommendations } from "@/src/lib/retestEngine"
 import { getBloodwiseSummary } from "@/src/lib/bloodwiseSummaryEngine"
 import { OnboardingFlow } from "@/src/components/OnboardingFlow"
+import { clearReauthPrompt, shouldShowReauthPrompt } from "@/src/lib/reauthPrompt"
 
 type BiomarkerInputMap = Record<string, string | number>
 
@@ -64,7 +66,6 @@ function HomePageContent() {
   const [hasPaidAnalysis, setHasPaidAnalysis] = useState(false)
   const isDev = typeof process !== "undefined" && process.env.NODE_ENV === "development"
   const useMockResults = isDev && searchParams.get("useMockResults") === "1"
-  const effectiveHasPaidAnalysis = useMockResults ? true : hasPaidAnalysis
 
   const biomarkerKeys = useMemo(() => getBiomarkerKeys(), [])
 
@@ -75,6 +76,15 @@ function HomePageContent() {
     goal: "",
     improvementPreference: "",
     profileType: "",
+    heightCm: "",
+    weightKg: "",
+    supplementFormPreference: "any",
+    activityLevel: "",
+    sleepHours: "",
+    exerciseRegularly: "",
+    alcohol: "",
+    healthGoal: "",
+    symptoms: "",
   })
 
   const [inputs, setInputs] = useState<BiomarkerInputMap>(() => {
@@ -92,7 +102,8 @@ function HomePageContent() {
   const setCurrentStep = useCallback((arg: React.SetStateAction<number>) => {
     setCurrentStepRaw((prev) => {
       const next = typeof arg === "function" ? (arg as (p: number) => number)(prev) : arg
-      if (next === 6 && Date.now() < blockStep6UntilRef.current) return 0
+      // Block biomarker step (8) until ready — prevents post-sign-in race to panel
+      if (next === 8 && Date.now() < blockStep6UntilRef.current) return prev
       return next
     })
   }, [])
@@ -107,24 +118,33 @@ function HomePageContent() {
   const [analyzing, setAnalyzing] = useState(false)
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null)
 
+  const hasPaidUnlock =
+    hasPaidAnalysis ||
+    subscription?.status === "active" ||
+    subscription?.status === "trialing"
+  const effectiveHasPaidAnalysis = isDevPaywallBypass() || useMockResults ? true : hasPaidUnlock
+
+  const [homeReady, setHomeReady] = useState(false)
+  const [showReauthPrompt, setShowReauthPrompt] = useState(false)
+
   const isProfileReady = Boolean(
-    profile.profileType?.trim() || (profile.goal.trim() && profile.sport.trim())
+    profile.profileType?.trim() || profile.healthGoal?.trim() || (profile.goal.trim() && profile.sport.trim())
   )
 
-  // Recommended panel: profile type → panel, else legacy goal/sport, else general_health_adult (always show a panel)
-  const recommendedMarkers = useMemo(() => {
+  // Stable panel from profile only (avoids feedback loops with analysis ordering).
+  const profileRecommendedMarkers = useMemo(() => {
     return getAdaptiveRecommendedMarkers(profile, biomarkerKeys)
   }, [profile, biomarkerKeys])
 
   useEffect(() => {
-    if (recommendedMarkers.length && selectedPanel.length === 0) {
-      setSelectedPanel(recommendedMarkers)
+    if (profileRecommendedMarkers.length && selectedPanel.length === 0) {
+      setSelectedPanel(profileRecommendedMarkers)
     }
-  }, [recommendedMarkers, selectedPanel.length])
+  }, [profileRecommendedMarkers, selectedPanel.length])
 
   const activePanel = useMemo(
-    () => getActivePanel(selectedPanel, recommendedMarkers),
-    [selectedPanel, recommendedMarkers]
+    () => getActivePanel(selectedPanel, profileRecommendedMarkers),
+    [selectedPanel, profileRecommendedMarkers]
   )
 
   const enteredBiomarkers = useMemo(
@@ -153,6 +173,20 @@ function HomePageContent() {
     }
   }, [enteredBiomarkers, profile])
 
+  const optimalEnteredKeys = useMemo(
+    () =>
+      analysisResults
+        .filter((r) => r.status === "optimal" && r.name)
+        .map((r) => r.name as string),
+    [analysisResults]
+  )
+
+  const recommendedMarkers = useMemo(() => {
+    return getAdaptiveRecommendedMarkers(profile, biomarkerKeys, {
+      deprioritizeOptimalKeys: optimalEnteredKeys,
+    })
+  }, [profile, biomarkerKeys, optimalEnteredKeys])
+
   const score = useMemo(() => {
     if (!analysisResults.length) return 0
     try {
@@ -166,11 +200,13 @@ function HomePageContent() {
 
   const supplementRecs = useMemo(() => {
     try {
-      return supplementRecommendations(analysisResults as any) || []
+      return supplementRecommendations(analysisResults as any, {
+        supplementFormPreference: profile.supplementFormPreference === "no_pills" ? "no_pills" : "any",
+      }) || []
     } catch {
       return []
     }
-  }, [analysisResults])
+  }, [analysisResults, profile.supplementFormPreference])
 
   const optimizedStack = useMemo(() => {
     try {
@@ -236,16 +272,40 @@ function HomePageContent() {
     return Date.now() - last >= weeksMs
   }, [lastBloodworkAt, retestWeeks])
 
-  // On login: load saved profile and bloodwork from Supabase and populate form fields
+  // When logged out, allow home to render immediately; when logging in, wait for saved state load
   useEffect(() => {
-    if (!userId || hasLoadedSaveRef.current) return
+    if (!userId) {
+      setHomeReady(true)
+      setShowReauthPrompt(false)
+    } else {
+      setHomeReady(false)
+    }
+  }, [userId])
+
+  // On login: load saved profile and bloodwork from Supabase and populate form fields
+  const stepFromUrl = searchParams.get("step")
+  const reauthFromUrl = searchParams.get("reauth")
+  useEffect(() => {
+    if (!userId) return
+    const wantsLabsEntry = stepFromUrl === "labs" || stepFromUrl === "8"
+    const wantsSurveyEntry = stepFromUrl === "survey" || stepFromUrl === "welcome"
+    const forceReload =
+      typeof window !== "undefined" &&
+      (reauthFromUrl === "1" || shouldShowReauthPrompt() || wantsLabsEntry || wantsSurveyEntry)
+    if (!forceReload && hasLoadedSaveRef.current) return
     hasLoadedSaveRef.current = true
     // If returning from payment or subscription checkout, don't force welcome — dedicated effects will show results flow
     const search = typeof window !== "undefined" ? window.location.search : ""
     const isPaymentReturn = search.includes("paid=1")
     const isSubscriptionReturn = search.includes("subscription=success")
-    if (!isPaymentReturn && !isSubscriptionReturn) {
-      setCurrentStep(0)
+    const stepParam = typeof window !== "undefined" ? new URLSearchParams(search).get("step") : null
+    const viewParam = typeof window !== "undefined" ? new URLSearchParams(search).get("view") : null
+    const goToLabs = stepParam === "labs" || stepParam === "8"
+    const goToSurvey = stepParam === "survey" || stepParam === "welcome"
+    if (!isPaymentReturn && !isSubscriptionReturn && !viewParam) {
+      if (goToLabs) setCurrentStepRaw(8)
+      else if (goToSurvey) setCurrentStepRaw(0)
+      else setCurrentStep(0)
       setAnalyzing(false)
     }
     Promise.all([loadSavedState(userId), getSubscription(userId)])
@@ -257,6 +317,7 @@ function HomePageContent() {
           const profileType =
             (row?.profile_type && row.profile_type.trim()) ||
             (p.goal || p.sport ? legacyGoalSportToProfileType(p.goal ?? "", p.sport ?? "") : "")
+          const rowProfile = p as ProfileRow
           setProfile({
             age: p.age ?? "",
             sex: p.sex ?? "",
@@ -264,8 +325,12 @@ function HomePageContent() {
             goal: p.goal ?? "",
             improvementPreference: row?.improvement_preference ?? "",
             profileType: profileType || "",
+            heightCm: rowProfile?.height_cm != null ? String(rowProfile.height_cm) : "",
+            weightKg: rowProfile?.weight_kg != null ? String(rowProfile.weight_kg) : "",
+            supplementFormPreference: (rowProfile?.supplement_form_preference === "no_pills" ? "no_pills" : "any") as "any" | "no_pills",
           })
-          setHasPaidAnalysis(hasPaid)
+          // Don’t overwrite optimistic paid state when returning from checkout (webhook may lag behind redirect).
+          setHasPaidAnalysis(hasPaid || isPaymentReturn || isSubscriptionReturn)
           setCurrentSupplementSpend(p.current_supplement_spend ?? "")
           setCurrentSupplements(p.current_supplements ?? "")
           setShoppingPreference(p.shopping_preference ?? "Best value")
@@ -309,22 +374,92 @@ function HomePageContent() {
           setLastBloodworkAt(null)
         }
 
-        // Paid and finished the guided results flow (clicked "Go to Dashboard") → go to dashboard
-        if (hasPaid && hasCompletedResultsFlow) {
+        // Dashboard "Saved plan" links: ?view=insights or ?view=stack — show that results step with saved data (must run before hasAccess redirect)
+        const view = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("view") : null
+        if ((view === "insights" || view === "stack") && (hasPaid || (b && (b.score != null || (b.selected_panel?.length ?? 0) > 0)))) {
+          setHasPaidAnalysis(true)
+          if (b?.biomarker_inputs && typeof b.biomarker_inputs === "object") {
+            setInputs((prev) => ({ ...prev, ...b.biomarker_inputs }))
+          }
+          if (Array.isArray(b?.selected_panel) && b.selected_panel.length > 0) {
+            setSelectedPanel(b.selected_panel)
+          }
+          setCurrentStepRaw(view === "insights" ? 12 : 13)
+          router.replace("/?view=" + view, { scroll: false })
+          return
+        }
+
+        // If returning from payment or subscription checkout, don't redirect — dedicated effects will show results flow
+        if (typeof window !== "undefined" && (window.location.search.includes("paid=1") || window.location.search.includes("subscription=success"))) return
+
+        const subActive = subscription?.status === "active" || subscription?.status === "trialing"
+        const hasBloodworkAccess = b && (b.score != null || (b.selected_panel?.length ?? 0) > 0)
+        const hasAccess = hasPaid || subActive || !!hasBloodworkAccess
+
+        // After explicit logout → sign-in: ask dashboard vs retake survey (don't auto-jump past home)
+        const wantsReauth =
+          typeof window !== "undefined" &&
+          (new URLSearchParams(window.location.search).get("reauth") === "1" || shouldShowReauthPrompt())
+        if (wantsReauth) {
+          setShowReauthPrompt(true)
+          router.replace("/", { scroll: false })
+          return
+        }
+
+        const wantsLabsSurvey =
+          typeof window !== "undefined" &&
+          (new URLSearchParams(window.location.search).get("step") === "labs" ||
+            new URLSearchParams(window.location.search).get("step") === "8")
+
+        // Logged-in user explicitly opening /?step=labs — stay on home and open labs flow (do not send to dashboard)
+        if (hasAccess && wantsLabsSurvey) {
+          blockStep6UntilRef.current = 0
+          if (b?.biomarker_inputs && typeof b.biomarker_inputs === "object") {
+            setInputs((prev) => ({ ...prev, ...b.biomarker_inputs }))
+          }
+          if (Array.isArray(b?.selected_panel) && b.selected_panel.length > 0) {
+            setSelectedPanel(b.selected_panel)
+          }
+          const targetStep = hasBloodworkAccess ? 10 : 8
+          setCurrentStepRaw(targetStep)
+          router.replace("/?step=labs", { scroll: false })
+          return
+        }
+
+        const wantsFullSurvey =
+          typeof window !== "undefined" &&
+          (new URLSearchParams(window.location.search).get("step") === "survey" ||
+            new URLSearchParams(window.location.search).get("step") === "welcome")
+
+        // Logged-in user opening full onboarding from /?step=survey — stay on home at welcome (do not send to dashboard)
+        if (hasAccess && wantsFullSurvey) {
+          blockStep6UntilRef.current = 0
+          setAnalyzing(false)
+          setCurrentStepRaw(0)
+          router.replace("/?step=survey", { scroll: false })
+          return
+        }
+
+        // Logged-in user with access (paid, subscription, or saved bloodwork) → go straight to dashboard (app-first entry)
+        if (hasAccess) {
           router.replace("/dashboard")
           return
         }
 
-        // If returning from payment or subscription checkout, don't force welcome — dedicated effects will show results flow
-        if (typeof window !== "undefined" && (window.location.search.includes("paid=1") || window.location.search.includes("subscription=success"))) return
-
-        // Always start at first page (welcome). Set in same batch as other state so no intermediate render shows a later step.
-        setCurrentStep(0)
+        const step = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("step") : null
+        if (step === "labs" || step === "8") {
+          setCurrentStepRaw(8)
+        } else if (step === "survey" || step === "welcome") {
+          setCurrentStepRaw(0)
+        } else {
+          setCurrentStep(0)
+        }
         setAnalyzing(false)
       })
       .catch(() => {})
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when userId changes; router is stable
-  }, [userId])
+      .finally(() => setHomeReady(true))
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run when ?step=labs / ?step=survey / ?reauth= so dashboard links work
+  }, [userId, stepFromUrl, reauthFromUrl])
 
   // After $49 payment success: return to app and continue guided results flow (analysis → score → insights → stack → summary)
   // Treat ?paid=1 optimistically so we don't depend on webhook having run yet; restore bloodwork and show results
@@ -405,8 +540,21 @@ function HomePageContent() {
 
   // DEV ONLY: ?preview= lets you jump to any screen (e.g. ?preview=score, ?preview=stack)
   const previewStepMap: Record<string, number> = {
-    welcome: 0, goal: 1, activity: 2, supplements: 4, spend: 5, panel: 6, havelabs: 7, labs: 8, bloodtest: 9,
-    analysis: 10, score: 11, insights: 12, stack: 13, summary: 14,
+    welcome: 0,
+    survey: 0,
+    goal: 1,
+    activity: 2,
+    supplements: 4,
+    spend: 5,
+    panel: 6,
+    havelabs: 7,
+    labs: 8,
+    bloodtest: 9,
+    analysis: 10,
+    score: 11,
+    insights: 12,
+    stack: 13,
+    summary: 14,
   }
   useEffect(() => {
     if (!isDev) return
@@ -440,18 +588,7 @@ function HomePageContent() {
 
   // Save profile when user and profile/habits change (debounced).
   const saveProfileRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const profileDeps: [
-    string | null,
-    string,
-    string,
-    string,
-    string,
-    string,
-    string,
-    string,
-    string,
-    string,
-  ] = [
+  const profileDeps = [
     userId,
     profile.age,
     profile.sex,
@@ -459,6 +596,9 @@ function HomePageContent() {
     profile.goal,
     profile.improvementPreference ?? "",
     profile.profileType ?? "",
+    profile.heightCm ?? "",
+    profile.weightKg ?? "",
+    profile.supplementFormPreference ?? "any",
     currentSupplementSpend,
     currentSupplements,
     shoppingPreference,
@@ -470,9 +610,13 @@ function HomePageContent() {
       profile.sex.trim() !== "" ||
       profile.goal.trim() !== "" ||
       (profile.profileType ?? "").trim() !== "" ||
-      (profile.improvementPreference ?? "").trim() !== ""
+      (profile.improvementPreference ?? "").trim() !== "" ||
+      (profile.heightCm ?? "").trim() !== "" ||
+      (profile.weightKg ?? "").trim() !== ""
     if (!hasProfileData) return
     saveProfileRef.current = setTimeout(() => {
+      const heightVal = profile.heightCm?.trim() ? Number(profile.heightCm) : undefined
+      const weightVal = profile.weightKg?.trim() ? Number(profile.weightKg) : undefined
       upsertProfile(userId, {
         age: profile.age,
         sex: profile.sex,
@@ -483,6 +627,9 @@ function HomePageContent() {
         shopping_preference: shoppingPreference,
         improvement_preference: profile.improvementPreference ?? "",
         profile_type: profile.profileType ?? "",
+        height_cm: Number.isFinite(heightVal) ? heightVal : undefined,
+        weight_kg: Number.isFinite(weightVal) ? weightVal : undefined,
+        supplement_form_preference: profile.supplementFormPreference === "no_pills" ? "no_pills" : "any",
       }).catch(() => {})
     }, 800)
     return () => {
@@ -519,6 +666,7 @@ function HomePageContent() {
               monthlyCost: Number(rec.estimatedMonthlyCost) || 0,
               recommendationType: rec.recommendationType ?? "Core",
               reason: rec.whyThisIsRecommended ?? rec.whyRecommended ?? "",
+              marker: rec.marker ?? (Array.isArray(rec.duplicateMarkersMerged) ? rec.duplicateMarkersMerged[0] : undefined),
             })),
             totalMonthlyCost: optimizedStack.totalMonthlyCost,
           }
@@ -583,9 +731,9 @@ function HomePageContent() {
     }
     const step = typeof save.current_step === "number" && save.current_step >= 0 && save.current_step <= 14
       ? save.current_step
-      : 10
-    // Never jump to panel step (6) when user is on welcome/profile — prevents post-sign-in jump bug
-    setCurrentStep((prev) => (prev <= 1 && step === 6 ? prev : step))
+      : 12
+    // Never jump to panel step (8) when user is on hook/age — prevents post-sign-in jump bug
+    setCurrentStep((prev) => (prev <= 1 && step === 8 ? prev : step))
   }
 
   function toggleScience(marker: string) {
@@ -616,25 +764,76 @@ function HomePageContent() {
   const onGoToDashboard = useCallback(() => {
     fetch("/api/complete-results-flow", { method: "POST" })
       .then((r) => { if (!r.ok) throw new Error("Failed to complete") })
-      .then(() => router.push("/dashboard"))
-      .catch(() => router.push("/dashboard"))
+      .then(() => router.push("/dashboard?newResults=1"))
+      .catch(() => router.push("/dashboard?newResults=1"))
   }, [router])
 
-  /** Go directly to blood-test options step (9) from "have labs?" (7) when user says No — bypasses step guard */
-  const goToBloodTestStep = useCallback(() => setCurrentStepRaw(9), [])
-  /** Go directly to labs step (8) from blood-test step (9) to avoid any step-guard loop */
-  const goToLabsStep = useCallback(() => setCurrentStepRaw(8), [])
-  /** Go directly to analysis step (10) from labs (8) when user clicks Analyze — bypasses step guard */
+  const handleReauthContinueDashboard = useCallback(() => {
+    clearReauthPrompt()
+    setShowReauthPrompt(false)
+    router.replace("/dashboard")
+  }, [router])
+
+  const handleReauthRetakeSurvey = useCallback(() => {
+    clearReauthPrompt()
+    setShowReauthPrompt(false)
+    blockStep6UntilRef.current = Date.now() + 2500
+    setCurrentStepRaw(0)
+    setAnalyzing(false)
+    setProfile({
+      age: "",
+      sex: "",
+      sport: "",
+      goal: "",
+      improvementPreference: "",
+      profileType: "",
+      heightCm: "",
+      weightKg: "",
+      supplementFormPreference: "any",
+      activityLevel: "",
+      sleepHours: "",
+      exerciseRegularly: "",
+      alcohol: "",
+      healthGoal: "",
+      symptoms: "",
+    })
+    setInputs((prev) => {
+      const next: BiomarkerInputMap = {}
+      biomarkerKeys.forEach((key) => {
+        next[key] = ""
+      })
+      return next
+    })
+    setSelectedPanel([])
+    setCurrentSupplementSpend("")
+    setCurrentSupplements("")
+    setShoppingPreference("Best value")
+    setHasLoadedExample(false)
+    setOpenScienceMarkers({})
+    setOpenCompareCards({})
+    router.replace("/", { scroll: false })
+  }, [biomarkerKeys, router])
+
+  /** Go directly to blood-test options step (11) from "have labs?" (9) when user says No — bypasses step guard */
+  const goToBloodTestStep = useCallback(() => setCurrentStepRaw(11), [])
+  /** Go directly to labs step (10) from blood-test step (11) to avoid any step-guard loop */
+  const goToLabsStep = useCallback(() => setCurrentStepRaw(10), [])
+  /** Go directly to analysis step (12) from labs (10) when user clicks Analyze — bypasses step guard */
   const goToAnalysisStep = useCallback(() => {
-    setCurrentStepRaw(10)
+    setCurrentStepRaw(12)
     setAnalyzing(true)
   }, [])
 
   // Show loading only while auth is resolving; then show onboarding for everyone (logged-in users see "Dashboard" in header)
   if (authLoading) {
     return (
-      <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--clarion-bg-gradient, #0f0a1a)" }}>
-        <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 15 }}>Loading…</p>
+      <main className="clarion-loading-wrap">
+        <div style={{ display: "flex", gap: 8 }}>
+          <span className="clarion-loading-dot" aria-hidden />
+          <span className="clarion-loading-dot" aria-hidden />
+          <span className="clarion-loading-dot" aria-hidden />
+        </div>
+        <p>Loading…</p>
       </main>
     )
   }
@@ -642,8 +841,48 @@ function HomePageContent() {
   // Returning from subscription: show loading briefly while we restore state and continue the survey (no Welcome)
   if (user && searchParams.get("subscription") === "success") {
     return (
-      <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--clarion-bg-gradient, #0f0a1a)" }}>
-        <p style={{ color: "rgba(255,255,255,0.8)", fontSize: 16 }}>Continuing your analysis…</p>
+      <main className="page-loading-shell" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--color-bg)" }}>
+        <p className="page-loading-text">Continuing your analysis…</p>
+      </main>
+    )
+  }
+
+  if (user && !homeReady) {
+    return (
+      <main className="clarion-loading-wrap">
+        <div style={{ display: "flex", gap: 8 }}>
+          <span className="clarion-loading-dot" aria-hidden />
+          <span className="clarion-loading-dot" aria-hidden />
+          <span className="clarion-loading-dot" aria-hidden />
+        </div>
+        <p>Loading…</p>
+      </main>
+    )
+  }
+
+  if (user && showReauthPrompt) {
+    return (
+      <main className="reauth-choice-shell">
+        <div className="reauth-choice-card">
+          <h1 className="reauth-choice-title">Welcome back</h1>
+          <p className="reauth-choice-body">
+            Continue to your dashboard with your saved labs and plan, or retake the full survey to update your profile and recommendations.
+            {hasPaidUnlock && (
+              <span className="reauth-choice-note">
+                {" "}
+                Your Clarion access from your purchase or subscription still applies—you won&apos;t be asked to pay again to see results.
+              </span>
+            )}
+          </p>
+          <div className="reauth-choice-actions">
+            <button type="button" className="reauth-choice-btn reauth-choice-btn-primary" onClick={handleReauthContinueDashboard}>
+              Continue to dashboard
+            </button>
+            <button type="button" className="reauth-choice-btn reauth-choice-btn-secondary" onClick={handleReauthRetakeSurvey}>
+              Retake survey
+            </button>
+          </div>
+        </div>
       </main>
     )
   }
@@ -657,6 +896,9 @@ function HomePageContent() {
           {["welcome", "goal", "activity", "supplements", "spend", "panel", "havelabs", "labs", "bloodtest", "analysis", "score", "insights", "stack", "summary"].map((p) => (
             <Link key={p} href={"/?preview=" + p} className="dev-preview-link">{p}</Link>
           ))}
+          <Link href="/?step=survey" className="dev-preview-link" title="Same as prod: full survey when logged in">
+            survey
+          </Link>
           <Link href="/dashboard" className="dev-preview-link">dashboard</Link>
         </div>
       </div>
@@ -707,6 +949,7 @@ function HomePageContent() {
       goToLabsStep={goToLabsStep}
       goToAnalysisStep={goToAnalysisStep}
       hasActiveSubscription={subscription?.status === "active" || subscription?.status === "trialing"}
+      resultsView={searchParams.get("view")}
     />
     </>
   )
@@ -716,8 +959,13 @@ export default function Page() {
   return (
     <Suspense
       fallback={
-        <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--clarion-bg-gradient, #0f0a1a)" }}>
-          <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 15 }}>Loading…</p>
+        <main className="clarion-loading-wrap">
+          <div style={{ display: "flex", gap: 8 }}>
+            <span className="clarion-loading-dot" aria-hidden />
+            <span className="clarion-loading-dot" aria-hidden />
+            <span className="clarion-loading-dot" aria-hidden />
+          </div>
+          <p>Loading…</p>
         </main>
       }
     >

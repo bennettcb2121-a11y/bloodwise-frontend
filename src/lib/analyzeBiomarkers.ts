@@ -10,7 +10,7 @@ export type BiomarkerResult = {
   value: number
   optimalMin: number | null
   optimalMax: number | null
-  status: "deficient" | "suboptimal" | "optimal" | "high"
+  status: "deficient" | "suboptimal" | "optimal" | "high" | "unknown"
   description: string
   whyItMatters?: string
   foods?: string
@@ -105,8 +105,9 @@ export function analyzeBiomarkers(
         value: numericValue,
         optimalMin: null,
         optimalMax: null,
-        status: "optimal",
-        description: "No biomarker description available.",
+        status: "unknown",
+        description:
+          "This label isn’t in Clarion’s library yet, so we can’t score or interpret it. Use the exact marker name from your lab or add it when supported.",
       })
       return
     }
@@ -119,7 +120,7 @@ export function analyzeBiomarkers(
         value: numericValue,
         optimalMin: null,
         optimalMax: null,
-        status: "optimal",
+        status: "unknown",
         description: entry.description,
         whyItMatters: entry.whyItMatters,
         foods: entry.foods,

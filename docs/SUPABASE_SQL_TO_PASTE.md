@@ -156,13 +156,104 @@ comment on column public.profiles.results_flow_completed_at is 'Set when user co
 
 ---
 
+## 9. Protocol log (dashboard daily tracker sync)
+
+New query → paste → Run.
+
+```sql
+create table if not exists public.protocol_log (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  log_date date not null,
+  checks jsonb not null default '{}',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(user_id, log_date)
+);
+
+create index if not exists protocol_log_user_date on public.protocol_log(user_id, log_date desc);
+
+alter table public.protocol_log enable row level security;
+
+create policy "Users can read own protocol_log"
+  on public.protocol_log for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own protocol_log"
+  on public.protocol_log for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own protocol_log"
+  on public.protocol_log for update
+  using (auth.uid() = user_id);
+```
+
+---
+
+## 10. User protocol purchases (paid protocols, e.g. Iron, Gut health)
+
+New query → paste → Run.
+
+```sql
+create table if not exists public.user_protocol_purchases (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  protocol_slug text not null,
+  stripe_payment_id text,
+  purchased_at timestamptz not null default now(),
+  unique(user_id, protocol_slug)
+);
+
+create index if not exists user_protocol_purchases_user on public.user_protocol_purchases(user_id);
+alter table public.user_protocol_purchases enable row level security;
+create policy "Users can read own purchases" on public.user_protocol_purchases for select using (auth.uid() = user_id);
+create policy "Users can insert own purchases" on public.user_protocol_purchases for insert with check (auth.uid() = user_id);
+```
+
+---
+
+## 11. Profiles: height, weight, supplement form preference
+
+New query → paste → Run.
+
+```sql
+alter table public.profiles
+  add column if not exists height_cm numeric,
+  add column if not exists weight_kg numeric,
+  add column if not exists supplement_form_preference text default 'any';
+comment on column public.profiles.supplement_form_preference is 'any | no_pills: when no_pills we recommend gummies, powder, drinks';
+```
+
+---
+
+## 12. Stripe webhook idempotency (event deduplication)
+
+New query → paste → Run. Required for production-safe `/api/webhooks/stripe` (prevents double-processing when Stripe retries).
+
+```sql
+create table if not exists public.stripe_webhook_events (
+  id text primary key,
+  type text not null,
+  received_at timestamptz not null default now()
+);
+
+alter table public.stripe_webhook_events enable row level security;
+```
+
+The webhook uses the **service role**, which bypasses RLS. No policies are required for anon/authenticated users (they should not access this table).
+
+---
+
 ## Done
 
-After running 1–8 in order you should have:
+After running 1–12 in order you should have:
 
-- **profiles** (with email, phone, retest_weeks, improvement_preference, profile_type, analysis_purchased_at, results_flow_completed_at)
+- **profiles** (with email, phone, retest_weeks, improvement_preference, profile_type, analysis_purchased_at, results_flow_completed_at, height_cm, weight_kg, supplement_form_preference)
 - **bloodwork_saves** (with score, detected_patterns, key_flagged_biomarkers)
 - **subscriptions**
 - **unlock_redemptions**
+- **protocol_log** (daily protocol check-ins, synced across devices)
+- **user_protocol_purchases** (paid protocol unlocks: iron, gut-health, etc.)
+- **stripe_webhook_events** (Stripe event ids for idempotent webhooks)
 
 If you already ran some of these before, “column already exists” or “relation already exists” is normal; you can ignore and continue with the next block.
