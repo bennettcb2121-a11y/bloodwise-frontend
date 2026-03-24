@@ -29,6 +29,7 @@ import { getGuidesForBiomarker } from "@/src/lib/guides"
 import { PAID_PROTOCOLS } from "@/src/lib/paidProtocols"
 import { ThemeToggle } from "@/src/components/ThemeToggle"
 import { TypewriterHeading } from "@/src/components/TypewriterHeading"
+import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
 
 const TRANSITION = { duration: 0.2, ease: "easeOut" as const }
 const CARD_STAGGER = 0.03
@@ -349,7 +350,7 @@ const setSupplementList = (list: string[]) => {
               <ChevronLeft size={24} strokeWidth={2} />
             </button>
           ) : <div className="onboarding-header-spacer" />}
-          <span className="onboarding-logo">Clarion</span>
+          <ClarionLabsLogo variant="header" href="/" />
           <div className="onboarding-header-actions">
             <ThemeToggle className="onboarding-header-theme-toggle" />
             {userId ? (
@@ -422,7 +423,6 @@ const setSupplementList = (list: string[]) => {
                       Takes ~3 minutes <span className="onboarding-hero-micro-sep">•</span> No labs? We&apos;ll guide you
                     </p>
                   </div>
-                  <p className="onboarding-hero-brand">Clarion Labs</p>
                 </div>
                 <motion.div
                   className="onboarding-hero-preview"
@@ -1456,33 +1456,63 @@ const setSupplementList = (list: string[]) => {
         }
         .onboarding-header {
           flex-shrink: 0;
-          padding: 18px 20px;
-          border-bottom: 1px solid var(--color-border);
-          background: var(--color-surface-elevated);
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
-          box-shadow: var(--shadow-sm);
+          padding: 14px 20px 16px;
+          border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 14%, var(--color-border));
+          background: linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--color-surface-elevated) 96%, #0a1210) 0%,
+            color-mix(in srgb, var(--color-bg) 35%, var(--color-surface-elevated)) 100%
+          );
+          backdrop-filter: blur(16px) saturate(1.15);
+          -webkit-backdrop-filter: blur(16px) saturate(1.15);
+          box-shadow:
+            0 1px 0 color-mix(in srgb, #fff 5%, transparent) inset,
+            0 8px 28px rgba(0, 0, 0, 0.22);
         }
         .onboarding-header--hero {
-          background: transparent;
-          border-bottom: none;
-          box-shadow: none;
-          backdrop-filter: none;
-          -webkit-backdrop-filter: none;
-          padding: 18px clamp(20px, 4vw, 48px);
+          background: linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--color-bg) 55%, transparent) 0%,
+            transparent 72%
+          );
+          border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
+          box-shadow:
+            0 1px 0 color-mix(in srgb, #fff 7%, transparent) inset,
+            0 12px 40px rgba(0, 0, 0, 0.18);
+          backdrop-filter: blur(18px) saturate(1.2);
+          -webkit-backdrop-filter: blur(18px) saturate(1.2);
+          padding: 16px clamp(20px, 4vw, 48px) 18px;
+        }
+        [data-theme="light"] .onboarding-header {
+          background: linear-gradient(180deg, var(--color-surface-elevated) 0%, color-mix(in srgb, var(--color-bg) 40%, white) 100%);
+          box-shadow: 0 1px 0 rgba(255, 255, 255, 0.7) inset, 0 6px 20px rgba(0, 0, 0, 0.06);
+        }
+        [data-theme="light"] .onboarding-header--hero {
+          background: linear-gradient(180deg, color-mix(in srgb, var(--color-bg) 88%, white) 0%, transparent 85%);
+          border-bottom-color: color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
         }
         .onboarding-header-inner {
           max-width: 640px;
           margin: 0 auto;
-          display: flex;
-          justify-content: space-between;
+          display: grid;
+          grid-template-columns: 1fr auto 1fr;
           align-items: center;
+          gap: 10px;
+        }
+        .onboarding-header-inner > :nth-child(1) {
+          justify-self: start;
+        }
+        .onboarding-header-inner > :nth-child(2) {
+          justify-self: center;
+        }
+        .onboarding-header-inner > :nth-child(3) {
+          justify-self: end;
         }
         .onboarding-header--hero .onboarding-header-inner {
           max-width: min(1200px, 100%);
           width: 100%;
         }
-        .onboarding-header-spacer { width: 40px; }
+        .onboarding-header-spacer { width: 40px; min-height: 1px; }
         .onboarding-back {
           background: none;
           border: none;
@@ -1495,12 +1525,6 @@ const setSupplementList = (list: string[]) => {
           transition: color 0.2s;
         }
         .onboarding-back:hover { color: var(--color-text-primary); }
-        .onboarding-logo {
-          font-size: 20px;
-          font-weight: 700;
-          letter-spacing: 0.02em;
-          color: var(--color-text-primary);
-        }
         .onboarding-header-actions { display: flex; align-items: center; gap: 10px; }
         .onboarding-header-theme-toggle { flex-shrink: 0; }
         .onboarding-header-btn {
@@ -1774,15 +1798,6 @@ const setSupplementList = (list: string[]) => {
           margin-top: 0.15rem;
           width: 100%;
           max-width: 400px;
-        }
-        .onboarding-hero-brand {
-          margin: 1.25rem 0 0;
-          font-family: var(--font-body), system-ui, -apple-system, sans-serif;
-          font-size: 11px;
-          font-weight: 500;
-          letter-spacing: 0.06em;
-          color: var(--color-text-muted);
-          opacity: 0.45;
         }
         .onboarding-hero-cta {
           margin-top: 0;

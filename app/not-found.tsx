@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
 
 export default function NotFound() {
   return (
@@ -16,6 +17,7 @@ export default function NotFound() {
         gap: "12px",
       }}
     >
+      <ClarionLabsLogo variant="page" href="/" linkClassName="not-found-brand" />
       <h1 style={{ fontSize: "1.5rem", fontWeight: 600, margin: 0 }}>Page not found</h1>
       <p style={{ margin: 0, color: "var(--color-text-muted, #a1a1aa)" }}>
         That URL doesn&apos;t exist or was moved.

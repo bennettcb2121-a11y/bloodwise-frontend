@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo";
 
 export const metadata = {
   title: "Terms & Disclaimer | Clarion Labs",
@@ -9,9 +10,7 @@ export default function TermsPage() {
   return (
     <main className="terms-shell">
       <div className="terms-container">
-        <Link href="/" className="terms-logo">
-          Clarion
-        </Link>
+        <ClarionLabsLogo variant="page" href="/" linkClassName="terms-logo" />
         <h1 className="terms-title">Terms of Use &amp; Disclaimer</h1>
 
         <section className="terms-section" aria-labelledby="disclaimer-heading">

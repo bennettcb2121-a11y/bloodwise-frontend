@@ -1,13 +1,13 @@
 "use client"
 
 import React from "react"
+import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
 
 export function AppSplashScreen() {
   return (
     <div className="app-splash" role="status" aria-label="Loading">
       <div className="app-splash-inner">
-        <h1 className="app-splash-logo">Clarion Labs</h1>
-        <p className="app-splash-tagline">brilliantly clear</p>
+        <ClarionLabsLogo variant="splash" />
       </div>
     </div>
   )

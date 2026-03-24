@@ -503,7 +503,6 @@ button.onboarding-option-card.selected {
 [data-theme="light"] .dashboard-shell li { color: inherit; }
 [data-theme="light"] .onboarding-header,
 [data-theme="light"] .onboarding-back,
-[data-theme="light"] .onboarding-logo,
 [data-theme="light"] .onboarding-header-btn { color: var(--color-text-primary) !important; }
 [data-theme="light"] .onboarding-header-btn { color: var(--color-text-secondary) !important; }
 [data-theme="light"] .onboarding-headline,
@@ -819,21 +818,119 @@ button.onboarding-answer-card:not(.selected):hover {
   gap: 12px;
   animation: app-splash-fade 0.6s ease-out;
 }
-.app-splash-logo {
-  margin: 0;
+
+/* Brand lockup: “Clarion Labs” = primary (large); “brilliantly clear” = smaller tagline */
+.clarion-labs-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  text-decoration: none;
+  color: inherit;
+}
+a.clarion-labs-logo--link:hover {
+  text-decoration: none;
+}
+a.clarion-labs-logo--link:hover .clarion-labs-logo-name {
+  opacity: 0.92;
+}
+a.clarion-labs-logo--link:hover .clarion-labs-logo-tagline {
+  opacity: 0.88;
+}
+.clarion-labs-logo-name {
   font-family: var(--font-heading), Georgia, "Times New Roman", serif;
-  font-size: clamp(32px, 8vw, 48px);
   font-weight: 700;
   letter-spacing: -0.03em;
+  color: #ffffff;
+  line-height: 1.08;
+  order: 1;
+}
+.clarion-labs-logo-labs {
+  font-weight: 600;
+  color: color-mix(in srgb, #ffffff 92%, var(--color-accent) 8%);
+}
+.clarion-labs-logo-tagline {
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: lowercase;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.3;
+  margin: 0.35em 0 0;
+  order: 2;
+}
+[data-theme="light"] .clarion-labs-logo-name {
   color: var(--color-text-primary);
 }
-.app-splash-tagline {
+[data-theme="light"] .clarion-labs-logo-labs {
+  color: color-mix(in srgb, var(--color-text-primary) 88%, var(--color-accent) 12%);
+}
+[data-theme="light"] .clarion-labs-logo-tagline {
+  color: rgba(0, 0, 0, 0.52);
+}
+.clarion-labs-logo--splash .clarion-labs-logo-name {
+  font-size: clamp(28px, 7vw, 44px);
+  animation: app-splash-tagline 0.55s ease-out 0.08s both;
+}
+.clarion-labs-logo--splash .clarion-labs-logo-tagline {
+  font-size: clamp(11px, 2.2vw, 14px);
+  margin-top: 0.4em;
+  letter-spacing: 0.14em;
+}
+.clarion-labs-logo--header {
+  align-items: center;
+}
+.clarion-labs-logo--header .clarion-labs-logo-name {
+  font-size: clamp(15px, 3.8vw, 19px);
+}
+.clarion-labs-logo--header .clarion-labs-logo-tagline {
+  font-size: clamp(8px, 2vw, 10px);
+  margin-top: 0.2em;
+}
+.clarion-labs-logo--hero {
+  align-items: flex-start;
+  text-align: left;
+}
+.clarion-labs-logo--hero .clarion-labs-logo-name {
+  font-size: clamp(22px, 4.5vw, 34px);
+}
+.clarion-labs-logo--hero .clarion-labs-logo-tagline {
+  font-size: clamp(11px, 2vw, 13px);
+  margin-top: 0.35em;
+}
+.clarion-labs-logo--page {
+  align-items: center;
+}
+.clarion-labs-logo--page .clarion-labs-logo-name {
+  font-size: clamp(22px, 4.5vw, 28px);
+}
+.clarion-labs-logo--page .clarion-labs-logo-tagline {
+  font-size: 11px;
+  margin-top: 0.3em;
+}
+/* Row: Clarion Labs first (larger), tagline second (smaller) */
+.clarion-labs-logo--compact {
+  flex-direction: row;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+}
+.clarion-labs-logo--compact .clarion-labs-logo-name {
+  font-size: clamp(14px, 3.4vw, 17px);
   margin: 0;
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  color: var(--color-text-muted);
-  animation: app-splash-tagline 0.5s ease-out 0.2s both;
+  order: 1;
+  white-space: nowrap;
+}
+.clarion-labs-logo--compact .clarion-labs-logo-tagline {
+  font-size: 9px;
+  margin: 0;
+  order: 2;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.68);
+}
+[data-theme="light"] .clarion-labs-logo--compact .clarion-labs-logo-tagline {
+  color: rgba(0, 0, 0, 0.48);
 }
 @keyframes app-splash-fade {
   from { opacity: 0; transform: scale(0.98); }
@@ -1477,10 +1574,22 @@ button.onboarding-answer-card:not(.selected):hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   padding: 0 12px 0 0;
   border-bottom: 1px solid var(--color-border);
   background: var(--color-bg-muted);
+}
+.dashboard-top-brand {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  padding: 6px 4px 6px 12px;
+  text-decoration: none;
+  color: inherit;
+}
+.dashboard-top-brand:hover {
+  color: inherit;
+  opacity: 0.92;
 }
 .dashboard-top-tabs-inner {
   display: flex;
@@ -1893,6 +2002,12 @@ button.onboarding-answer-card:not(.selected):hover {
   color: var(--color-text-muted);
 }
 
+.not-found-brand {
+  margin-bottom: 8px;
+  text-decoration: none;
+  color: inherit;
+}
+
 /* Terms / Disclaimer page */
 .terms-shell {
   min-height: 100vh;
@@ -1904,15 +2019,17 @@ button.onboarding-answer-card:not(.selected):hover {
   margin: 0 auto;
 }
 .terms-logo {
-  display: inline-block;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: var(--color-text-primary);
-  text-decoration: none;
+  display: inline-flex;
   margin-bottom: 28px;
+  text-decoration: none;
+  color: inherit;
 }
-.terms-logo:hover { color: var(--color-accent); }
+.terms-logo:hover .clarion-labs-logo-name {
+  opacity: 0.88;
+}
+.terms-logo:hover .clarion-labs-logo-tagline {
+  opacity: 0.88;
+}
 .terms-title {
   font-size: 26px;
   font-weight: 700;

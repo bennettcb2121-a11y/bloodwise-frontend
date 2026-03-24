@@ -7,6 +7,7 @@ import { useAuth } from "@/src/contexts/AuthContext"
 import { loadSavedState } from "@/src/lib/bloodwiseDb"
 import { isDevPaywallBypass } from "@/src/lib/accessGate"
 import { getAnalysisPriceDisplayDollars, getSubscriptionPriceDisplayDollars } from "@/src/lib/analysisPricing"
+import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
 
 export default function PaywallPage() {
   const router = useRouter()
@@ -119,7 +120,7 @@ export default function PaywallPage() {
   return (
     <main className="paywall-shell">
       <div className="paywall-container">
-        <Link href="/dashboard" className="paywall-logo">Clarion</Link>
+        <ClarionLabsLogo variant="page" href="/dashboard" linkClassName="paywall-logo-root" />
         <p className="paywall-tagline">The bloodwork coach that explains your numbers and your next steps.</p>
         <h1 className="paywall-title">Unlock Your Full Health Plan</h1>
         <p className="paywall-subtitle">
@@ -224,16 +225,15 @@ const paywallStyles = `
     width: 100%;
     text-align: center;
   }
-  .paywall-logo {
-    font-size: 24px;
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: var(--color-text-primary);
+  .paywall-logo-root {
+    display: inline-flex;
+    margin-bottom: 28px;
     text-decoration: none;
-    display: inline-block;
-    margin-bottom: 32px;
+    color: inherit;
   }
-  .paywall-logo:hover { color: var(--color-accent-hover); }
+  .paywall-logo-root:hover .clarion-labs-logo-name {
+    opacity: 0.9;
+  }
   .paywall-tagline {
     font-size: 15px;
     color: var(--color-accent);

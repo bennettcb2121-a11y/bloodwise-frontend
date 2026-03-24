@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
 import { FAQ_ITEMS, getSupportEmail } from "@/src/lib/faqContent"
 
 export const metadata = {
@@ -25,9 +26,7 @@ export default function FaqPage() {
     <main className="terms-shell">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <div className="terms-container">
-        <Link href="/" className="terms-logo">
-          Clarion
-        </Link>
+        <ClarionLabsLogo variant="page" href="/" linkClassName="terms-logo" />
         <h1 className="terms-title">Frequently asked questions</h1>
         <p className="terms-body" style={{ marginBottom: 24 }}>
           Quick answers about accounts, labs, the dashboard, and how Clarion fits alongside your clinician.

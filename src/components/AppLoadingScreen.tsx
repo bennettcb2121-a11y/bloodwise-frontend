@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react"
 import dynamic from "next/dynamic"
 import { BRAND_LOADING_DURATION_MS } from "@/src/lib/brandIntro"
+import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
 
 const DotLottieReact = dynamic(
   () => import("@lottiefiles/dotlottie-react").then((m) => m.DotLottieReact),
@@ -52,6 +53,7 @@ export function AppLoadingScreen() {
   return (
     <div className="app-loading" role="status" aria-live="polite" aria-label="Loading">
       <div className="app-loading-inner">
+        <ClarionLabsLogo variant="compact" />
         <div className="app-loading-lottie" aria-hidden>
           {lottieError ? (
             <div className="app-loading-lottie-fallback" aria-hidden />

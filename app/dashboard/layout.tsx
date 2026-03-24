@@ -10,6 +10,7 @@ import { AppSplashScreen } from "@/src/components/AppSplashScreen"
 import { AppLoadingScreen } from "@/src/components/AppLoadingScreen"
 import { ThemeToggle } from "@/src/components/ThemeToggle"
 import { SubscribeButton } from "@/src/components/SubscribeButton"
+import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
 import { getSubscription } from "@/src/lib/bloodwiseDb"
 import type { SubscriptionRow } from "@/src/lib/bloodwiseDb"
 import {
@@ -198,6 +199,9 @@ function DashboardLayoutInner({
   return (
     <div className="dashboard-app-shell">
       <nav className="dashboard-top-tabs" role="navigation" aria-label="Sections">
+        <Link href="/dashboard" className="dashboard-top-brand" aria-label="Clarion Labs — dashboard home">
+          <ClarionLabsLogo variant="compact" />
+        </Link>
         <div className="dashboard-top-tabs-inner">
           {TOP_TABS.map(({ href, label }) => {
             const isActive =

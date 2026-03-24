@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { AuthUI } from "@/src/components/AuthUI"
+import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
 import { shouldShowReauthPrompt } from "@/src/lib/reauthPrompt"
 
 export default function LoginPage() {
@@ -53,7 +54,7 @@ export default function LoginPage() {
   return (
     <main className="login-page">
       <div className="login-page-container">
-        <Link href="/" className="login-page-logo">Clarion</Link>
+        <ClarionLabsLogo variant="page" href="/" linkClassName="login-page-logo" />
         <h1 className="login-page-title">Sign in</h1>
         <p className="login-page-subtitle">Create an account or log in to save your results and access your dashboard. Sign in with Google for the fastest way in.</p>
         <div className="login-page-card">
@@ -79,16 +80,13 @@ export default function LoginPage() {
           text-align: center;
         }
         .login-page-logo {
-          font-size: 24px;
-          font-weight: 700;
-          letter-spacing: 0.02em;
-          color: var(--color-text-primary);
+          display: inline-flex;
+          margin-bottom: 28px;
           text-decoration: none;
-          display: inline-block;
-          margin-bottom: 32px;
+          color: inherit;
         }
-        .login-page-logo:hover {
-          color: var(--color-accent-hover);
+        .login-page-logo:hover .clarion-labs-logo-name {
+          opacity: 0.9;
         }
         .login-page-title {
           font-size: 28px;
