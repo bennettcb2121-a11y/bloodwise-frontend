@@ -2159,6 +2159,27 @@ body.pitch-deck-active .clarion-global-footer {
   color: var(--color-text-secondary);
   margin: 0;
 }
+.dashboard-tab-subtitle--tight {
+  margin-top: -4px;
+  margin-bottom: 4px;
+  max-width: 42rem;
+  line-height: 1.45;
+}
+.dashboard-habit-lab-chart-summary {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin: 0 0 12px;
+  line-height: 1.45;
+}
+.dashboard-habit-lab-chart-footnote {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 12px 0 0;
+  line-height: 1.45;
+}
+.dashboard-habit-lab-chart--empty {
+  padding: 20px;
+}
 .dashboard-tab-section {
   margin-bottom: 24px;
 }

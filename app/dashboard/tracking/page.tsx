@@ -1,19 +1,30 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react"
+import dynamic from "next/dynamic"
 import Link from "next/link"
 import { useAuth } from "@/src/contexts/AuthContext"
-import { loadSavedState, getBloodworkHistory } from "@/src/lib/bloodwiseDb"
+import { loadSavedState, getBloodworkHistory, getProtocolLogHistory } from "@/src/lib/bloodwiseDb"
 import type { BloodworkSaveRow, ProfileRow } from "@/src/lib/bloodwiseDb"
+import type { DailyMetrics } from "@/src/lib/dailyMetrics"
 import { ProtocolTracker } from "@/src/components/ProtocolTracker"
 import { DailyHealthCheckIn } from "@/src/components/DailyHealthCheckIn"
 import { BetweenPanelsInsight } from "@/src/components/BetweenPanelsInsight"
+import { buildHabitLabCorrelationSeries, extractStackNamesFromSnapshot } from "@/src/lib/habitLabCorrelationSeries"
+
+const HabitLabCorrelationChartLazy = dynamic(
+  () => import("@/src/components/HabitLabCorrelationChart").then((m) => ({ default: m.HabitLabCorrelationChart })),
+  { ssr: false, loading: () => <div className="dashboard-tab-card dashboard-chart-loading">Loading chart…</div> }
+)
 
 export default function TrackingPage() {
   const { user } = useAuth()
   const [bloodwork, setBloodwork] = useState<BloodworkSaveRow | null>(null)
   const [profile, setProfile] = useState<ProfileRow | null>(null)
   const [bloodworkHistory, setBloodworkHistory] = useState<BloodworkSaveRow[]>([])
+  const [protocolHistory, setProtocolHistory] = useState<
+    { log_date: string; checks: Record<string, boolean>; metrics: DailyMetrics }[]
+  >([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -29,10 +40,23 @@ export default function TrackingPage() {
       })
       .catch(() => setBloodwork(null))
       .finally(() => setLoading(false))
-    getBloodworkHistory(user.id, 10)
+    getBloodworkHistory(user.id, 15)
       .then(setBloodworkHistory)
       .catch(() => setBloodworkHistory([]))
+    getProtocolLogHistory(user.id, 90)
+      .then((rows) => setProtocolHistory(rows))
+      .catch(() => setProtocolHistory([]))
   }, [user?.id])
+
+  const habitLabSeries = useMemo(() => {
+    const stack = extractStackNamesFromSnapshot(bloodwork?.stack_snapshot)
+    return buildHabitLabCorrelationSeries(protocolHistory, stack, bloodworkHistory)
+  }, [protocolHistory, bloodwork, bloodworkHistory])
+
+  const habitLabSummary = useMemo(() => {
+    const labs = bloodworkHistory.filter((r) => r.created_at).length
+    return `Protocol logging, daily activity, and ${labs} lab snapshot${labs !== 1 ? "s" : ""} on a shared timeline.`
+  }, [bloodworkHistory])
 
   if (loading) {
     return (
@@ -78,6 +102,18 @@ export default function TrackingPage() {
             profile={profile}
             sectionId="between-panels"
           />
+        )}
+
+        {user?.id && (protocolHistory.length >= 1 || bloodworkHistory.length >= 1) && (
+          <section className="dashboard-tab-section" aria-labelledby="tracking-habit-lab-heading">
+            <h2 id="tracking-habit-lab-heading" className="dashboard-tab-section-title">
+              Habits vs labs
+            </h2>
+            <p className="dashboard-tab-subtitle dashboard-tab-subtitle--tight">
+              See how daily protocol completion and activity line up with your lab values when you retest.
+            </p>
+            <HabitLabCorrelationChartLazy data={habitLabSeries} summary={habitLabSummary} />
+          </section>
         )}
 
         {bloodworkHistory.length >= 2 && (

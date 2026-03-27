@@ -1,6 +1,10 @@
 /**
  * Simulated weather / time-of-day for Clarion home — not “color themes”.
  * See dashboard-sky.css for layered environments.
+ *
+ * **Adaptive sky (dashboard Home only):** `getDashboardSkyMood()` combines local hour + protocol
+ * adherence (today’s stack X/Y, completion, days since last log). Other dashboard routes use
+ * time-of-day ambient sky unless Home sets `moodOverride` via `DashboardSkyAtmosphereContext`.
  */
 
 export type DashboardSkyMood =

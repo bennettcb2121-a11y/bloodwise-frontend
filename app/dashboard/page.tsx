@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useEffect, useState, useMemo } from "react"
+import React, { useCallback, useEffect, useState, useMemo, useRef } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
@@ -994,14 +994,22 @@ export default function DashboardPage() {
 
   const targetSkyMood = useMemo(() => devSkyOverride ?? computedSkyMood, [devSkyOverride, computedSkyMood])
 
+  const lastSkyPayloadRef = useRef<{ mood: DashboardSkyMood; nightIncomplete: boolean } | null>(null)
   useEffect(() => {
     if (!hasBloodwork) {
+      lastSkyPayloadRef.current = null
       setAtmosphere(null)
       return
     }
+    const nightIncomplete = targetSkyMood === "night" && protocolTodayComplete !== true
+    const prev = lastSkyPayloadRef.current
+    if (prev && prev.mood === targetSkyMood && prev.nightIncomplete === nightIncomplete) {
+      return
+    }
+    lastSkyPayloadRef.current = { mood: targetSkyMood, nightIncomplete }
     setAtmosphere({
       moodOverride: targetSkyMood,
-      nightIncomplete: targetSkyMood === "night" && protocolTodayComplete !== true,
+      nightIncomplete,
     })
   }, [hasBloodwork, targetSkyMood, protocolTodayComplete, setAtmosphere])
 
