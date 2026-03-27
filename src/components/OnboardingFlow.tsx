@@ -27,6 +27,7 @@ import { BLOOD_TEST_PROVIDERS, resolveBloodTestCtaUrl } from "@/src/lib/bloodTes
 import { getEvidenceForBiomarker } from "@/src/lib/biomarkerEvidence"
 import { getGuidesForBiomarker } from "@/src/lib/guides"
 import { PAID_PROTOCOLS } from "@/src/lib/paidProtocols"
+import { SYMPTOM_OPTIONS } from "@/src/lib/priorityRanking"
 import { ThemeToggle } from "@/src/components/ThemeToggle"
 import { TypewriterHeading } from "@/src/components/TypewriterHeading"
 import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
@@ -78,14 +79,6 @@ const LIFESTYLE_ALCOHOL_OPTIONS = [
   { id: "no", label: "No" },
   { id: "occasionally", label: "Occasionally" },
   { id: "regularly", label: "Regularly" },
-]
-const SYMPTOM_OPTIONS = [
-  { id: "fatigue", label: "Fatigue" },
-  { id: "brain_fog", label: "Brain fog" },
-  { id: "low_energy", label: "Low energy" },
-  { id: "poor_recovery", label: "Poor recovery" },
-  { id: "sleep_issues", label: "Sleep issues" },
-  { id: "none", label: "None" },
 ]
 
 const ANALYSIS_MESSAGES = [

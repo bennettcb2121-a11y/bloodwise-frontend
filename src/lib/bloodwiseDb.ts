@@ -3,6 +3,8 @@
  */
 
 import { supabase } from "./supabase"
+import type { DailyMetrics } from "./dailyMetrics"
+import { clampDailyMetrics, emptyDailyMetrics } from "./dailyMetrics"
 
 export type ProfileRow = {
   id?: string
@@ -36,6 +38,8 @@ export type ProfileRow = {
   notify_reorder_email?: boolean | null
   /** Days before run-out to send reorder reminder (default 7). */
   notify_reorder_days?: number | null
+  /** Comma-separated symptom ids (e.g. fatigue,low_energy) for priority ranking. */
+  symptoms?: string | null
   updated_at?: string
 }
 
@@ -178,6 +182,7 @@ export async function upsertProfile(
       score_goal: profile.score_goal ?? undefined,
       notify_reorder_email: profile.notify_reorder_email ?? undefined,
       notify_reorder_days: profile.notify_reorder_days ?? undefined,
+      symptoms: profile.symptoms ?? undefined,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" }
@@ -246,28 +251,44 @@ export async function loadSavedState(userId: string): Promise<SavedState> {
   return { profile, bloodwork }
 }
 
-/** Get protocol log for a date. */
-export async function getProtocolLog(
+function parseMetricsFromDb(raw: unknown): DailyMetrics {
+  if (!raw || typeof raw !== "object") return emptyDailyMetrics()
+  return clampDailyMetrics(raw as Partial<DailyMetrics>)
+}
+
+/** Checks + optional daily metrics for one day (between-labs tracking). */
+export async function getProtocolLogRow(
   userId: string,
   logDate: string
-): Promise<Record<string, boolean>> {
-  if (!supabase) return {}
+): Promise<{ checks: Record<string, boolean>; metrics: DailyMetrics }> {
+  if (!supabase) return { checks: {}, metrics: emptyDailyMetrics() }
   const { data, error } = await supabase
     .from("protocol_log")
-    .select("checks")
+    .select("checks, metrics")
     .eq("user_id", userId)
     .eq("log_date", logDate)
     .maybeSingle()
   if (error) throw error
-  if (!data?.checks || typeof data.checks !== "object") return {}
-  return data.checks as Record<string, boolean>
+  const checks =
+    data?.checks && typeof data.checks === "object" ? (data.checks as Record<string, boolean>) : {}
+  const metrics = parseMetricsFromDb(data?.metrics)
+  return { checks, metrics }
+}
+
+/** Get protocol log for a date (supplement checkboxes only). */
+export async function getProtocolLog(
+  userId: string,
+  logDate: string
+): Promise<Record<string, boolean>> {
+  const row = await getProtocolLogRow(userId, logDate)
+  return row.checks
 }
 
 /** Get protocol log entries for the last N days (for streak and weekly summary). */
 export async function getProtocolLogHistory(
   userId: string,
   lastNDays: number = 14
-): Promise<{ log_date: string; checks: Record<string, boolean> }[]> {
+): Promise<{ log_date: string; checks: Record<string, boolean>; metrics: DailyMetrics }[]> {
   if (!supabase) return []
   const end = new Date()
   const start = new Date(end)
@@ -276,7 +297,7 @@ export async function getProtocolLogHistory(
   const endStr = end.toISOString().slice(0, 10)
   const { data, error } = await supabase
     .from("protocol_log")
-    .select("log_date, checks")
+    .select("log_date, checks, metrics")
     .eq("user_id", userId)
     .gte("log_date", startStr)
     .lte("log_date", endStr)
@@ -286,6 +307,29 @@ export async function getProtocolLogHistory(
   return data.map((row) => ({
     log_date: row.log_date,
     checks: (row.checks as Record<string, boolean>) || {},
+    metrics: parseMetricsFromDb(row.metrics),
+  }))
+}
+
+/** Daily metrics rows in an inclusive date range (for between-panel habit averages). */
+export async function getProtocolLogMetricsInRange(
+  userId: string,
+  startDate: string,
+  endDate: string
+): Promise<{ log_date: string; metrics: DailyMetrics }[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from("protocol_log")
+    .select("log_date, metrics")
+    .eq("user_id", userId)
+    .gte("log_date", startDate)
+    .lte("log_date", endDate)
+    .order("log_date", { ascending: true })
+  if (error) throw error
+  if (!Array.isArray(data)) return []
+  return data.map((row) => ({
+    log_date: row.log_date,
+    metrics: parseMetricsFromDb(row.metrics),
   }))
 }
 
@@ -305,16 +349,40 @@ export async function getProtocolPurchase(
   return data as { user_id: string; protocol_slug: string; purchased_at: string } | null
 }
 
-/** Upsert protocol log for a date. */
+/** Upsert protocol log for a date (preserves existing metrics). */
 export async function upsertProtocolLog(
   userId: string,
   logDate: string,
   checks: Record<string, boolean>
 ): Promise<void> {
   if (!supabase) return
+  const { metrics } = await getProtocolLogRow(userId, logDate)
   const now = new Date().toISOString()
   const { error } = await supabase.from("protocol_log").upsert(
-    { user_id: userId, log_date: logDate, checks, updated_at: now },
+    { user_id: userId, log_date: logDate, checks, metrics: metrics as Record<string, unknown>, updated_at: now },
+    { onConflict: "user_id,log_date" }
+  )
+  if (error) throw error
+}
+
+/** Replace daily self-reported metrics for a date (preserves supplement checks). */
+export async function upsertProtocolMetrics(
+  userId: string,
+  logDate: string,
+  metrics: DailyMetrics
+): Promise<void> {
+  if (!supabase) return
+  const { checks } = await getProtocolLogRow(userId, logDate)
+  const m = clampDailyMetrics(metrics)
+  const now = new Date().toISOString()
+  const { error } = await supabase.from("protocol_log").upsert(
+    {
+      user_id: userId,
+      log_date: logDate,
+      checks,
+      metrics: m as Record<string, unknown>,
+      updated_at: now,
+    },
     { onConflict: "user_id,log_date" }
   )
   if (error) throw error

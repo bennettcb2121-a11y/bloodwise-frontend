@@ -1,0 +1,87 @@
+/**
+ * Premium, clinically grounded hero copy for the dashboard — avoids startup / gamified phrasing.
+ */
+
+import type { StatusCounts } from "@/src/lib/scoreEngine"
+
+export type PremiumNarrativeInput = {
+  orderedDrivers: Array<{ markerName: string; label: string }>
+  scoreDelta: number | null
+  statusCounts: StatusCounts
+  bloodwiseSummary: {
+    overallInterpretation: string
+    keyFindings: string[]
+  } | null
+}
+
+export function getPremiumHeroHeadline(input: PremiumNarrativeInput): string {
+  const { orderedDrivers, scoreDelta, statusCounts } = input
+  const markers = orderedDrivers
+    .map((d) => d.markerName)
+    .filter(Boolean)
+    .slice(0, 4)
+
+  if (scoreDelta != null && scoreDelta >= 2) {
+    return "Score up vs your last panel"
+  }
+  if (scoreDelta != null && scoreDelta <= -2) {
+    return "Prioritize the markers below"
+  }
+
+  const opportunities = statusCounts.flagged + statusCounts.borderline
+  if (opportunities >= 3) {
+    return `${opportunities} markers outside your target range`
+  }
+  if (opportunities === 2 && markers.length >= 2) {
+    return `${markers[0]} and ${markers[1]} need attention first`
+  }
+  if (opportunities === 1 && markers[0]) {
+    return `${markers[0]} is the main focus`
+  }
+  if (statusCounts.flagged === 0 && statusCounts.optimal >= 3 && statusCounts.borderline <= 1) {
+    return "Most markers are in range"
+  }
+  return "Latest panel summary"
+}
+
+/** Factual one-liner when the hero has no priority list (all markers in range, etc.). */
+export function getHeroPositiveLine(input: {
+  optimalMarkerLabels: string[]
+  protocolStreakDays: number
+}): string | null {
+  const { optimalMarkerLabels, protocolStreakDays } = input
+  if (optimalMarkerLabels.length > 0) {
+    const first = optimalMarkerLabels[0]
+    if (optimalMarkerLabels.length >= 2) {
+      return `${first} and ${optimalMarkerLabels[1]} are in range.`
+    }
+    return `${first} is in range.`
+  }
+  if (protocolStreakDays >= 3) {
+    return `${protocolStreakDays}-day protocol streak.`
+  }
+  return null
+}
+
+export function getPremiumHeroLede(input: PremiumNarrativeInput): string {
+  const { bloodwiseSummary, orderedDrivers } = input
+  if (bloodwiseSummary?.keyFindings?.length) {
+    const k = bloodwiseSummary.keyFindings[0].trim()
+    if (k.length > 240) return `${k.slice(0, 237)}…`
+    return k
+  }
+  if (bloodwiseSummary?.overallInterpretation) {
+    const t = bloodwiseSummary.overallInterpretation.trim()
+    const m = t.match(/^[^.!?]+[.!?]/)
+    if (m) return m[0].length > 260 ? `${m[0].slice(0, 257)}…` : m[0]
+    return t.length > 240 ? `${t.slice(0, 237)}…` : t
+  }
+  const m = orderedDrivers
+    .map((d) => d.markerName)
+    .filter(Boolean)
+    .slice(0, 3)
+  if (m.length >= 2) {
+    return `Start with ${m.slice(0, 2).join(" and ")}; retest to confirm change.`
+  }
+  return "Details are in Biomarkers and Actions below."
+}

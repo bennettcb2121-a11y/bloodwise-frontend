@@ -1,0 +1,1127 @@
+/**
+ * Clarion home — aligned with app loading / splash: same bg token, crisp borders, minimal shadow.
+ * Green appears as accent (ring, links, progress) — not mixed into every line and caption.
+ */
+
+.dashboard-shell--clarion-home {
+  --clarion-pad-inline: 22px;
+  --clarion-section-gap: clamp(24px, 4.5vw, 36px);
+  --clarion-card-pad: 20px;
+  --clarion-inner-tight: 12px;
+  /* Neutrals — use app tokens for text; keep mist/paper only where a tint is needed */
+  --clarion-mist: #f1f6f3;
+  --clarion-paper: #e6efe9;
+  --clarion-sage: #8fb0a0;
+  --clarion-green-glow: var(--color-accent-hover);
+  --clarion-forest: #0e1411;
+  --clarion-forest-deep: #080c0a;
+  --clarion-text-warm: var(--color-text-secondary);
+  --clarion-text-warm-muted: var(--color-text-muted);
+  --clarion-line: var(--color-border);
+  --clarion-line-strong: var(--color-border-strong);
+  --clarion-elevate: var(--shadow-sm);
+}
+
+/* —— Page shell — same flat canvas as .app-loading / .app-splash —— */
+[data-theme="light"] .dashboard-shell--clarion-home {
+  background: var(--color-bg);
+}
+
+[data-theme="dark"] .dashboard-shell--clarion-home {
+  background: var(--color-bg);
+}
+
+[data-theme="light"] .dashboard-shell--clarion-home {
+  --clarion-text-warm: var(--color-text-secondary);
+  --clarion-text-warm-muted: var(--color-text-muted);
+}
+
+/* Sky-active Clarion home: UI floats in weather — glass + accents follow environment */
+.dashboard-shell--clarion-home.dashboard-shell--sky-active {
+  --env-accent: var(--color-accent);
+  --env-accent-soft: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+
+.dashboard-shell--clarion-home.dashboard-shell--sky-active[data-sky="storm"] {
+  --env-accent: #8fa8c4;
+  --env-accent-soft: color-mix(in srgb, #8fa8c4 16%, transparent);
+}
+
+.dashboard-shell--clarion-home.dashboard-shell--sky-active[data-sky="drizzle"] {
+  --env-accent: #7a9bb8;
+  --env-accent-soft: color-mix(in srgb, #7a9bb8 14%, transparent);
+}
+
+.dashboard-shell--clarion-home.dashboard-shell--sky-active[data-sky="sunrise"] {
+  --env-accent: #d4a574;
+  --env-accent-soft: color-mix(in srgb, #d4a574 14%, transparent);
+}
+
+.dashboard-shell--clarion-home.dashboard-shell--sky-active[data-sky="clear"] {
+  --env-accent: #7eb8e8;
+  --env-accent-soft: color-mix(in srgb, #7eb8e8 14%, transparent);
+}
+
+.dashboard-shell--clarion-home.dashboard-shell--sky-active[data-sky="perfect"] {
+  --env-accent: #9ecfff;
+  --env-accent-soft: color-mix(in srgb, #9ecfff 12%, transparent);
+}
+
+.dashboard-shell--clarion-home.dashboard-shell--sky-active[data-sky="night"] {
+  --env-accent: #9eb4d8;
+  --env-accent-soft: color-mix(in srgb, #9eb4d8 12%, transparent);
+}
+
+.dashboard-shell--clarion-home.dashboard-shell--sky-active[data-sky="calm"] {
+  --env-accent: #9aa8a0;
+  --env-accent-soft: color-mix(in srgb, #9aa8a0 12%, transparent);
+}
+
+[data-theme="dark"] .dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-clarion-mosaic {
+  background: rgba(24, 26, 34, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+}
+
+[data-theme="light"] .dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-clarion-mosaic {
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="dark"] .dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-clarion-mosaic .dashboard-today-hero-band {
+  background: rgba(28, 30, 38, 0.88) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="light"] .dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-clarion-mosaic .dashboard-today-hero-band {
+  background: rgba(255, 255, 255, 0.82) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* No oval / muddy glow behind score — keeps the ring crisp */
+.dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-hero-composition__visual {
+  position: relative;
+  padding: 12px 8px 8px;
+}
+
+/* Less “dashboard grid”, more continuous flow */
+.dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-clarion-mosaic .dashboard-today-metrics-strip {
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: transparent !important;
+}
+
+[data-theme="light"] .dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-clarion-mosaic .dashboard-today-metrics-strip {
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  background: transparent !important;
+}
+
+.dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-clarion-mosaic .dashboard-home-module {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(20, 22, 30, 0.65);
+}
+
+[data-theme="light"] .dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-clarion-mosaic .dashboard-home-module {
+  border-color: rgba(0, 0, 0, 0.07);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-clarion-mosaic .dashboard-hero-kicker-score {
+  color: var(--env-accent);
+}
+
+/* Filled CTA — sky theme uses env accent on button, not link-colored text */
+.dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-clarion-mosaic .dashboard-hero-composition__cta {
+  background: var(--env-accent, var(--color-accent));
+  color: var(--color-accent-contrast) !important;
+}
+
+.dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-hero-composition__headline--task {
+  font-size: clamp(26px, 4vw, 34px);
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  max-width: 24ch;
+}
+
+.dashboard-clarion-mosaic .dashboard-hero-composition__narrative {
+  margin: 0 0 12px;
+  font-family: var(--font-jakarta), var(--font-body), system-ui, sans-serif;
+  font-size: clamp(18px, 2.9vw, 24px);
+  font-weight: 600;
+  line-height: 1.32;
+  letter-spacing: -0.03em;
+  color: var(--color-text-secondary);
+  max-width: min(48ch, 100%);
+}
+
+/* Dark + sky: higher contrast body copy on glass */
+[data-theme="dark"] .dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-clarion-mosaic {
+  color: #f2f3f7;
+}
+
+[data-theme="dark"] .dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-clarion-mosaic .dashboard-hero-composition__lede,
+[data-theme="dark"] .dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-clarion-mosaic .dashboard-hero-positive,
+[data-theme="dark"] .dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-clarion-mosaic .dashboard-hero-composition__narrative {
+  color: rgba(220, 222, 232, 0.92);
+}
+
+[data-theme="dark"] .dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-clarion-mosaic .dashboard-hero-kicker {
+  color: rgba(180, 184, 198, 0.95);
+}
+
+[data-theme="dark"] .dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-clarion-mosaic .dashboard-home-narrative-eyebrow,
+[data-theme="dark"] .dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-clarion-mosaic .dashboard-metric-pill-label {
+  color: rgba(160, 168, 188, 0.95);
+}
+
+.dashboard-shell--clarion-home .dashboard-container {
+  max-width: min(900px, 100%);
+  padding: 24px var(--clarion-pad-inline) 62px;
+}
+
+/* Strip default Today chrome */
+.dashboard-today.dashboard-home {
+  margin-bottom: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+  border-radius: 0;
+}
+
+.dashboard-today.dashboard-home::before {
+  display: none;
+}
+
+/* ═══ L2 — Primary shell (mosaic): white card on mint page (light), same tokens as loading —— */
+.dashboard-clarion-mosaic {
+  position: relative;
+  border-radius: 20px;
+  padding: 0;
+  margin-bottom: var(--clarion-section-gap);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-muted);
+  box-shadow: var(--clarion-elevate);
+  overflow: hidden;
+}
+
+[data-theme="light"] .dashboard-clarion-mosaic {
+  background: #ffffff;
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Overline — section label, readable caps */
+.dashboard-home-narrative-eyebrow {
+  margin: 0;
+  padding: 20px var(--clarion-pad-inline) 10px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-jakarta), var(--font-body), system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  line-height: 1.35;
+}
+
+/* ═══ L1 — Hero band: flat surface + hairline (like loading bar track / card split) ═══ */
+.dashboard-clarion-mosaic .dashboard-today-hero-band {
+  margin: 0 !important;
+  min-height: min(400px, 54vh);
+  padding: 10px var(--clarion-pad-inline) 22px !important;
+  border-radius: 0 !important;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: none;
+  background: var(--color-bg-muted) !important;
+  filter: none;
+}
+
+[data-theme="light"] .dashboard-clarion-mosaic .dashboard-today-hero-band {
+  background: var(--color-bg) !important;
+  border-bottom-color: var(--color-border);
+}
+
+.dashboard-clarion-mosaic .dashboard-today-hero-band::before {
+  opacity: 0;
+}
+
+.dashboard-clarion-mosaic .dashboard-today-hero-band::after {
+  display: none;
+}
+
+/* Hero layout: optional compact score left; story leads with protocol / narrative */
+.dashboard-shell--clarion-home .dashboard-hero-composition {
+  gap: 20px 36px;
+}
+
+@media (min-width: 720px) {
+  .dashboard-shell--clarion-home .dashboard-hero-composition {
+    grid-template-columns: minmax(260px, min(42vw, 400px)) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .dashboard-shell--clarion-home .dashboard-hero-composition__visual {
+    justify-self: center;
+    padding: 8px 12px 20px;
+  }
+
+  .dashboard-shell--clarion-home .dashboard-hero-composition__story {
+    max-width: none;
+    padding-top: 0;
+  }
+}
+
+/* One vertical rhythm: score block aligns with story column */
+.dashboard-shell--clarion-home .dashboard-hero-composition__visual {
+  align-items: stretch;
+}
+
+.dashboard-shell--clarion-home .dashboard-hero-composition__visual .panel-score-editorial {
+  align-items: flex-start;
+  text-align: left;
+  max-width: 100%;
+}
+
+.dashboard-shell--clarion-home .dashboard-hero-composition__visual .panel-score-editorial__interpretation {
+  max-width: 40ch;
+}
+
+.dashboard-shell--clarion-home .dashboard-hero-composition__visual .panel-score-editorial__contributors {
+  align-items: flex-start;
+  width: 100%;
+}
+
+.dashboard-hero-composition__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+@media (min-width: 560px) {
+  .dashboard-hero-composition__actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+}
+
+.dashboard-clarion-mosaic .dashboard-today-panel-details--hero {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: min(100%, 280px);
+}
+
+.dashboard-clarion-mosaic .dashboard-today-panel-details--hero summary {
+  font-size: 14px;
+}
+
+.dashboard-clarion-mosaic .dashboard-hero-composition__cta {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 22px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast) !important;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: var(--shadow-sm);
+  margin-top: 0;
+}
+
+.dashboard-clarion-mosaic .dashboard-hero-composition__cta:hover {
+  filter: brightness(1.06);
+  text-decoration: none;
+}
+
+/* Hero headline — clear hierarchy */
+.dashboard-clarion-mosaic .dashboard-hero-composition__headline {
+  font-family: var(--font-jakarta), var(--font-body), system-ui, sans-serif;
+  font-size: clamp(24px, 3.8vw, 32px);
+  font-weight: 600;
+  line-height: 1.22;
+  letter-spacing: -0.035em;
+  max-width: min(42ch, 100%);
+  color: var(--color-text-primary);
+}
+
+.dashboard-clarion-mosaic .dashboard-hero-composition__lede {
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+  max-width: 48ch;
+}
+
+.dashboard-clarion-mosaic .dashboard-hero-kicker {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.dashboard-clarion-mosaic .dashboard-hero-kicker-score {
+  color: var(--color-accent);
+}
+
+.dashboard-shell--clarion-home .dashboard-header-companion {
+  margin: -2px 0 20px;
+  font-family: var(--font-jakarta), var(--font-body), system-ui, sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.38;
+  letter-spacing: 0.01em;
+  color: var(--color-text-primary);
+  max-width: min(38ch, 100%);
+}
+
+.dashboard-clarion-mosaic .dashboard-hero-positive {
+  margin: 14px 0 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+  font-style: normal;
+  max-width: 44ch;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--color-border);
+}
+
+/* ═══ Panel score — editorial (typography + meter, no ring) ═══ */
+.panel-score-editorial {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  max-width: 100%;
+  width: 100%;
+}
+
+.panel-score-editorial--compact {
+  max-width: 260px;
+}
+
+.panel-score-editorial--compact .panel-score-editorial__num {
+  font-size: clamp(2.5rem, 7vw, 3.25rem);
+}
+
+.panel-score-editorial__top {
+  width: 100%;
+  max-width: min(300px, 100%);
+}
+
+.panel-score-editorial__eyebrow {
+  display: block;
+  font-family: var(--font-jakarta), var(--font-body), system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 10px;
+}
+
+.panel-score-editorial__figures {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  margin-bottom: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-score-editorial__num {
+  font-family: var(--font-heading), Georgia, "Times New Roman", serif;
+  font-size: clamp(3rem, 9vw, 4.25rem);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 0.92;
+  color: var(--color-text-primary);
+}
+
+.panel-score-editorial__denom {
+  font-family: var(--font-jakarta), var(--font-body), system-ui, sans-serif;
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.panel-score-editorial__meter {
+  position: relative;
+  height: 7px;
+  border-radius: 999px;
+  overflow: hidden;
+  width: 100%;
+  background: color-mix(in srgb, var(--color-text-muted) 18%, transparent);
+}
+
+.panel-score-editorial__meter-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 75%, #1a3d32), var(--color-accent));
+  transition: width 0.75s cubic-bezier(0.33, 1, 0.36, 1);
+}
+
+.panel-score-editorial--tier-warm .panel-score-editorial__meter-fill {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 65%, #6d9086), var(--color-accent));
+}
+
+.panel-score-editorial--tier-soft .panel-score-editorial__meter-fill {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 78%, #5a7d6e), var(--color-accent));
+}
+
+.panel-score-editorial--tier-mid .panel-score-editorial__meter-fill {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 65%, #4a7c6a), var(--color-accent));
+}
+
+.panel-score-editorial--tier-bright .panel-score-editorial__meter-fill {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 55%, #3d6b5c), var(--color-accent));
+}
+
+/* Sky mood accent wins on home over tier tint */
+.dashboard-shell--clarion-home.dashboard-shell--sky-active .panel-score-editorial .panel-score-editorial__meter-fill {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--env-accent) 88%, #000), var(--env-accent));
+}
+
+.panel-score-editorial__progression {
+  margin: 16px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--color-accent);
+}
+
+.dashboard-shell--clarion-home.dashboard-shell--sky-active .panel-score-editorial__progression {
+  color: var(--env-accent);
+}
+
+.panel-score-editorial__interpretation {
+  margin: 12px 0 0;
+  max-width: 40ch;
+  font-size: 15px;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--color-text-secondary);
+}
+
+.panel-score-editorial__focus {
+  margin: 10px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--color-text-primary);
+}
+
+.panel-score-editorial__contributors {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.panel-score-editorial__contributor {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--color-text-secondary);
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+.panel-score-editorial__contributor-arrow {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+[data-theme="light"] .panel-score-editorial__contributor {
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+/* L3 — driver chips (unused on Clarion home; kept for other layouts) */
+.dashboard-clarion-mosaic .dashboard-hero-drivers__item {
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, rgba(255, 255, 255, 0.05) 100%, transparent);
+  background: rgba(0, 0, 0, 0.12);
+  box-shadow: none;
+}
+
+.dashboard-clarion-mosaic .dashboard-hero-drivers__hint {
+  font-size: 11px;
+  opacity: 0.82;
+}
+
+/* ═══ L3 — Metric strip (flat) */
+.dashboard-clarion-mosaic .dashboard-today-metrics-strip {
+  margin: 0;
+  padding: 16px var(--clarion-pad-inline) 18px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-bg);
+  box-shadow: none;
+}
+
+[data-theme="light"] .dashboard-clarion-mosaic .dashboard-today-metrics-strip {
+  /* Same tint as page bg — reads like the loading bar track on white card */
+  background: var(--color-bg);
+}
+
+.dashboard-clarion-mosaic .dashboard-metric-pill-label {
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  color: var(--color-text-secondary);
+}
+
+.dashboard-clarion-mosaic .dashboard-metric-pill-value {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* ═══ L2 — Module grid (primary cards, soft only) ═══ */
+.dashboard-clarion-mosaic .dashboard-home-modules {
+  margin: 0;
+  padding: 16px 16px 6px;
+  gap: 12px;
+  display: grid;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .dashboard-clarion-mosaic .dashboard-home-modules {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 960px) {
+  .dashboard-clarion-mosaic .dashboard-home-modules {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding: 18px 18px 8px;
+  }
+}
+
+.dashboard-clarion-mosaic .dashboard-home-module {
+  border-radius: 14px;
+  padding: var(--clarion-card-pad) 16px 14px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-muted);
+  box-shadow: none;
+  transition: border-color 0.2s ease;
+}
+
+[data-theme="light"] .dashboard-clarion-mosaic .dashboard-home-module {
+  background: var(--color-bg);
+}
+
+.dashboard-clarion-mosaic .dashboard-home-module:hover {
+  border-color: var(--color-border-strong);
+}
+
+.dashboard-clarion-mosaic .dashboard-home-module__label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.dashboard-clarion-mosaic .dashboard-home-module__link {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+/* Section headers in mosaic */
+.dashboard-clarion-mosaic .dashboard-trends-section {
+  margin: 0;
+  padding: 6px 18px 4px;
+}
+
+.dashboard-clarion-mosaic .dashboard-trends-section__head {
+  margin-bottom: 10px;
+}
+
+.dashboard-clarion-mosaic .dashboard-trends-section__title {
+  font-family: var(--font-jakarta), var(--font-body), system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.25;
+  color: var(--color-text-primary);
+}
+
+.dashboard-clarion-mosaic .dashboard-trends-section__all {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+/* ═══ L2 — Biomarker signal cards ═══ */
+.dashboard-clarion-mosaic .dashboard-trends-scroller {
+  gap: 10px;
+  padding-bottom: 6px;
+}
+
+.dashboard-clarion-mosaic .dashboard-trend-mini-card {
+  width: min(204px, 76vw);
+  padding: 15px 14px 13px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-muted);
+  box-shadow: none;
+  transition: border-color 0.2s ease;
+}
+
+.dashboard-clarion-mosaic .dashboard-trend-mini-card:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: none;
+}
+
+.dashboard-clarion-mosaic .dashboard-trend-mini-card.tone-green {
+  background: color-mix(in srgb, var(--color-success) 6%, rgba(0, 0, 0, 0.28));
+  box-shadow: inset 2px 0 0 0 color-mix(in srgb, var(--color-success) 35%, transparent);
+}
+.dashboard-clarion-mosaic .dashboard-trend-mini-card.tone-amber {
+  background: color-mix(in srgb, var(--color-warning) 7%, rgba(0, 0, 0, 0.28));
+  box-shadow: inset 2px 0 0 0 color-mix(in srgb, var(--color-warning) 28%, transparent);
+}
+.dashboard-clarion-mosaic .dashboard-trend-mini-card.tone-red {
+  background: color-mix(in srgb, #c45c5c 5%, rgba(0, 0, 0, 0.22));
+  box-shadow: inset 2px 0 0 0 color-mix(in srgb, #b85858 18%, transparent);
+}
+
+.dashboard-clarion-mosaic .dashboard-trend-mini-card.tone-red .tone-pill {
+  background: color-mix(in srgb, #b05050 14%, transparent);
+  color: color-mix(in srgb, #f0d6d6 90%, var(--color-text-primary));
+}
+
+.dashboard-clarion-mosaic .dashboard-trend-mini-card__name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dashboard-clarion-mosaic .tone-pill {
+  font-size: 9px;
+  padding: 3px 8px;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+
+.dashboard-clarion-mosaic .dashboard-trend-mini-sparkline {
+  max-width: 88px;
+  height: 26px;
+  opacity: 0.92;
+}
+
+/* Learn card — same surface language as loading (flat + border) */
+.dashboard-clarion-mosaic .dashboard-home-learn-card {
+  margin: 8px 16px 20px;
+  padding: 32px 28px 30px;
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-muted);
+  box-shadow: none;
+}
+
+[data-theme="light"] .dashboard-clarion-mosaic .dashboard-home-learn-card {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+  box-shadow: none;
+}
+
+.dashboard-clarion-mosaic .dashboard-home-learn-card__tag {
+  margin-bottom: 14px;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+}
+
+.dashboard-clarion-mosaic .dashboard-home-learn-card__title {
+  margin-bottom: 14px;
+  font-family: var(--font-jakarta), var(--font-body), system-ui, sans-serif;
+  font-size: clamp(22px, 3.4vw, 28px);
+  font-weight: 600;
+  line-height: 1.22;
+  letter-spacing: -0.02em;
+  max-width: 28ch;
+}
+
+.dashboard-clarion-mosaic .dashboard-home-learn-card__body {
+  max-width: 48ch;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
+/* ═══ L2 — Today insight column (goal + line + CTA) ═══ */
+.dashboard-today.dashboard-home .dashboard-today-card {
+  margin-top: 0;
+  margin-bottom: calc(var(--clarion-section-gap) * 0.85);
+  padding: 28px var(--clarion-pad-inline) 24px;
+  border-radius: 20px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-muted);
+  box-shadow: none;
+}
+
+[data-theme="dark"] .dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-today.dashboard-home .dashboard-today-card {
+  background: rgba(26, 28, 36, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] .dashboard-today.dashboard-home .dashboard-today-card {
+  background: #ffffff;
+}
+
+.dashboard-today.dashboard-home .dashboard-today-insight {
+  font-family: var(--font-jakarta), var(--font-body), system-ui, sans-serif;
+  font-size: clamp(17px, 2.7vw, 21px);
+  font-weight: 500;
+  line-height: 1.42;
+  max-width: 36ch;
+  color: var(--color-text-primary);
+}
+
+.dashboard-shell--clarion-home .dashboard-cta-elegant {
+  font-size: 15px;
+  font-weight: 600;
+  padding: 10px 0;
+  border-bottom-width: 1px;
+  border-bottom-color: var(--color-border);
+}
+
+/* ═══ Protocol panel — plan, not component list ═══ */
+.dashboard-today.dashboard-home .dashboard-today-protocol {
+  margin-top: 4px;
+  padding: 22px var(--clarion-pad-inline) 6px;
+  border-radius: 20px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-muted);
+  box-shadow: none;
+}
+
+[data-theme="dark"] .dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-today.dashboard-home .dashboard-today-protocol {
+  background: rgba(26, 28, 36, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] .dashboard-today.dashboard-home .dashboard-today-protocol {
+  background: #ffffff;
+}
+
+.dashboard-today.dashboard-home .dashboard-section-title {
+  font-family: var(--font-jakarta), var(--font-body), system-ui, sans-serif;
+  font-size: clamp(20px, 2.8vw, 24px);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.dashboard-today.dashboard-home .dashboard-protocol-mission {
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+  max-width: 44ch;
+}
+
+.dashboard-today.dashboard-home .dashboard-protocol-lede {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+  max-width: 50ch;
+}
+
+.dashboard-today-protocol.dashboard-today-protocol--highlight {
+  animation: clarionProtocolHighlight 2s ease-out 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-today-protocol.dashboard-today-protocol--highlight {
+    animation: none;
+  }
+}
+
+@keyframes clarionProtocolHighlight {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 35%, transparent);
+  }
+  35% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Wins */
+.dashboard-home-wins {
+  margin: 8px var(--clarion-pad-inline) 4px;
+  padding: 18px 20px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-muted);
+}
+
+[data-theme="light"] .dashboard-home-wins {
+  background: var(--color-bg);
+  border-color: var(--color-border);
+}
+
+.dashboard-home-wins__eyebrow {
+  margin: 0 0 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.dashboard-home-wins__list {
+  margin: 0;
+  padding: 0 0 0 1.1rem;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+}
+
+.dashboard-home-wins__list li {
+  margin-bottom: 4px;
+}
+
+.dashboard-home-wins__list li::marker {
+  color: var(--color-accent);
+}
+
+/* Protocol — L3 grouped list (one border, row dividers) */
+.dashboard-today.dashboard-home .dashboard-protocol-list {
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .dashboard-today.dashboard-home .dashboard-protocol-list {
+  background: var(--color-bg);
+}
+
+.dashboard-today.dashboard-home .dashboard-protocol-list-item {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dashboard-today.dashboard-home .dashboard-protocol-list-item:last-child {
+  border-bottom: none;
+}
+
+.dashboard-today.dashboard-home .dashboard-protocol-row {
+  min-height: 76px;
+  padding: 14px 14px 14px 12px;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.dashboard-today.dashboard-home .dashboard-protocol-row:hover {
+  background: color-mix(in srgb, rgba(255, 255, 255, 0.03) 100%, transparent);
+}
+
+.dashboard-today.dashboard-home .dashboard-protocol-check {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+}
+
+.dashboard-today.dashboard-home .dashboard-protocol-check-mark {
+  width: 9px;
+  height: 5px;
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+
+.dashboard-today.dashboard-home .dashboard-protocol-check--on .dashboard-protocol-check-mark {
+  transform: rotate(-45deg) translate(0, -1px) scale(1.05);
+}
+
+.dashboard-today.dashboard-home .dashboard-protocol-dosing-link {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  opacity: 0.55;
+  padding: 8px 6px;
+}
+
+.dashboard-today.dashboard-home .dashboard-protocol-dosing-link:hover {
+  opacity: 0.9;
+}
+
+/* Stack compact — text-forward CTA */
+.dashboard-shell--clarion-home .dashboard-stack-compact-head-cta {
+  min-height: 34px;
+  padding: 7px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.dashboard-shell--clarion-home .dashboard-stack-compact-head-cta:hover {
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  filter: none;
+}
+
+.dashboard-shell--clarion-home .dashboard-cta,
+.dashboard-shell--clarion-home .dashboard-cta-primary {
+  min-height: 40px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--color-accent) 88%, #1a1a1a);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+  box-shadow: none;
+}
+
+.dashboard-shell--clarion-home .dashboard-cta:hover {
+  filter: brightness(1.04);
+}
+
+/* Clarion home — slightly tighter display size for serif greeting */
+.dashboard-shell--clarion-home .dashboard-greeting.typewriter-heading {
+  font-size: clamp(26px, 6vw, 40px);
+  margin-bottom: 6px;
+}
+
+.dashboard-shell--clarion-home .dashboard-page-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin-bottom: 22px;
+}
+
+.dashboard-shell--clarion-home .dashboard-back {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+/* Sparkline draw */
+.dashboard-trend-mini-sparkline--draw path {
+  stroke-width: 1.35;
+  stroke-dashoffset: 0;
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dashboard-trend-mini-sparkline--draw path {
+    stroke-dashoffset: 1;
+    opacity: 0.35;
+    animation: clarionSparkDraw 0.85s ease-out forwards;
+  }
+}
+
+@keyframes clarionSparkDraw {
+  from {
+    stroke-dashoffset: 1;
+    opacity: 0.35;
+  }
+  to {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-trend-mini-sparkline--draw path {
+    animation: none;
+  }
+}
+
+/* ═══ Layer 6 — Explore & stack: quieter than hero ═══ */
+.dashboard-shell--clarion-home .dashboard-main {
+  gap: clamp(40px, 4.5vw, 64px);
+}
+
+.dashboard-shell--clarion-home .dashboard-explore-section .dashboard-section-title {
+  opacity: 0.88;
+}
+
+.dashboard-shell--clarion-home .dashboard-explore-intro {
+  opacity: 0.72;
+  font-size: 13px;
+  max-width: 52ch;
+}
+
+.dashboard-shell--clarion-home .dashboard-explore-card {
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-muted);
+  box-shadow: none;
+}
+
+.dashboard-shell--clarion-home .dashboard-explore-card:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: none;
+}
+
+[data-theme="dark"] .dashboard-shell--clarion-home .dashboard-explore-card {
+  background: var(--color-bg-muted);
+  border-color: var(--color-border);
+}
+
+.dashboard-shell--clarion-home .dashboard-explore-card-icon {
+  opacity: 0.85;
+}
+
+.dashboard-shell--clarion-home .dashboard-stack-compact {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-muted);
+  box-shadow: none;
+  border-radius: 17px;
+  padding: 22px 20px 18px;
+}
+
+.dashboard-shell--clarion-home .dashboard-stack-compact-chips {
+  gap: 1rem;
+}
+
+[data-theme="light"] .dashboard-shell--clarion-home .dashboard-stack-compact {
+  background: #ffffff;
+}

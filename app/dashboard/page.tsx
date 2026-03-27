@@ -11,13 +11,14 @@ import { getRetestRecommendations } from "@/src/lib/retestEngine"
 import { scoreToLabel, countByStatus } from "@/src/lib/scoreEngine"
 import { getBloodwiseSummary } from "@/src/lib/bloodwiseSummaryEngine"
 import { getScoreBreakdown, getScoreDrivers, getImprovementForecast, getOrderedScoreDrivers, getCategoryForMarker, SCORE_CATEGORIES } from "@/src/lib/scoreBreakdown"
-import { getDashboardStatus, getDoThisFirst, getTodayContext } from "@/src/lib/dashboardStatus"
-import { getTrendInsights } from "@/src/lib/trendInsights"
+import { buildPriorityContextFromProfile } from "@/src/lib/priorityRanking"
+import { getDashboardStatus, getDoThisFirst } from "@/src/lib/dashboardStatus"
+import { getContextualInsight } from "@/src/lib/dashboardContextLine"
 import { getAdherence } from "@/src/lib/adherence"
 import { getEarnedBadges } from "@/src/lib/badges"
 import { getLatestLearningItem, getLearningItemForPriority } from "@/src/lib/learningFeed"
 import { getLongTermInsightForPriorities } from "@/src/lib/longTermInsights"
-import { buildTopFocus, getPrioritySummary, getStatusTone, inferWhyItMatters } from "@/src/lib/priorityEngine"
+import { buildTopFocus, getPrioritySummary, getStatusTone, getStatusToneFriendly, inferWhyItMatters } from "@/src/lib/priorityEngine"
 import { getGuidesForPriorities, getGuidesForBiomarker } from "@/src/lib/guides"
 import {
   getFeaturedMicrocopy,
@@ -28,17 +29,31 @@ import {
 import { parseSupplementRow, shortStackDoseLabel } from "@/src/lib/supplementDisplay"
 import { CHALLENGES, getChallengeProgress, getChallengeExtra } from "@/src/lib/challenges"
 import { hasClarionAnalysisAccess } from "@/src/lib/accessGate"
-import { BookOpen, Trophy, Settings as SettingsIcon, ListChecks, Target, Lightbulb, ArrowUpCircle, Package, BarChart2, LineChart, Sun, Pill, Flame, ChevronDown } from "lucide-react"
+import { BookOpen, Trophy, Settings as SettingsIcon, ListChecks, Target, Lightbulb, ArrowUpCircle, Package, BarChart2, LineChart, ChevronDown } from "lucide-react"
+import { TypewriterHeading } from "@/src/components/TypewriterHeading"
 import { SubscribeButton } from "@/src/components/SubscribeButton"
 import { AddToHomeScreenPopup } from "@/src/components/AddToHomeScreenPopup"
 import { CLARION_OPEN_ASSISTANT_EVENT } from "@/src/components/ClarionAssistant"
 import { ProtocolTracker } from "@/src/components/ProtocolTracker"
-import { TypewriterHeading } from "@/src/components/TypewriterHeading"
-import { motion } from "framer-motion"
+import { DailyHealthCheckIn } from "@/src/components/DailyHealthCheckIn"
+import { BetweenPanelsInsight } from "@/src/components/BetweenPanelsInsight"
+import { PanelScoreEditorial } from "@/src/components/PanelScoreEditorial"
+import { contributorArrowForStatus, getPanelScoreInterpretation } from "@/src/lib/panelScoreCopy"
 import { notifications } from "@mantine/notifications"
-import { getTrendData } from "@/src/lib/dashboardTrendData"
-import "./dashboard.css"
-
+import { getTodayInsightLine } from "@/src/lib/todayInsightLine"
+import {
+  getMarkerValueSeries,
+  getImprovedMarkersBetweenRecentPanels,
+  shortMarkerLabel,
+} from "@/src/lib/dashboardHomeData"
+import { getPremiumHeroHeadline, getPremiumHeroLede, getHeroPositiveLine } from "@/src/lib/dashboardNarrativeCopy"
+import {
+  DASHBOARD_SKY_MOODS,
+  getDashboardSkyMood,
+  isDashboardSkyMood,
+  type DashboardSkyMood,
+} from "@/src/lib/dashboardSkyMood"
+import { useDashboardSkyAtmosphere } from "@/src/contexts/DashboardSkyAtmosphereContext"
 function buildShortFocusTitle(markerName: string): string {
   const raw = markerName.trim()
   const m = raw.toLowerCase()
@@ -83,8 +98,46 @@ function ScoreSparklinePreview({ values }: { values: number[] }) {
   )
 }
 
+function MiniSparkline({ values, className }: { values: number[]; className?: string }) {
+  if (values.length < 2) return null
+  const w = 88
+  const h = 28
+  const pad = 2
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const span = Math.max(max - min, 1e-6)
+  const innerW = w - pad * 2
+  const innerH = h - pad * 2
+  const d = values
+    .map((v, i) => {
+      const x = pad + (i / (values.length - 1)) * innerW
+      const y = pad + innerH - ((v - min) / span) * innerH
+      return `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`
+    })
+    .join(" ")
+  return (
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      className={`${className ?? "dashboard-trend-mini-sparkline"} dashboard-trend-mini-sparkline--draw`.trim()}
+      aria-hidden
+    >
+      <path
+        d={d}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.35"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        pathLength={1}
+        strokeDasharray={1}
+      />
+    </svg>
+  )
+}
+
 export default function DashboardPage() {
   const router = useRouter()
+  const { setAtmosphere } = useDashboardSkyAtmosphere()
   const { user, loading: authLoading } = useAuth()
   const [profile, setProfile] = useState<ProfileRow | null>(null)
   const [bloodwork, setBloodwork] = useState<BloodworkSaveRow | null>(null)
@@ -96,7 +149,6 @@ export default function DashboardPage() {
   const [prefsSaving, setPrefsSaving] = useState(false)
   const [prefsSaved, setPrefsSaved] = useState(false)
   const [showBelowFold, setShowBelowFold] = useState(false)
-  const [showSeeMore, setShowSeeMore] = useState(false)
   const [showPrioritiesAndGuides, setShowPrioritiesAndGuides] = useState(false)
   const [showNewResultsBanner, setShowNewResultsBanner] = useState(false)
   const [nudgeDismissed, setNudgeDismissed] = useState(false)
@@ -106,33 +158,57 @@ export default function DashboardPage() {
   const [protocolTodayY, setProtocolTodayY] = useState<number>(0)
   const [protocolStreakDays, setProtocolStreakDays] = useState<number>(0)
   const [protocolHistory, setProtocolHistory] = useState<Array<{ log_date: string; checks: Record<string, boolean> }>>([])
-  const [displayScore, setDisplayScore] = useState(0)
-  const [whyMattersOpen, setWhyMattersOpen] = useState(false)
+  /** Dev-only: force sky mood; `null` = follow protocol + time */
+  const [devSkyOverride, setDevSkyOverride] = useState<DashboardSkyMood | null>(null)
+  /** Bumps every 5 min so night / computed mood updates without interaction */
+  const [skyClock, setSkyClock] = useState(0)
 
   useEffect(() => {
     const t = setTimeout(() => setShowBelowFold(true), 0)
     return () => clearTimeout(t)
   }, [])
 
+  /** Open priorities section when landing with #priorities-guides (e.g. from sidebar / deep link) */
   useEffect(() => {
-    const target = bloodwork?.score != null ? Math.round(bloodwork.score) : 0
-    if (target === 0) {
-      setDisplayScore(0)
-      return
+    const openPriorities = () => {
+      if (typeof window === "undefined" || window.location.hash !== "#priorities-guides") return
+      setShowPrioritiesAndGuides(true)
+      requestAnimationFrame(() => {
+        document.getElementById("priorities-guides")?.scrollIntoView({ behavior: "smooth", block: "start" })
+      })
     }
-    setDisplayScore(0)
-    const durationMs = 1200
-    const startTime = performance.now()
-    const tick = (now: number) => {
-      const elapsed = now - startTime
-      const t = Math.min(1, elapsed / durationMs)
-      const eased = 1 - (1 - t) * (1 - t)
-      setDisplayScore(Math.round(target * eased))
-      if (t < 1) requestAnimationFrame(tick)
+    openPriorities()
+    window.addEventListener("hashchange", openPriorities)
+    return () => window.removeEventListener("hashchange", openPriorities)
+  }, [])
+
+  /** Smooth scroll + soft highlight when opening #protocol from home links */
+  useEffect(() => {
+    const pulse = () => {
+      if (typeof window === "undefined" || window.location.hash !== "#protocol") return
+      const el = document.getElementById("protocol")
+      if (!el) return
+      requestAnimationFrame(() => {
+        el.scrollIntoView({ behavior: "smooth", block: "start" })
+        el.classList.add("dashboard-today-protocol--highlight")
+        window.setTimeout(() => el.classList.remove("dashboard-today-protocol--highlight"), 2200)
+      })
     }
-    const id = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(id)
-  }, [bloodwork?.score])
+    pulse()
+    window.addEventListener("hashchange", pulse)
+    return () => window.removeEventListener("hashchange", pulse)
+  }, [])
+
+  useEffect(() => {
+    const id = window.setInterval(() => setSkyClock((n) => n + 1), 5 * 60 * 1000)
+    return () => window.clearInterval(id)
+  }, [])
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return
+    const q = new URLSearchParams(window.location.search).get("sky")
+    if (isDashboardSkyMood(q)) setDevSkyOverride(q)
+  }, [])
 
   const handleSavePrefs = useCallback(async () => {
     if (!user || !profile) return
@@ -357,11 +433,6 @@ export default function DashboardPage() {
     return getImprovementForecast(analysisResults, scoreDrivers[0].markerName)
   }, [analysisResults, scoreDrivers])
 
-  const trendData = useMemo(() => getTrendData(bloodworkHistory), [bloodworkHistory])
-  const trendInsights = useMemo(
-    () => (trendData.length >= 2 ? getTrendInsights(trendData, analysisResults) : []),
-    [trendData, analysisResults]
-  )
   const scoreSparklineSeries = useMemo(() => {
     return [...bloodworkHistory]
       .reverse()
@@ -429,9 +500,24 @@ export default function DashboardPage() {
     return { type: "overdue" as const, weeks: weeksOverdue }
   }, [lastBloodworkAt, retestWeeks])
 
+  const priorityContext = useMemo(() => buildPriorityContextFromProfile(profile), [profile])
+
   const orderedDrivers = useMemo(
-    () => getOrderedScoreDrivers(analysisResults, 10),
-    [analysisResults]
+    () => getOrderedScoreDrivers(analysisResults, 10, priorityContext),
+    [analysisResults, priorityContext]
+  )
+  const panelScoreRounded = useMemo(
+    () => (bloodwork?.score != null ? Math.round(bloodwork.score) : 0),
+    [bloodwork?.score]
+  )
+  const panelInterpretation = useMemo(() => getPanelScoreInterpretation(panelScoreRounded), [panelScoreRounded])
+  const panelContributors = useMemo(
+    () =>
+      orderedDrivers.slice(0, 3).map((d) => ({
+        label: shortMarkerLabel(d.markerName || d.label),
+        arrow: contributorArrowForStatus(d.status),
+      })),
+    [orderedDrivers]
   )
   const lastLogDate = useMemo(() => {
     if (!protocolHistory.length) return null
@@ -527,31 +613,6 @@ export default function DashboardPage() {
     }
   }, [scoreDrivers, improvementForecast, bloodwork?.score, analysisResults])
 
-  const firstGuideForPriorities = useMemo(() => getGuidesForPriorities(topPriorityNames)[0] ?? null, [topPriorityNames])
-  const todayContext = useMemo(
-    () =>
-      getTodayContext({
-        protocolTodayComplete,
-        protocolStreakDays,
-        retestCountdown,
-        lastLogDate,
-        hasStack,
-        lastBloodworkAt: lastBloodworkAt ?? null,
-        retestWeeks: profile?.retest_weeks ?? 8,
-        firstGuide: firstGuideForPriorities,
-      }),
-    [
-      protocolTodayComplete,
-      protocolStreakDays,
-      retestCountdown,
-      lastLogDate,
-      hasStack,
-      lastBloodworkAt,
-      profile?.retest_weeks,
-      firstGuideForPriorities,
-    ]
-  )
-
   const challengeByDate = useMemo(() => {
     const map: Record<string, boolean> = {}
     protocolHistory.forEach(({ log_date, checks }) => {
@@ -582,9 +643,9 @@ export default function DashboardPage() {
     lastLogDate != null
       ? Math.floor((Date.now() - new Date(lastLogDate).getTime()) / (24 * 60 * 60 * 1000))
       : null
-  const hasBloodworkForNudge = Boolean(bloodwork && (bloodwork.selected_panel?.length > 0 || bloodwork.score != null))
+  const hasBloodwork = Boolean(bloodwork && (bloodwork.selected_panel?.length > 0 || bloodwork.score != null))
   const nudgeBanner = useMemo(() => {
-    if (nudgeDismissed || !hasBloodworkForNudge) return null
+    if (nudgeDismissed || !hasBloodwork) return null
     if (hasStack && protocolTodayComplete !== true && daysSinceLog != null && daysSinceLog >= 2) {
       return {
         message: `You haven't logged your protocol in ${daysSinceLog} days.`,
@@ -608,7 +669,7 @@ export default function DashboardPage() {
       }
     }
     return null
-  }, [nudgeDismissed, hasBloodworkForNudge, hasStack, protocolTodayComplete, daysSinceLog, retestCountdown, lastBloodworkAt, profile?.retest_weeks])
+  }, [nudgeDismissed, hasBloodwork, hasStack, protocolTodayComplete, daysSinceLog, retestCountdown, lastBloodworkAt, profile?.retest_weeks])
   const greeting = useMemo(() => {
     const h = typeof window !== "undefined" ? new Date().getHours() : 12
     if (h < 12) return "Good morning"
@@ -645,7 +706,7 @@ export default function DashboardPage() {
 
   const heroMomentumLine = useMemo(() => {
     if (protocolStreakDays >= 1) {
-      return `${protocolStreakDays}-day streak 🔥`
+      return `${protocolStreakDays}-day streak`
     }
     if (heroFocus.gain != null && heroFocus.gain > 0) {
       return `You're one step away from +${heroFocus.gain} points`
@@ -657,24 +718,24 @@ export default function DashboardPage() {
     const featured = featuredTodaySplit.featured
     if (!featured) return null
     const hasProtocolSteps = hasStack && protocolTodayY > 0
-    let eyebrow = "🔥 Next up"
+    let eyebrow = "Next up"
     let eyebrowClass = ""
     if (hasProtocolSteps) {
       if (protocolTodayComplete === true) {
-        eyebrow = "✅ Completed today"
+        eyebrow = "Completed today"
         eyebrowClass = "dashboard-featured-eyebrow--done"
       } else if (protocolTodayX > 0) {
-        eyebrow = "⏳ In progress"
+        eyebrow = "In progress"
         eyebrowClass = "dashboard-featured-eyebrow--progress"
       } else {
-        eyebrow = "🔥 Next up"
+        eyebrow = "Next up"
       }
     }
     const micro = getFeaturedMicrocopy(featured, hasProtocolSteps ? protocolTodayY : null)
     let stepLine: string | null = null
     if (hasProtocolSteps) {
       if (protocolTodayComplete === true) {
-        stepLine = `All ${protocolTodayY} steps done — nice work`
+        stepLine = `All ${protocolTodayY} steps logged`
       } else {
         stepLine = `Step ${protocolTodayX + 1} of ${protocolTodayY}`
       }
@@ -694,13 +755,47 @@ export default function DashboardPage() {
   const heroPrimaryCtaLabel = useMemo(() => {
     const href = doThisFirst?.href ?? "/dashboard/actions"
     if (href === "/dashboard#protocol" && doThisFirst) {
-      if (heroFocus.gain != null && heroFocus.gain > 0) {
-        return `Finish today → +${heroFocus.gain} points`
-      }
-      return "Finish today →"
+      return "Complete today’s protocol"
     }
-    return `${doThisFirst?.title ?? "Go to actions"} →`
-  }, [doThisFirst, heroFocus.gain])
+    return doThisFirst?.title ?? "Review recommended actions"
+  }, [doThisFirst])
+
+  /** Single primary CTA: protocol first when stack exists and today not done; else doThisFirst. */
+  const todayPrimaryCta = useMemo(() => {
+    const headroom =
+      bloodwork?.score != null ? Math.max(0, 100 - Math.round(bloodwork.score)) : 0
+    if (hasStack && protocolTodayComplete !== true && protocolTodayY > 0) {
+      return {
+        href: "/dashboard#protocol",
+        label: "Complete today’s protocol",
+      } as const
+    }
+    if (doThisFirst) {
+      return { href: doThisFirst.href, label: heroPrimaryCtaLabel } as const
+    }
+    if (headroom > 0) {
+      return { href: "/dashboard/actions", label: "Review actions" } as const
+    }
+    return null
+  }, [
+    bloodwork?.score,
+    hasStack,
+    protocolTodayComplete,
+    protocolTodayY,
+    doThisFirst,
+    heroPrimaryCtaLabel,
+  ])
+
+  const todayInsightLineText = useMemo(
+    () =>
+      getTodayInsightLine({
+        doThisFirst: doThisFirst ? { line: doThisFirst.line, title: doThisFirst.title } : null,
+        heroFocusTitle: heroFocus.title,
+        featuredMicro: featuredHeroUi?.micro ?? null,
+        featuredLabel: featuredHeroUi?.featured?.label ?? null,
+      }),
+    [doThisFirst, heroFocus.title, featuredHeroUi]
+  )
 
   const reportDateRelative = useMemo(() => {
     const iso = bloodwork?.created_at
@@ -726,6 +821,202 @@ export default function DashboardPage() {
   const currentScore = bloodwork?.score ?? null
   const scoreDelta =
     currentScore != null && previousScore != null ? currentScore - previousScore : null
+
+  const contextualInsightLine = useMemo(
+    () =>
+      getContextualInsight({
+        orderedDrivers,
+        analysisResults,
+        reportDateRelative,
+        retestCountdown,
+      }),
+    [orderedDrivers, analysisResults, reportDateRelative, retestCountdown]
+  )
+
+  const improvedMarkersRecent = useMemo(
+    () => getImprovedMarkersBetweenRecentPanels(bloodworkHistory, profileForAnalysis),
+    [bloodworkHistory, profileForAnalysis]
+  )
+
+  const optimalMarkerLabels = useMemo(() => {
+    return analysisResults
+      .filter((r) => {
+        const s = (r.status || "").toLowerCase()
+        return s === "optimal" || s === "normal" || s === "in range"
+      })
+      .map((r) => shortMarkerLabel(r.name || ""))
+      .filter(Boolean)
+      .slice(0, 4)
+  }, [analysisResults])
+
+  const heroPositiveLine = useMemo(
+    () =>
+      getHeroPositiveLine({
+        optimalMarkerLabels,
+        protocolStreakDays,
+      }),
+    [optimalMarkerLabels, protocolStreakDays]
+  )
+
+  const heroPrioritySteps = useMemo(() => {
+    return orderedDrivers.slice(0, 3).map((d) => {
+      const raw = (d.markerName ?? "").trim()
+      const guideKey = raw === "25-OH Vitamin D" ? "Vitamin D" : raw
+      const guide = getGuidesForBiomarker(guideKey)[0]
+      return {
+        markerName: raw,
+        displayName: shortMarkerLabel(raw),
+        statusLabel: getStatusToneFriendly(d.status).label,
+        guideHref: guide ? `/guides/${guide.slug}` : "/dashboard/biomarkers",
+      }
+    })
+  }, [orderedDrivers])
+
+  const scoreProgressionLine = useMemo(() => {
+    if (scoreDelta != null && scoreDelta !== 0) {
+      return `${scoreDelta > 0 ? "+" : ""}${Math.round(scoreDelta)} from last panel`
+    }
+    if (bloodworkHistory.length < 2) return "First panel — your baseline is set"
+    return "Holding steady vs last panel"
+  }, [scoreDelta, bloodworkHistory.length])
+
+  const scoreFocusLine = useMemo(() => {
+    const m = orderedDrivers[0]?.markerName
+    if (m) return `Focus: ${shortMarkerLabel(m)}`
+    return null
+  }, [orderedDrivers])
+
+  const scoreTierClass = useMemo(() => {
+    const s = panelScoreRounded
+    if (s >= 85) return "panel-score-editorial--tier-bright"
+    if (s >= 70) return "panel-score-editorial--tier-mid"
+    if (s >= 60) return "panel-score-editorial--tier-soft"
+    return "panel-score-editorial--tier-warm"
+  }, [panelScoreRounded])
+
+  const whatsGoingWellItems = useMemo(() => {
+    const items: string[] = []
+    for (const label of optimalMarkerLabels.slice(0, 3)) {
+      items.push(`${label} — looking good`)
+    }
+    if (protocolStreakDays >= 3) {
+      items.push(`${protocolStreakDays}-day logging streak`)
+    }
+    if (scoreDelta != null && scoreDelta >= 2) {
+      items.push(`Score up ${Math.round(scoreDelta)} vs last panel`)
+    }
+    if (improvedMarkersRecent.length > 0) {
+      items.push(`${shortMarkerLabel(improvedMarkersRecent[0])} moving toward optimal`)
+    }
+    if (items.length === 0) {
+      items.push("You're tracking — that's a real first step")
+    }
+    return items.slice(0, 4)
+  }, [optimalMarkerLabels, protocolStreakDays, scoreDelta, improvedMarkersRecent])
+
+  const homeTrendMarkerNames = useMemo(() => {
+    const names: string[] = []
+    const seen = new Set<string>()
+    for (const d of orderedDrivers) {
+      if (d.markerName && !seen.has(d.markerName)) {
+        seen.add(d.markerName)
+        names.push(d.markerName)
+      }
+      if (names.length >= 6) break
+    }
+    for (const r of analysisResults) {
+      const n = r.name ?? ""
+      if (n && !seen.has(n)) {
+        seen.add(n)
+        names.push(n)
+      }
+      if (names.length >= 6) break
+    }
+    return names
+  }, [orderedDrivers, analysisResults])
+
+  const premiumNarrativeInput = useMemo(
+    () => ({
+      orderedDrivers,
+      scoreDelta,
+      statusCounts,
+      bloodwiseSummary: bloodwiseSummary
+        ? {
+            overallInterpretation: bloodwiseSummary.overallInterpretation,
+            keyFindings: bloodwiseSummary.keyFindings,
+          }
+        : null,
+    }),
+    [orderedDrivers, scoreDelta, statusCounts, bloodwiseSummary]
+  )
+
+  const homeHeadline = useMemo(
+    () => getPremiumHeroHeadline(premiumNarrativeInput),
+    [premiumNarrativeInput]
+  )
+
+  const homeLede = useMemo(() => getPremiumHeroLede(premiumNarrativeInput), [premiumNarrativeInput])
+
+  const protocolTaskFocusLine = useMemo(() => {
+    if (protocolTodayY <= 0) return null
+    if (protocolTodayComplete === true) return "Done"
+    return `Protocol ${protocolTodayX}/${protocolTodayY}`
+  }, [protocolTodayY, protocolTodayX, protocolTodayComplete])
+
+  const homeLearningTeaser = useMemo(() => {
+    const priority = topPriorityNames[0]
+    if (priority) {
+      const byPriority = getLearningItemForPriority(priority)
+      if (byPriority) return byPriority
+    }
+    return getLatestLearningItem()
+  }, [topPriorityNames])
+
+  const unifiedBanner = useMemo(() => {
+    if (!bloodwork || !(bloodwork.selected_panel?.length > 0 || bloodwork.score != null)) return null
+    if (nudgeBanner && !nudgeDismissed) return { kind: "nudge" as const, ...nudgeBanner }
+    if (showNewResultsBanner) return { kind: "newResults" as const, scoreDelta }
+    return null
+  }, [bloodwork, nudgeBanner, nudgeDismissed, showNewResultsBanner, scoreDelta])
+
+  const computedSkyMood = useMemo(
+    () =>
+      getDashboardSkyMood({
+        hour: new Date().getHours(),
+        hasStack,
+        protocolTodayY,
+        protocolTodayX,
+        protocolTodayComplete,
+        daysSinceLog,
+      }),
+    [skyClock, hasStack, protocolTodayY, protocolTodayX, protocolTodayComplete, daysSinceLog]
+  )
+
+  const targetSkyMood = useMemo(() => devSkyOverride ?? computedSkyMood, [devSkyOverride, computedSkyMood])
+
+  useEffect(() => {
+    if (!hasBloodwork) {
+      setAtmosphere(null)
+      return
+    }
+    setAtmosphere({
+      moodOverride: targetSkyMood,
+      nightIncomplete: targetSkyMood === "night" && protocolTodayComplete !== true,
+    })
+  }, [hasBloodwork, targetSkyMood, protocolTodayComplete, setAtmosphere])
+
+  useEffect(() => {
+    return () => setAtmosphere(null)
+  }, [setAtmosphere])
+
+  const applyDevSky = useCallback((m: DashboardSkyMood | null) => {
+    setDevSkyOverride(m)
+    if (typeof window === "undefined") return
+    const url = new URL(window.location.href)
+    if (m == null) url.searchParams.delete("sky")
+    else url.searchParams.set("sky", m)
+    window.history.replaceState({}, "", url)
+  }, [])
 
   if (authLoading || (user && loading)) {
     return (
@@ -815,282 +1106,65 @@ export default function DashboardPage() {
   }
 
   // Everyone who has paid for the $49 analysis gets full dashboard access (no subscription gate)
-  const hasBloodwork = bloodwork && (bloodwork.selected_panel?.length > 0 || bloodwork.score != null)
-  const score = bloodwork?.score != null ? Math.round(bloodwork.score) : 0
-  const roomToGrow = Math.max(0, 100 - score)
+  const score = panelScoreRounded
+
+  const isDev = process.env.NODE_ENV === "development"
 
   return (
-    <main className="dashboard-shell">
+    <main className={hasBloodwork ? "dashboard-shell dashboard-shell--clarion-home" : "dashboard-shell"}>
       <AddToHomeScreenPopup />
-      <div className="dashboard-bg" />
+      {!hasBloodwork ? <div className="dashboard-bg" aria-hidden /> : null}
       <div className="dashboard-container">
         <header className="dashboard-header">
-          <TypewriterHeading as="h1" variant="pop" className="dashboard-greeting dashboard-greeting-typewriter">
+          <TypewriterHeading variant="pop" className="dashboard-greeting dashboard-greeting-typewriter">
             {`${greeting}, ${displayName}`}
           </TypewriterHeading>
-          <p className="dashboard-page-eyebrow">Overview</p>
+          {hasBloodwork ? (
+            <p className="dashboard-header-companion">Let&apos;s do this.</p>
+          ) : null}
+          <p className="dashboard-page-eyebrow">Today</p>
           <Link href="/" className="dashboard-back">← Back to Clarion Labs</Link>
         </header>
 
-        {hasBloodwork && (bloodwork?.score != null || score === 0) && (
-          <motion.section
-            className="dashboard-score-hero"
-            aria-labelledby="dashboard-score-hero-label"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.22, delay: 0.04 }}
+        {hasBloodwork && unifiedBanner && (
+          <div
+            className={
+              unifiedBanner.kind === "nudge"
+                ? "dashboard-nudge-banner"
+                : "dashboard-new-results-banner dashboard-new-results-banner--compact"
+            }
+            role="status"
           >
-            <h2 id="dashboard-score-hero-label" className="dashboard-score-hero-label visually-hidden">Today</h2>
-            <div className="dashboard-score-hero-layout dashboard-score-hero-layout--split">
-              <div className="dashboard-hero-col dashboard-hero-col--actions">
-                {hasBloodwork && bloodwork?.score != null && (
-                  <div className="dashboard-score-hero-goal dashboard-score-hero-goal--compact" aria-label="Score goal">
-                    {profile?.score_goal != null && profile.score_goal > 0 ? (
-                      <>
-                        <div className="dashboard-score-hero-goal-heading">
-                          <span className="dashboard-score-hero-goal-label">Your goal</span>
-                          <span className="dashboard-score-hero-goal-value">
-                            {Math.round(Number(bloodwork.score))} / {profile.score_goal}
-                          </span>
-                        </div>
-                        <div className="dashboard-goal-bar-wrap dashboard-goal-bar-wrap--hero">
-                          <div
-                            className="dashboard-goal-bar"
-                            style={{
-                              width: `${Math.min(100, (Number(bloodwork.score) / profile.score_goal) * 100)}%`,
-                            }}
-                          />
-                        </div>
-                      </>
-                    ) : (
-                      <p className="dashboard-score-hero-goal-nudge">
-                        <Link href="/settings" className="dashboard-score-hero-goal-link">
-                          Set a score goal
-                        </Link>{" "}
-                        to track your progress.
-                      </p>
-                    )}
-                  </div>
+            {unifiedBanner.kind === "newResults" ? (
+              <span>
+                New results saved
+                {unifiedBanner.scoreDelta != null && unifiedBanner.scoreDelta > 0
+                  ? ` — up ${unifiedBanner.scoreDelta} points.`
+                  : "."}
+              </span>
+            ) : (
+              <>
+                <span>{unifiedBanner.message}</span>
+                {unifiedBanner.external ? (
+                  <a href={unifiedBanner.href} target="_blank" rel="noopener noreferrer">
+                    {unifiedBanner.cta}
+                  </a>
+                ) : (
+                  <Link href={unifiedBanner.href}>{unifiedBanner.cta}</Link>
                 )}
-
-                <div className="dashboard-hero-focus-block">
-                  <p className="dashboard-hero-focus-eyebrow">Focus</p>
-                  <p className="dashboard-hero-focus-title">{heroFocus.title}</p>
-                  <div className="dashboard-hero-focus-chips">
-                    {heroFocus.gain != null && heroFocus.gain > 0 && (
-                      <span className="dashboard-hero-focus-points">+{heroFocus.gain} available</span>
-                    )}
-                    {heroFocus.statusChip && (
-                      <span
-                        className={`dashboard-hero-status-chip ${
-                          heroFocus.statusChip === "In range" ? "dashboard-hero-status-chip--ok" : "dashboard-hero-status-chip--warn"
-                        }`}
-                      >
-                        {heroFocus.statusChip !== "In range" ? "⚠️ " : ""}
-                        {heroFocus.statusChip}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {featuredHeroUi && (
-                  <div className="dashboard-featured-action">
-                    <p
-                      className={["dashboard-featured-eyebrow", featuredHeroUi.eyebrowClass]
-                        .filter(Boolean)
-                        .join(" ")}
-                    >
-                      {featuredHeroUi.eyebrow}
-                    </p>
-                    <p className="dashboard-featured-label">{featuredHeroUi.featured.label}</p>
-                    <div className="dashboard-featured-meta">
-                      <p className="dashboard-featured-micro">{featuredHeroUi.micro}</p>
-                      {featuredHeroUi.stepLine && (
-                        <p className="dashboard-featured-step">{featuredHeroUi.stepLine}</p>
-                      )}
-                    </div>
-                    <Link
-                      href={featuredHeroUi.startHref}
-                      className={`dashboard-featured-start${featuredHeroUi.doneToday ? " dashboard-featured-start--secondary" : ""}`}
-                    >
-                      {featuredHeroUi.startLabel}
-                    </Link>
-                  </div>
-                )}
-
-                {featuredTodaySplit.others.length > 0 && (
-                  <div className="dashboard-other-actions">
-                    <p className="dashboard-other-actions-title">Other actions</p>
-                    <ul className="dashboard-other-actions-list" role="list">
-                      {featuredTodaySplit.others.map((action) => (
-                        <li key={action.label} className="dashboard-other-actions-item">
-                          <span className="dashboard-other-actions-icon" aria-hidden>
-                            {action.icon === "sun" && <Sun size={18} strokeWidth={2} />}
-                            {action.icon === "flame" && <Flame size={18} strokeWidth={2} />}
-                            {action.icon === "pill" && <Pill size={18} strokeWidth={2} />}
-                          </span>
-                          <span className="dashboard-other-actions-text">{action.label}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {heroMomentumLine && <p className="dashboard-hero-momentum">{heroMomentumLine}</p>}
-
-                {(doThisFirst?.href || roomToGrow > 0) && (
-                  <Link
-                    href={doThisFirst?.href ?? "/dashboard/actions"}
-                    className="dashboard-score-hero-cta-primary dashboard-score-hero-cta-primary--large"
-                  >
-                    {heroPrimaryCtaLabel}
-                  </Link>
-                )}
-              </div>
-
-              <aside className="dashboard-hero-col dashboard-hero-col--context" aria-label="Score and context">
-                <div className="dashboard-hero-side-panel">
-                  <div className="dashboard-hero-score-row" aria-label="Score summary">
-                    <div className="dashboard-hero-score-stack">
-                      <span className="dashboard-hero-score-label">Your score</span>
-                      <span className="dashboard-hero-score-big">
-                        <strong>{displayScore}</strong>
-                        <span className="dashboard-hero-score-denom">/ 100</span>
-                      </span>
-                    </div>
-                    <div className="dashboard-hero-score-extras">
-                      {heroFocus.gain != null && heroFocus.gain > 0 && (
-                        <span className="dashboard-hero-score-gain">+{heroFocus.gain} available</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="dashboard-hero-quicklinks" role="group" aria-label="Quick links">
-                    <Link href="/dashboard/trends" className="dashboard-score-hero-pop-chip">
-                      <LineChart size={16} strokeWidth={2} aria-hidden />
-                      Trends
-                    </Link>
-                    <Link href="/dashboard/plan#stack" className="dashboard-score-hero-pop-chip">
-                      <Package size={16} strokeWidth={2} aria-hidden />
-                      Plan & stack
-                    </Link>
-                  </div>
-
-                  {heroFocus.markerForWhy ? (
-                    <div className="dashboard-why-matters">
-                      <button
-                        type="button"
-                        className={`dashboard-why-matters-toggle ${whyMattersOpen ? "dashboard-why-matters-toggle--open" : ""}`}
-                        onClick={() => setWhyMattersOpen((o) => !o)}
-                        aria-expanded={whyMattersOpen}
-                      >
-                        Why this matters
-                        <ChevronDown size={18} strokeWidth={2} aria-hidden className="dashboard-why-chevron" />
-                      </button>
-                      {whyMattersOpen && (
-                        <div className="dashboard-why-matters-body">
-                          <p className="dashboard-why-matters-lead">{shortWhySummaryLine(heroFocus.markerForWhy)}</p>
-                          <p className="dashboard-why-matters-detail">{inferWhyItMatters(heroFocus.markerForWhy)}</p>
-                          <Link href="/dashboard/actions" className="dashboard-why-matters-more">
-                            View personalized actions →
-                          </Link>
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              </aside>
-
-              {reportDateRelative && (
-                <div className="dashboard-hero-footer-meta dashboard-score-hero-meta">
-                  <span className="dashboard-score-hero-meta-text">{reportDateRelative}</span>
-                  <span className="dashboard-score-hero-meta-hint">Add new labs from Plan when you&apos;re ready.</span>
-                </div>
-              )}
-            </div>
-          </motion.section>
-        )}
-
-        {hasBloodwork && (
-          <motion.div
-            className="dashboard-momentum-strip"
-            initial={{ opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2, delay: 0.08 }}
-            role="region"
-            aria-label="Your status"
-          >
-            <div className="dashboard-momentum-strip-main">
-              {scoreJourney && (
-                <p className="dashboard-momentum-line dashboard-momentum-line--score">
-                  {scoreJourney.improved ? (
-                    <>
-                      Score improved:{" "}
-                      <strong className="dashboard-momentum-strong">
-                        {scoreJourney.from} → {scoreJourney.to}
-                      </strong>{" "}
-                      <span className="dashboard-momentum-fire" aria-hidden>
-                        🔥
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      Score:{" "}
-                      <strong className="dashboard-momentum-strong">
-                        {scoreJourney.from} → {scoreJourney.to}
-                      </strong>
-                    </>
-                  )}
-                </p>
-              )}
-              {!scoreJourney && bloodwork?.score != null && (
-                <p className="dashboard-momentum-line dashboard-momentum-line--score">
-                  Score: <strong className="dashboard-momentum-strong">{Math.round(bloodwork.score)}</strong>
-                </p>
-              )}
-              {retestCountdown && (
-                <p className="dashboard-momentum-line dashboard-momentum-line--retest">
-                  {retestCountdown.type === "until"
-                    ? `Next retest in ${retestCountdown.weeks} week${retestCountdown.weeks !== 1 ? "s" : ""}`
-                    : `Retest suggested ${retestCountdown.weeks} week${retestCountdown.weeks !== 1 ? "s" : ""} ago`}
-                  {" · "}
-                  <Link href="/?step=labs" className="dashboard-momentum-add-labs">
-                    Add labs
-                  </Link>
-                </p>
-              )}
-            </div>
+              </>
+            )}
             <button
               type="button"
-              className="dashboard-momentum-clarion"
-              onClick={() => typeof window !== "undefined" && window.dispatchEvent(new CustomEvent(CLARION_OPEN_ASSISTANT_EVENT))}
+              className={unifiedBanner.kind === "nudge" ? "dashboard-nudge-dismiss" : "dashboard-new-results-dismiss"}
+              onClick={() => {
+                if (unifiedBanner.kind === "nudge") setNudgeDismissed(true)
+                else setShowNewResultsBanner(false)
+              }}
+              aria-label="Dismiss"
             >
-              Ask Clarion →
-            </button>
-          </motion.div>
-        )}
-
-        {hasBloodwork && showNewResultsBanner && (
-          <div className="dashboard-new-results-banner dashboard-new-results-banner--compact" role="status">
-            <span>
-              New results saved
-              {scoreDelta != null && scoreDelta > 0 ? ` — up ${scoreDelta} points.` : "."}
-            </span>
-            <button type="button" className="dashboard-new-results-dismiss" onClick={() => setShowNewResultsBanner(false)} aria-label="Dismiss">
               ×
             </button>
-          </div>
-        )}
-
-        {hasBloodwork && nudgeBanner && (
-          <div className="dashboard-nudge-banner" role="status">
-            <span>{nudgeBanner.message}</span>
-            {nudgeBanner.external ? (
-              <a href={nudgeBanner.href} target="_blank" rel="noopener noreferrer">{nudgeBanner.cta}</a>
-            ) : (
-              <Link href={nudgeBanner.href}>{nudgeBanner.cta}</Link>
-            )}
-            <button type="button" className="dashboard-nudge-dismiss" onClick={() => setNudgeDismissed(true)} aria-label="Dismiss">×</button>
           </div>
         )}
 
@@ -1115,23 +1189,470 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          <motion.div
-            className="dashboard-main"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.22, ease: "easeOut" }}
-          >
-            {/* Today's protocol — daily habit, moved up for visibility */}
-            {hasBloodwork && (
-              <motion.section
-                id="protocol"
-                className="dashboard-section dashboard-section-protocol"
-                aria-labelledby="dashboard-protocol-heading"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, delay: 0.06 }}
-              >
-                <h2 id="dashboard-protocol-heading" className="dashboard-section-title"><ListChecks className="dashboard-section-title-icon" size={18} strokeWidth={2} aria-hidden /> Today&apos;s plan</h2>
+          <>
+            {hasBloodwork && (bloodwork?.score != null || score === 0) && (
+              <section className="dashboard-today dashboard-home" aria-labelledby="dashboard-today-heading">
+                <h2 id="dashboard-today-heading" className="visually-hidden">
+                  Today
+                </h2>
+
+                <div className="dashboard-clarion-mosaic">
+                <p className="dashboard-home-narrative-eyebrow">Your companion snapshot</p>
+
+                <div className="dashboard-today-hero-band">
+                  <div className="dashboard-hero-composition">
+                    <div className="dashboard-hero-composition__visual">
+                      <PanelScoreEditorial
+                        score={score}
+                        max={100}
+                        interpretation={panelInterpretation}
+                        contributors={panelContributors}
+                        progressionLine={scoreProgressionLine}
+                        focusLine={scoreFocusLine}
+                        tierClassName={scoreTierClass}
+                        ariaLabel={`Panel score ${score} out of 100. ${panelInterpretation}`}
+                      />
+                    </div>
+                    <div className="dashboard-hero-composition__story">
+                      <p className="dashboard-hero-kicker">
+                        <span className="dashboard-hero-kicker-score">{scoreToLabel(score)}</span>
+                        {reportDateRelative ? (
+                          <>
+                            <span className="dashboard-hero-kicker-dot" aria-hidden>
+                              ·
+                            </span>
+                            <span>{reportDateRelative}</span>
+                          </>
+                        ) : null}
+                      </p>
+                      {heroPrioritySteps.length > 0 ? (
+                        <>
+                          <div className="dashboard-hero-composition__quick-log" aria-label="Quick logging">
+                            <Link href="#daily-check-in" className="dashboard-hero-composition__quick-log-link">
+                              Log check-in
+                            </Link>
+                            {protocolTodayY > 0 ? (
+                              <Link href="#protocol" className="dashboard-hero-composition__quick-log-link">
+                                {protocolTaskFocusLine ?? "Protocol"}
+                              </Link>
+                            ) : null}
+                            <Link href="/dashboard/actions" className="dashboard-hero-composition__quick-log-link">
+                              Full action list
+                            </Link>
+                          </div>
+                          <p className="dashboard-hero-next-label">Priority markers</p>
+                          <ul className="dashboard-hero-drivers" aria-label="Priority markers">
+                            {heroPrioritySteps.map((step, idx) => (
+                              <li key={`${step.markerName}-${idx}`} className="dashboard-hero-drivers__item">
+                                <div className="dashboard-hero-drivers__row">
+                                  <Link href={step.guideHref} className="dashboard-hero-drivers__name">
+                                    {step.displayName}
+                                  </Link>
+                                  <span className="dashboard-hero-drivers__badge">{step.statusLabel}</span>
+                                </div>
+                                <div className="dashboard-hero-drivers__actions">
+                                  <Link href={step.guideHref}>Guide</Link>
+                                  <span className="dashboard-hero-drivers__actions-sep" aria-hidden>
+                                    ·
+                                  </span>
+                                  <Link href="/dashboard/actions">Plan</Link>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      ) : (
+                        <>
+                          <h3 className="dashboard-hero-composition__headline">{homeHeadline}</h3>
+                          <p className="dashboard-hero-composition__lede">{homeLede}</p>
+                          {heroPositiveLine ? (
+                            <p className="dashboard-hero-positive">{heroPositiveLine}</p>
+                          ) : null}
+                        </>
+                      )}
+                      <div className="dashboard-hero-composition__actions">
+                        <details className="dashboard-today-panel-details dashboard-today-panel-details--hero">
+                          <summary>Numbers &amp; history</summary>
+                          <ul className="dashboard-today-panel-details-list">
+                            {heroFocus.gain != null && heroFocus.gain > 0 && (
+                              <li>+{heroFocus.gain} points when you finish today&apos;s protocol steps.</li>
+                            )}
+                            {scoreDelta != null && scoreDelta !== 0 && (
+                              <li>
+                                {scoreDelta > 0 ? "+" : ""}
+                                {Math.round(scoreDelta)} vs last panel
+                              </li>
+                            )}
+                            {scoreJourney && (
+                              <li>
+                                {scoreJourney.improved ? "Improved: " : "Panels: "}
+                                {scoreJourney.from} → {scoreJourney.to}
+                              </li>
+                            )}
+                            {retestCountdown && (
+                              <li>
+                                {retestCountdown.type === "until"
+                                  ? `Next retest in ${retestCountdown.weeks} week${retestCountdown.weeks !== 1 ? "s" : ""}`
+                                  : `Retest suggested ${retestCountdown.weeks} week${retestCountdown.weeks !== 1 ? "s" : ""} ago`}{" "}
+                                <Link href="/?step=labs">Add labs</Link>
+                              </li>
+                            )}
+                            {heroMomentumLine && <li>{heroMomentumLine}</li>}
+                            {heroFocus.statusChip && (
+                              <li>
+                                {heroFocus.markerForWhy}: {heroFocus.statusChip}
+                                {heroFocus.gain != null && heroFocus.gain > 0 ? ` · up to +${heroFocus.gain} pts` : ""}
+                              </li>
+                            )}
+                          </ul>
+                        </details>
+                        <Link href="/dashboard/biomarkers" className="dashboard-hero-composition__cta">
+                          View full analysis
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                  <dl className="dashboard-today-metrics-strip" aria-label="Summary metrics">
+                    <div className="dashboard-metric-pill">
+                      <dt className="dashboard-metric-pill-label">Protocol</dt>
+                      <dd className="dashboard-metric-pill-value">
+                        {protocolTodayY > 0 ? `${protocolTodayX}/${protocolTodayY}` : "—"}
+                      </dd>
+                    </div>
+                    <div className="dashboard-metric-pill">
+                      <dt className="dashboard-metric-pill-label">Score</dt>
+                      <dd className="dashboard-metric-pill-value">{score}</dd>
+                    </div>
+                    <div className="dashboard-metric-pill">
+                      <dt className="dashboard-metric-pill-label">vs last panel</dt>
+                      <dd className="dashboard-metric-pill-value">
+                        {scoreDelta != null && scoreDelta !== 0
+                          ? `${scoreDelta > 0 ? "+" : ""}${Math.round(scoreDelta)}`
+                          : "—"}
+                      </dd>
+                    </div>
+                    <div className="dashboard-metric-pill">
+                      <dt className="dashboard-metric-pill-label">Retest</dt>
+                      <dd className="dashboard-metric-pill-value">
+                        {retestCountdown
+                          ? retestCountdown.type === "until"
+                            ? `in ${retestCountdown.weeks} wk`
+                            : `${retestCountdown.weeks} wk ago`
+                          : "—"}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+
+                <nav className="dashboard-home-quick-updates" aria-label="Quick updates">
+                  <span className="dashboard-home-quick-updates-label">Quick updates</span>
+                  <div className="dashboard-home-quick-updates-row">
+                    <Link href="#protocol" className="dashboard-home-quick-link">
+                      Today&apos;s plan
+                    </Link>
+                    <button
+                      type="button"
+                      className="dashboard-home-quick-link dashboard-home-quick-link--button"
+                      onClick={() =>
+                        typeof window !== "undefined" &&
+                        window.dispatchEvent(new CustomEvent(CLARION_OPEN_ASSISTANT_EVENT))
+                      }
+                    >
+                      Ask Clarion
+                    </button>
+                    <Link href="#daily-check-in" className="dashboard-home-quick-link">
+                      Log habits
+                    </Link>
+                    <Link href="/dashboard/actions" className="dashboard-home-quick-link">
+                      Actions
+                    </Link>
+                    <Link href="/settings" className="dashboard-home-quick-link">
+                      Profile &amp; symptoms
+                    </Link>
+                    <Link href="/dashboard/tracking" className="dashboard-home-quick-link">
+                      Tracking
+                    </Link>
+                    {bloodworkHistory.length >= 2 && (
+                      <Link href="#between-panels" className="dashboard-home-quick-link">
+                        Habits vs last panel
+                      </Link>
+                    )}
+                    <Link href="/?step=labs" className="dashboard-home-quick-link">
+                      Add labs
+                    </Link>
+                  </div>
+                </nav>
+
+                <div className="dashboard-home-modules" aria-label="Snapshot modules">
+                  <div className="dashboard-home-module">
+                    <div className="dashboard-home-module__label">Top priorities</div>
+                    <ul className="dashboard-home-module__list">
+                      {topPriorityNames.length > 0 ? (
+                        topPriorityNames.slice(0, 3).map((n) => (
+                          <li key={n}>{shortMarkerLabel(n)}</li>
+                        ))
+                      ) : (
+                        <li className="dashboard-home-module__muted">Your markers look balanced.</li>
+                      )}
+                    </ul>
+                    <Link href="/dashboard/actions" className="dashboard-home-module__link">
+                      Actions →
+                    </Link>
+                  </div>
+                  <div className="dashboard-home-module">
+                    <div className="dashboard-home-module__label">Since last panel</div>
+                    {improvedMarkersRecent.length > 0 ? (
+                      <ul className="dashboard-home-module__list">
+                        {improvedMarkersRecent.map((n) => (
+                          <li key={n}>
+                            <span className="dashboard-home-module__improved">{shortMarkerLabel(n)}</span> moved toward optimal
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="dashboard-home-module__muted">
+                        {bloodworkHistory.length >= 2
+                          ? "No clear optimal wins yet — keep the plan consistent."
+                          : "Save a second panel to see what moved."}
+                      </p>
+                    )}
+                    <Link href="/dashboard/trends" className="dashboard-home-module__link">
+                      Trends →
+                    </Link>
+                  </div>
+                  <div className="dashboard-home-module">
+                    <div className="dashboard-home-module__label">Protocol</div>
+                    <p className="dashboard-home-module__stat">
+                      {protocolTodayY > 0 ? (
+                        <>
+                          <strong>
+                            {protocolTodayX}/{protocolTodayY}
+                          </strong>{" "}
+                          today
+                        </>
+                      ) : (
+                        <span className="dashboard-home-module__muted">No stack yet</span>
+                      )}
+                    </p>
+                    {protocolStreakDays >= 1 && (
+                      <p className="dashboard-home-module__sub">{protocolStreakDays}-day logging streak</p>
+                    )}
+                    <Link href="/dashboard#protocol" className="dashboard-home-module__link">
+                      Today&apos;s plan →
+                    </Link>
+                  </div>
+                  <div className="dashboard-home-module">
+                    <div className="dashboard-home-module__label">Daily habits</div>
+                    <p className="dashboard-home-module__muted">Sun, sleep, hydration, activity</p>
+                    <Link href="#daily-check-in" className="dashboard-home-module__link">
+                      Log today →
+                    </Link>
+                  </div>
+                  <div className="dashboard-home-module">
+                    <div className="dashboard-home-module__label">Next retest</div>
+                    {retestCountdown ? (
+                      <>
+                        <p className="dashboard-home-module__stat">
+                          {retestCountdown.type === "until"
+                            ? `Due in about ${retestCountdown.weeks} wk`
+                            : `${retestCountdown.weeks} wk past cadence`}
+                        </p>
+                        <p className="dashboard-home-module__sub">Based on your retest settings</p>
+                      </>
+                    ) : (
+                      <p className="dashboard-home-module__muted">—</p>
+                    )}
+                    <Link href="/?step=labs" className="dashboard-home-module__link">
+                      Labs →
+                    </Link>
+                  </div>
+                </div>
+
+                <section
+                  id="daily-check-in"
+                  className="dashboard-section dashboard-section-habits"
+                  aria-labelledby="dashboard-habits-heading"
+                >
+                  <div className="dashboard-section-habits-head">
+                    <h2 id="dashboard-habits-heading" className="dashboard-section-title">
+                      Today&apos;s habits
+                    </h2>
+                    <Link href="/dashboard/tracking#daily-check-in" className="dashboard-section-habits-more">
+                      Tracking page →
+                    </Link>
+                  </div>
+                  <p className="dashboard-section-habits-lede">
+                    Activity, sun, hydration, sleep — used for trends between blood panels.
+                  </p>
+                  <DailyHealthCheckIn userId={user?.id} />
+                </section>
+
+                {user?.id && bloodworkHistory.length >= 2 && (
+                  <BetweenPanelsInsight
+                    userId={user.id}
+                    bloodworkHistory={bloodworkHistory}
+                    profile={profile}
+                    sectionId="between-panels"
+                  />
+                )}
+
+                {whatsGoingWellItems.length > 0 && (
+                  <div className="dashboard-home-wins" aria-label="What is going well">
+                    <p className="dashboard-home-wins__eyebrow">What&apos;s going well</p>
+                    <ul className="dashboard-home-wins__list">
+                      {whatsGoingWellItems.map((line, i) => (
+                        <li key={`${i}-${line.slice(0, 24)}`}>{line}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {homeTrendMarkerNames.length > 0 && (
+                  <div className="dashboard-trends-section">
+                    <div className="dashboard-trends-section__head">
+                      <h3 className="dashboard-trends-section__title">Biomarker signals</h3>
+                      <Link href="/dashboard/trends" className="dashboard-trends-section__all">
+                        All trends →
+                      </Link>
+                    </div>
+                    <div className="dashboard-trends-scroller" role="list">
+                      {homeTrendMarkerNames.map((markerName) => {
+                        const series = getMarkerValueSeries(bloodworkHistory, markerName)
+                        const r = analysisResults.find((x) => (x.name ?? "") === markerName)
+                        const tone = r ? getStatusToneFriendly(r.status) : getStatusToneFriendly(undefined)
+                        const val = r?.value
+                        const optMin = r?.optimalMin
+                        const optMax = r?.optimalMax
+                        const rangeLabel =
+                          optMin != null && optMax != null ? `${optMin}–${optMax}` : null
+                        return (
+                          <Link
+                            key={markerName}
+                            href="/dashboard/trends"
+                            className={`dashboard-trend-mini-card ${tone.className}`}
+                            role="listitem"
+                          >
+                            <span className="dashboard-trend-mini-card__name">{shortMarkerLabel(markerName)}</span>
+                            {val != null && (
+                              <span className="dashboard-trend-mini-card__value">
+                                {typeof val === "number" && val % 1 !== 0 ? val.toFixed(1) : val}
+                                {rangeLabel && (
+                                  <span className="dashboard-trend-mini-card__range"> · aim {rangeLabel}</span>
+                                )}
+                              </span>
+                            )}
+                            <span className={`dashboard-trend-mini-card__badge tone-pill ${tone.className}`}>{tone.label}</span>
+                            {series.length >= 2 ? (
+                              <MiniSparkline values={series} />
+                            ) : (
+                              <span className="dashboard-trend-mini-card__hint">
+                                {series.length === 1 ? "One data point" : "No history yet"}
+                              </span>
+                            )}
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {homeLearningTeaser && (
+                  <div className="dashboard-home-learn-card">
+                    {homeLearningTeaser.biomarkerTag && (
+                      <span className="dashboard-home-learn-card__tag">{homeLearningTeaser.biomarkerTag}</span>
+                    )}
+                    <h3 className="dashboard-home-learn-card__title">{homeLearningTeaser.title}</h3>
+                    <p className="dashboard-home-learn-card__body">{homeLearningTeaser.body}</p>
+                    <Link href={homeLearningTeaser.link} className="dashboard-home-learn-card__cta">
+                      Read your personalized insight →
+                    </Link>
+                  </div>
+                )}
+                </div>
+
+                {dashboardStatus.urgency !== "neutral" && (
+                  <p className={`dashboard-today-status dashboard-today-status--${dashboardStatus.urgency ?? "neutral"}`}>
+                    {dashboardStatus.href ? (
+                      <Link href={dashboardStatus.href} className="dashboard-today-status-link">
+                        {dashboardStatus.label}
+                      </Link>
+                    ) : (
+                      dashboardStatus.label
+                    )}
+                  </p>
+                )}
+
+                <div className="dashboard-today-card">
+                  {hasBloodwork && bloodwork?.score != null && (
+                    <div
+                      className="dashboard-score-hero-goal dashboard-score-hero-goal--compact dashboard-today-goal-compact"
+                      aria-label="Score goal"
+                    >
+                      {profile?.score_goal != null && profile.score_goal > 0 ? (
+                        <>
+                          <div className="dashboard-score-hero-goal-heading">
+                            <span className="dashboard-score-hero-goal-label">Your goal</span>
+                            <span className="dashboard-score-hero-goal-value">
+                              {Math.round(Number(bloodwork.score))} / {profile.score_goal}
+                            </span>
+                          </div>
+                          <div className="dashboard-goal-bar-wrap dashboard-goal-bar-wrap--hero">
+                            <div
+                              className="dashboard-goal-bar"
+                              style={{
+                                width: `${Math.min(100, (Number(bloodwork.score) / profile.score_goal) * 100)}%`,
+                              }}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <p className="dashboard-score-hero-goal-nudge">
+                          <Link href="/settings" className="dashboard-score-hero-goal-link">
+                            Set a score goal
+                          </Link>{" "}
+                          to track your progress.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <p className="dashboard-today-insight">{todayInsightLineText}</p>
+
+                  {todayPrimaryCta && (
+                    <Link href={todayPrimaryCta.href} className="dashboard-cta-elegant">
+                      {todayPrimaryCta.label}
+                    </Link>
+                  )}
+
+                  {heroFocus.markerForWhy ? (
+                    <details className="dashboard-why-matters-details">
+                      <summary className="dashboard-why-matters-summary">
+                        Why this matters
+                        <ChevronDown size={18} strokeWidth={2} aria-hidden className="dashboard-why-chevron" />
+                      </summary>
+                      <div className="dashboard-why-matters-body">
+                        <p className="dashboard-why-matters-lead">{shortWhySummaryLine(heroFocus.markerForWhy)}</p>
+                        <p className="dashboard-why-matters-detail">{inferWhyItMatters(heroFocus.markerForWhy)}</p>
+                        <Link href="/dashboard/actions" className="dashboard-why-matters-more">
+                          View personalized actions →
+                        </Link>
+                      </div>
+                    </details>
+                  ) : null}
+                </div>
+
+                <section
+                  id="protocol"
+                  className="dashboard-section dashboard-section-protocol dashboard-today-protocol"
+                  aria-labelledby="dashboard-protocol-heading"
+                >
+                    <h2 id="dashboard-protocol-heading" className="dashboard-section-title">
+                      <ListChecks className="dashboard-section-title-icon" size={18} strokeWidth={2} aria-hidden /> Today&apos;s plan
+                    </h2>
+                    <p className="dashboard-protocol-mission">
+                      Check these off when you can — they&apos;re the fastest path to a higher score.
+                    </p>
+                    {doThisFirst && <p className="dashboard-protocol-lede">{doThisFirst.line}</p>}
                 <ProtocolTracker
                   stackSnapshot={bloodwork?.stack_snapshot}
                   userId={user?.id}
@@ -1165,9 +1686,10 @@ export default function DashboardPage() {
                         return (
                           <li key={`${item.supplementName}-${i}`} className="dashboard-stack-chip">
                             <div className="dashboard-stack-chip-name-row">
-                              <span className="dashboard-stack-chip-emoji" aria-hidden>
-                                {short.emoji}
-                              </span>
+                              <span
+                                className={`dashboard-stack-chip-mark dashboard-stack-chip-mark--${short.glyphKind}`}
+                                aria-hidden
+                              />
                               <span className="dashboard-stack-chip-name">{short.title}</span>
                             </div>
                             <div className="dashboard-stack-chip-meta">
@@ -1213,17 +1735,16 @@ export default function DashboardPage() {
                     <p className="dashboard-badges-list">{earnedBadges.map((b) => b.name).join(", ")}</p>
                   </div>
                 )}
-              </motion.section>
+                </section>
+              </section>
             )}
 
+            <div className="dashboard-main">
             {/* Quick links — full detail on dedicated pages */}
             {hasBloodwork && (
-              <motion.section
+              <section
                 className="dashboard-section dashboard-explore-section"
                 aria-labelledby="dashboard-explore-heading"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, delay: 0.04 }}
               >
                 <h2 id="dashboard-explore-heading" className="dashboard-section-title">
                   <BarChart2 className="dashboard-section-title-icon" size={18} strokeWidth={2} aria-hidden /> Explore
@@ -1256,16 +1777,13 @@ export default function DashboardPage() {
                     <span className="dashboard-explore-card-cta">Open actions →</span>
                   </Link>
                 </div>
-              </motion.section>
+              </section>
             )}
 
             {hasBloodwork && scoreBreakdown && scoreCategoriesWithMarkers.length > 0 && (
-              <motion.section
+              <section
                 className="dashboard-section dashboard-score-areas-section"
                 aria-labelledby="dashboard-score-areas-heading"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.28, delay: 0.08 }}
               >
                 <h2 id="dashboard-score-areas-heading" className="dashboard-section-title">
                   <BarChart2 className="dashboard-section-title-icon" size={18} strokeWidth={2} aria-hidden /> Score by area
@@ -1290,128 +1808,27 @@ export default function DashboardPage() {
                     What to do next →
                   </Link>
                 </div>
-              </motion.section>
-            )}
-
-            {/* Merged status line: status + protocol/streak/retest + trends */}
-            {hasBloodwork && (dashboardStatus.label || protocolTodayY > 0 || protocolStreakDays > 0 || retestCountdown || trendInsights.length > 0) && (
-              <div className={`dashboard-status-line dashboard-status-strip--${dashboardStatus.urgency ?? "neutral"}`} role="status">
-                {dashboardStatus.label && (
-                  <>
-                    {dashboardStatus.href ? (
-                      <Link href={dashboardStatus.href} className="dashboard-status-line-link">{dashboardStatus.label}</Link>
-                    ) : (
-                      <span className="dashboard-status-line-item">{dashboardStatus.label}</span>
-                    )}
-                  </>
-                )}
-                {protocolTodayY > 0 && (
-                  <>
-                    {dashboardStatus.label && <span className="dashboard-status-line-sep">·</span>}
-                    <span className="dashboard-status-line-item dashboard-status-line-with-progress">
-                      <span className="dashboard-today-progress-wrap" aria-hidden>
-                        <span className="dashboard-today-progress-bar" style={{ width: `${(protocolTodayX / protocolTodayY) * 100}%` }} />
-                      </span>
-                      <span>Protocol {protocolTodayX}/{protocolTodayY}</span>
-                    </span>
-                  </>
-                )}
-                {protocolStreakDays > 0 && (
-                  <>
-                    {(dashboardStatus.label || protocolTodayY > 0) && <span className="dashboard-status-line-sep">·</span>}
-                    <span className="dashboard-status-line-item">{protocolStreakDays}-day streak</span>
-                  </>
-                )}
-                {retestCountdown && (
-                  <>
-                    {(dashboardStatus.label || protocolTodayY > 0 || protocolStreakDays > 0) && <span className="dashboard-status-line-sep">·</span>}
-                    <span className="dashboard-status-line-item">
-                      {retestCountdown.type === "until"
-                        ? `Retest in ${retestCountdown.weeks} week${retestCountdown.weeks !== 1 ? "s" : ""}`
-                        : `Retest ${retestCountdown.weeks} week${retestCountdown.weeks !== 1 ? "s" : ""} ago`}
-                    </span>
-                  </>
-                )}
-                {trendInsights.length > 0 && (
-                  <>
-                    {(dashboardStatus.label || protocolTodayY > 0 || protocolStreakDays > 0 || retestCountdown) && <span className="dashboard-status-line-sep">·</span>}
-                    <span className="dashboard-status-line-item dashboard-status-line-trends">
-                      {trendInsights.slice(0, 3).map((t, i) => (
-                        <React.Fragment key={t.key}>
-                          {i > 0 && " · "}
-                          <span>{t.first === t.last ? `${t.label} ${t.last}` : `${t.label} ${t.first}→${t.last}`}</span>
-                        </React.Fragment>
-                      ))}
-                    </span>
-                  </>
-                )}
-              </div>
-            )}
-
-            {/* Today's focus — actionable items */}
-            {hasBloodwork && (
-              <motion.section
-                className="dashboard-section dashboard-today-tasks"
-                aria-labelledby="dashboard-today-tasks-heading"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.2 }}
-              >
-                <h2 id="dashboard-today-tasks-heading" className="dashboard-section-title"><Target className="dashboard-section-title-icon" size={18} strokeWidth={2} aria-hidden /> Today&apos;s focus</h2>
-                <div className="dashboard-today-tasks-grid">
-                  {/* Task 1: Log protocol — context-aware title/line */}
-                  <div className="dashboard-card dashboard-today-task-card">
-                    <h3 className="dashboard-today-task-title">{todayContext.task1.title}</h3>
-                    <p className="dashboard-today-task-line">{todayContext.task1.line}</p>
-                    {protocolTodayComplete ? (
-                      <Link href="/dashboard#protocol" className="dashboard-today-task-cta dashboard-today-task-cta-secondary">View tracker</Link>
-                    ) : (
-                      <Link href="/dashboard#protocol" className="dashboard-today-task-cta">Log now</Link>
-                    )}
-                  </div>
-                  {/* Task 2: Supplements */}
-                  {bloodwork?.stack_snapshot && "stack" in bloodwork.stack_snapshot && Array.isArray(bloodwork.stack_snapshot.stack) && (bloodwork.stack_snapshot.stack as SavedSupplementStackItem[]).filter((s) => s?.supplementName?.trim()).length > 0 ? (
-                    <div className="dashboard-card dashboard-today-task-card">
-                      <h3 className="dashboard-today-task-title">Take your supplements</h3>
-                      <p className="dashboard-today-task-line">
-                        You&apos;re on {(bloodwork.stack_snapshot.stack as SavedSupplementStackItem[]).filter((s) => s?.supplementName?.trim()).length} supplement{(bloodwork.stack_snapshot.stack as SavedSupplementStackItem[]).filter((s) => s?.supplementName?.trim()).length !== 1 ? "s" : ""}.
-                      </p>
-                      <Link href="/dashboard/plan#stack" className="dashboard-today-task-cta">See my stack</Link>
-                    </div>
-                  ) : (
-                    <div className="dashboard-card dashboard-today-task-card">
-                      <h3 className="dashboard-today-task-title">Build your plan</h3>
-                      <p className="dashboard-today-task-line">Get your personalized supplement plan from your results.</p>
-                      <Link href="/dashboard/plan#stack" className="dashboard-today-task-cta">View plan</Link>
-                    </div>
-                  )}
-                  {/* Task 3: Context-aware (streak, retest, guide, or on track) */}
-                  <div className="dashboard-card dashboard-today-task-card">
-                    <h3 className="dashboard-today-task-title">{todayContext.task3.title}</h3>
-                    <p className="dashboard-today-task-line">{todayContext.task3.line}</p>
-                    {todayContext.task3.ctaType === "log" && todayContext.task3.ctaHref && (
-                      <Link href={todayContext.task3.ctaHref} className="dashboard-today-task-cta">{todayContext.task3.ctaLabel ?? "Log now"}</Link>
-                    )}
-                    {todayContext.task3.ctaType === "calendar" && todayContext.task3.ctaHref && (
-                      <a href={todayContext.task3.ctaHref} target="_blank" rel="noopener noreferrer" className="dashboard-today-task-cta">{todayContext.task3.ctaLabel ?? "Add to calendar"}</a>
-                    )}
-                    {todayContext.task3.ctaType === "guide" && todayContext.task3.ctaHref && (
-                      <Link href={todayContext.task3.ctaHref} className="dashboard-today-task-cta">{todayContext.task3.ctaLabel ?? "Read guide"}</Link>
-                    )}
-                  </div>
-                </div>
-              </motion.section>
+              </section>
             )}
 
             {/* Expand 1: Your priorities & guides */}
             {hasBloodwork && (
-              <section className="dashboard-section" aria-labelledby="dashboard-expand-priorities-heading">
+              <section
+                id="priorities-guides"
+                className="dashboard-section"
+                aria-labelledby="dashboard-expand-priorities-heading"
+              >
                 <h2 id="dashboard-expand-priorities-heading" className="dashboard-section-title"><Lightbulb className="dashboard-section-title-icon" size={18} strokeWidth={2} aria-hidden /> Your priorities & guides</h2>
                 {!showPrioritiesAndGuides ? (
-                  <button type="button" className="dashboard-card dashboard-expand-trigger" onClick={() => setShowPrioritiesAndGuides(true)}>
+                  <Link
+                    href="#priorities-guides"
+                    className="dashboard-card dashboard-expand-trigger"
+                    scroll={false}
+                    onClick={() => setShowPrioritiesAndGuides(true)}
+                  >
                     <span className="dashboard-expand-trigger-label">Priorities & learning</span>
                     <span className="dashboard-expand-trigger-chevron" aria-hidden>↓</span>
-                  </button>
+                  </Link>
                 ) : (
                   <>
                     <button type="button" className="dashboard-expand-close" onClick={() => setShowPrioritiesAndGuides(false)} aria-label="Collapse">↑ Less</button>
@@ -1473,11 +1890,12 @@ export default function DashboardPage() {
                                 )}
                                 <p className="dashboard-priority-explanation">{inferWhyItMatters(name)}</p>
                                 <Link href="/dashboard#protocol" className="dashboard-priority-link">View protocol</Link>
-                                {actionHref ? (
-                                  <Link href={actionHref} className="dashboard-priority-action">→ {actionLabel}</Link>
-                                ) : (
-                                  <span className="dashboard-priority-action dashboard-priority-action-muted">{actionLabel}</span>
-                                )}
+                                <Link
+                                  href={actionHref ?? "/faq"}
+                                  className={`dashboard-priority-action ${actionHref ? "" : "dashboard-priority-action-muted"}`}
+                                >
+                                  → {actionLabel}
+                                </Link>
                               </div>
                             )
                           })}
@@ -1561,7 +1979,7 @@ export default function DashboardPage() {
             {hasBloodwork && (
               <div className="dashboard-tip-bar" role="complementary">
                 <span className="dashboard-tip-label">From the research</span>
-                <span className="dashboard-tip-text">{getTodaysTip()}</span>
+                <span className="dashboard-tip-text">{contextualInsightLine}</span>
               </div>
             )}
 
@@ -1580,7 +1998,8 @@ export default function DashboardPage() {
             )}
             </>
             )}
-          </motion.div>
+          </div>
+          </>
         )}
 
         {user && profile && (
@@ -1612,6 +2031,28 @@ export default function DashboardPage() {
         )}
       </div>
 
+      {isDev && hasBloodwork && (
+        <div className="dashboard-sky-dev" role="toolbar" aria-label="Dev: sky background (development only)">
+          <span className="dashboard-sky-dev-label">Sky</span>
+          <button
+            type="button"
+            className={devSkyOverride === null ? "dashboard-sky-dev--active" : ""}
+            onClick={() => applyDevSky(null)}
+          >
+            Auto
+          </button>
+          {DASHBOARD_SKY_MOODS.map((m) => (
+            <button
+              key={m}
+              type="button"
+              className={devSkyOverride === m ? "dashboard-sky-dev--active" : ""}
+              onClick={() => applyDevSky(m)}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
+      )}
     </main>
   )
 }

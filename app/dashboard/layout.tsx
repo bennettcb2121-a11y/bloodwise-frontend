@@ -4,13 +4,15 @@ import React, { Suspense, useCallback, useEffect, useLayoutEffect, useState } fr
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
-import { Home, FlaskConical, ListChecks, Activity, BookOpen, Menu, Trophy, Settings as SettingsIcon, Bookmark, HelpCircle, LogOut } from "lucide-react"
-import { CLARION_OPEN_ASSISTANT_EVENT } from "@/src/components/ClarionAssistant"
+import { Home, FlaskConical, ListChecks, Activity, BookOpen, Menu, Trophy, Bookmark, Settings as SettingsIcon } from "lucide-react"
 import { AppSplashScreen } from "@/src/components/AppSplashScreen"
 import { AppLoadingScreen } from "@/src/components/AppLoadingScreen"
 import { ThemeToggle } from "@/src/components/ThemeToggle"
 import { SubscribeButton } from "@/src/components/SubscribeButton"
 import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
+import { DashboardSidebarNav } from "@/src/components/DashboardSidebarNav"
+import { DashboardSkyAtmosphereProvider } from "@/src/contexts/DashboardSkyAtmosphereContext"
+import { DashboardSkyShell } from "@/src/components/DashboardSkyShell"
 import { getSubscription } from "@/src/lib/bloodwiseDb"
 import type { SubscriptionRow } from "@/src/lib/bloodwiseDb"
 import {
@@ -19,6 +21,10 @@ import {
   BRAND_LOADING_DURATION_MS,
   shouldSkipBrandIntro,
 } from "@/src/lib/brandIntro"
+
+import "./dashboard.css"
+import "./dashboard-premium.css"
+import "./dashboard-sky.css"
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Home", icon: Home },
@@ -58,10 +64,10 @@ function DashboardLayoutInner({
   const pathname = usePathname()
   const router = useRouter()
   const { user, loading: authLoading, signOut } = useAuth()
-  const [showQuickActions, setShowQuickActions] = useState(false)
   const [phase, setPhase] = useState<AppPhase>("splash")
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null)
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -134,15 +140,6 @@ function DashboardLayoutInner({
   }, [])
 
   useEffect(() => {
-    const onScroll = () => setShowQuickActions(typeof window !== "undefined" && window.scrollY > 150)
-    if (typeof window !== "undefined") {
-      onScroll()
-      window.addEventListener("scroll", onScroll, { passive: true })
-      return () => window.removeEventListener("scroll", onScroll)
-    }
-  }, [])
-
-  useEffect(() => {
     if (!user?.id) return
     getSubscription(user.id).then(setSubscription).catch(() => setSubscription(null))
   }, [user?.id])
@@ -153,6 +150,26 @@ function DashboardLayoutInner({
     window.addEventListener("click", close)
     return () => window.removeEventListener("click", close)
   }, [headerMenuOpen])
+
+  /** Close mobile drawer on route change */
+  useEffect(() => {
+    setMobileSidebarOpen(false)
+  }, [pathname])
+
+  /** Escape closes mobile drawer; lock body scroll when open */
+  useEffect(() => {
+    if (!mobileSidebarOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileSidebarOpen(false)
+    }
+    window.addEventListener("keydown", onKey)
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      window.removeEventListener("keydown", onKey)
+      document.body.style.overflow = prev
+    }
+  }, [mobileSidebarOpen])
 
   const handleLogOut = useCallback(async () => {
     setHeaderMenuOpen(false)
@@ -180,114 +197,96 @@ function DashboardLayoutInner({
     return <AppLoadingScreen />
   }
 
-  const isDashboardHome = pathname === "/dashboard"
-
-  const TOP_TABS = [
-    { href: "/dashboard", label: "Overview" },
-    { href: "/dashboard/biomarkers", label: "Biomarkers" },
-    { href: "/dashboard/actions", label: "Actions" },
-    { href: "/dashboard/trends", label: "Trends" },
-    { href: "/dashboard/plan", label: "Plan" },
-    { href: "/guides", label: "Guides" },
-    { href: "/dashboard/challenges", label: "Challenges" },
-    { href: "/settings", label: "Profile" },
-    { href: "/faq", label: "FAQ" },
-  ] as const
-
   const hasActiveSubscription = subscription?.status === "active" || subscription?.status === "trialing"
 
   return (
-    <div className="dashboard-app-shell">
-      <nav className="dashboard-top-tabs" role="navigation" aria-label="Sections">
-        <Link href="/dashboard" className="dashboard-top-brand" aria-label="Clarion Labs — dashboard home">
-          <ClarionLabsLogo variant="compact" />
-        </Link>
-        <div className="dashboard-top-tabs-inner">
-          {TOP_TABS.map(({ href, label }) => {
-            const isActive =
-              href === "/dashboard"
-                ? pathname === "/dashboard"
-                : href === "/settings"
-                  ? pathname.startsWith("/settings")
-                  : href === "/faq"
-                    ? pathname === "/faq"
-                    : pathname.startsWith(href)
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={`dashboard-top-tab ${isActive ? "dashboard-top-tab--active" : ""}`}
-                aria-current={isActive ? "page" : undefined}
-              >
-                {label}
-              </Link>
-            )
-          })}
-        </div>
-        <div className="dashboard-top-tabs-actions">
-          <button type="button" className="dashboard-top-logout" onClick={() => void handleLogOut()}>
-            Log out
-          </button>
-          <div className="dashboard-header-menu-wrap">
-            <button
-              type="button"
-              className="dashboard-header-menu-btn"
-              onClick={(e) => { e.stopPropagation(); setHeaderMenuOpen((o) => !o) }}
-              aria-expanded={headerMenuOpen}
-              aria-haspopup="true"
-              aria-label="Open menu"
-            >
-              <Menu size={18} strokeWidth={2} aria-hidden />
-            </button>
-            {headerMenuOpen && (
-              <div className="dashboard-header-menu-dropdown" role="menu" onClick={(e) => e.stopPropagation()}>
-                <Link href="/faq" className="dashboard-header-menu-item" role="menuitem" onClick={() => setHeaderMenuOpen(false)}>
-                  <HelpCircle size={16} aria-hidden /> FAQ
-                </Link>
-                <Link href="/guides" className="dashboard-header-menu-item" role="menuitem" onClick={() => setHeaderMenuOpen(false)}>
-                  <BookOpen size={16} aria-hidden /> Guides
-                </Link>
-                <Link href="/dashboard/challenges" className="dashboard-header-menu-item" role="menuitem" onClick={() => setHeaderMenuOpen(false)}>
-                  <Trophy size={16} aria-hidden /> Challenges
-                </Link>
-                <Link href="/settings" className="dashboard-header-menu-item" role="menuitem" onClick={() => setHeaderMenuOpen(false)}>
-                  <SettingsIcon size={16} aria-hidden /> Settings
-                </Link>
-                <button
-                  type="button"
-                  className="dashboard-header-menu-item dashboard-header-menu-item--danger"
-                  role="menuitem"
-                  onClick={() => void handleLogOut()}
-                >
-                  <LogOut size={16} aria-hidden /> Log out
-                </button>
-              </div>
-            )}
+    <div className="dashboard-app-shell dashboard-app-shell--clarion">
+      <DashboardSkyAtmosphereProvider>
+      <div className="dashboard-layout-row">
+        <aside
+          id="dashboard-sidebar-panel"
+          className={`dashboard-sidebar ${mobileSidebarOpen ? "dashboard-sidebar--open" : ""}`}
+          aria-label="Primary navigation"
+        >
+          <div className="dashboard-sidebar-inner">
+            <Link href="/dashboard" className="dashboard-sidebar-brand" onClick={() => setMobileSidebarOpen(false)}>
+              <ClarionLabsLogo variant="compact" />
+            </Link>
+            <DashboardSidebarNav onNavigate={() => setMobileSidebarOpen(false)} />
           </div>
-          <ThemeToggle />
-          {hasActiveSubscription ? (
-            <span className="dashboard-member-badge">Clarion+ member</span>
-          ) : (
-            <SubscribeButton className="dashboard-subscribe-btn dashboard-subscribe-btn--pill">Subscribe</SubscribeButton>
-          )}
-        </div>
-      </nav>
-      <div className="dashboard-app-content">{children}</div>
-      {isDashboardHome && showQuickActions && (
-        <div className="dashboard-quick-actions" role="group" aria-label="Quick actions">
-          <Link href="/dashboard#protocol" className="dashboard-quick-action-btn">
-            Today&apos;s plan
-          </Link>
+        </aside>
+
+        {mobileSidebarOpen ? (
           <button
             type="button"
-            className="dashboard-quick-action-btn"
-            onClick={() => typeof window !== "undefined" && window.dispatchEvent(new CustomEvent(CLARION_OPEN_ASSISTANT_EVENT))}
-          >
-            Ask Clarion
-          </button>
+            className="dashboard-sidebar-backdrop"
+            aria-label="Close navigation menu"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+        ) : null}
+
+        <div className="dashboard-main-column">
+          <nav className="dashboard-top-bar" role="navigation" aria-label="Toolbar">
+            <div className="dashboard-top-bar-start">
+              <button
+                type="button"
+                className="dashboard-sidebar-hamburger"
+                aria-expanded={mobileSidebarOpen}
+                aria-controls="dashboard-sidebar-panel"
+                aria-label={mobileSidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setMobileSidebarOpen((o) => !o)
+                }}
+              >
+                <Menu size={22} strokeWidth={2} aria-hidden />
+              </button>
+              <Link href="/dashboard" className="dashboard-top-brand dashboard-top-brand--bar" aria-label="Clarion Labs — dashboard home">
+                <ClarionLabsLogo variant="compact" />
+              </Link>
+            </div>
+            <div className="dashboard-top-tabs-actions">
+              <button type="button" className="dashboard-top-logout" onClick={() => void handleLogOut()}>
+                Log out
+              </button>
+              <div className="dashboard-header-menu-wrap">
+                <button
+                  type="button"
+                  className="dashboard-header-menu-btn"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setHeaderMenuOpen((o) => !o)
+                  }}
+                  aria-expanded={headerMenuOpen}
+                  aria-haspopup="true"
+                  aria-label="More actions"
+                >
+                  <Menu size={18} strokeWidth={2} aria-hidden />
+                </button>
+                {headerMenuOpen && (
+                  <div className="dashboard-header-menu-dropdown" role="menu" onClick={(e) => e.stopPropagation()}>
+                    <Link href="/settings" className="dashboard-header-menu-item" role="menuitem" onClick={() => setHeaderMenuOpen(false)}>
+                      <SettingsIcon size={16} aria-hidden /> Settings
+                    </Link>
+                    <Link href="/faq" className="dashboard-header-menu-item" role="menuitem" onClick={() => setHeaderMenuOpen(false)}>
+                      FAQ &amp; help
+                    </Link>
+                  </div>
+                )}
+              </div>
+              <ThemeToggle />
+              {hasActiveSubscription ? (
+                <span className="dashboard-member-badge">Clarion+ member</span>
+              ) : (
+                <SubscribeButton className="dashboard-subscribe-btn dashboard-subscribe-btn--pill">Subscribe</SubscribeButton>
+              )}
+            </div>
+          </nav>
+          <DashboardSkyShell>{children}</DashboardSkyShell>
         </div>
-      )}
-      <nav className="dashboard-bottom-nav" role="navigation" aria-label="Main">
+      </div>
+
+      <nav className="dashboard-bottom-nav" role="navigation" aria-label="Quick links">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const isActive = href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href)
           return (
@@ -303,6 +302,7 @@ function DashboardLayoutInner({
           )
         })}
       </nav>
+      </DashboardSkyAtmosphereProvider>
     </div>
   )
 }

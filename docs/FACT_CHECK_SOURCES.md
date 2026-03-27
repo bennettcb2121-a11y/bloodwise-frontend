@@ -4,7 +4,13 @@ This document lists the **reputable sources** used for biomarker education, refe
 
 ---
 
-## Evidence links (biomarkerEvidence.ts & research.ts)
+## Evidence links (single source: `biomarkerEvidence.ts`)
+
+All curated URLs live in **`BIOMARKER_EVIDENCE`** and are exposed via **`getEvidenceForBiomarker(markerName)`** (which applies **`resolveEvidenceDbKey`**, e.g. `25-OH Vitamin D` → `Vitamin D`, `Fasting insulin` → `Insulin`). Guides and the biomarkers dashboard render these lists; onboarding uses the same helper.
+
+**`src/lib/research.ts`** exposes legacy **`researchSources`** (first link per key only) derived from the same map—prefer **`getEvidenceForBiomarker`** for the full set.
+
+Representative entries (not exhaustive—see the source file for CBC/CMP, electrolytes, LFTs, hormones, etc.):
 
 | Biomarker | Source | URL / PMID | Notes |
 |-----------|--------|------------|--------|
@@ -22,6 +28,8 @@ This document lists the **reputable sources** used for biomarker education, refe
 | **hs-CRP / CRP** | CDC/AHA Statement | PMID 12551878 | Markers of inflammation and CVD (Circulation). |
 | **hs-CRP / CRP** | Kasapis & Thompson | PMID 15893167 | Physical activity and CRP (JACC systematic review). |
 | **Testosterone** | Hackney et al. | PMID 31723314 | Exercise-hypogonadal male condition (Curr Trends Endocrinol). |
+
+**Recommendation strength** (qualitative, for protocol/guide copy) is separate: **`getEvidenceStrengthForBiomarker`** in `recommendationEvidence.ts` — not the same as citation URLs.
 
 ---
 
@@ -53,6 +61,7 @@ This document lists the **reputable sources** used for biomarker education, refe
 - **coreBiomarkerProtocols.ts** header: *"Use for education and decision support only; not medical diagnosis. Clinician oversight required for iron when ferritin is high/normal or cause unclear, berberine with diabetes meds/pregnancy, high-dose vitamin D, magnesium in kidney disease, omega-3/curcumin with anticoagulants."*
 - **Supplement/product copy**: Warnings where relevant (iron overdose, berberine, folate masking B12, bleeding risk).
 - **Evidence links**: All point to peer-reviewed or official agency sources (NIH, ADA, AHA, ACC, CDC, PubMed/PMC).
+- **Chat (`/api/chat`)**: System prompt instructs the model not to fabricate citations or PMIDs; education only. **ClarionAssistant** UI states that chat does not cite studies line by line—users should use in-app evidence links and their clinician.
 
 ---
 
@@ -60,6 +69,6 @@ This document lists the **reputable sources** used for biomarker education, refe
 
 - **Evidence URLs**: Prefer stable domains (professional.diabetes.org, ods.od.nih.gov, pubmed.ncbi.nlm.nih.gov, heart.org, acc.org). Replace any 404s with current official or PMID links.
 - **Ranges**: When lab units or guidelines change (e.g. ADA, AHA updates), adjust `biomarkerDatabase.ts` and document here.
-- **New biomarkers**: Add entries to `BIOMARKER_EVIDENCE` with at least one authoritative or peer-reviewed source; update this doc.
+- **New biomarkers**: Add entries to `BIOMARKER_EVIDENCE` with at least one authoritative or peer-reviewed source; add aliases in `EVIDENCE_KEY_ALIASES` if the panel label differs; `research.ts` updates automatically from the same map.
 
-Last updated: March 2025 (post fact-check of all evidence links and protocols).
+Last updated: March 2025 — evidence consolidated in `biomarkerEvidence.ts`; chat disclaimers aligned with UI citations.

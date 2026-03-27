@@ -328,6 +328,7 @@ function HomePageContent() {
             heightCm: rowProfile?.height_cm != null ? String(rowProfile.height_cm) : "",
             weightKg: rowProfile?.weight_kg != null ? String(rowProfile.weight_kg) : "",
             supplementFormPreference: (rowProfile?.supplement_form_preference === "no_pills" ? "no_pills" : "any") as "any" | "no_pills",
+            symptoms: (p as ProfileRow).symptoms ?? "",
           })
           // Don’t overwrite optimistic paid state when returning from checkout (webhook may lag behind redirect).
           setHasPaidAnalysis(hasPaid || isPaymentReturn || isSubscriptionReturn)
@@ -596,6 +597,7 @@ function HomePageContent() {
     profile.goal,
     profile.improvementPreference ?? "",
     profile.profileType ?? "",
+    profile.symptoms ?? "",
     profile.heightCm ?? "",
     profile.weightKg ?? "",
     profile.supplementFormPreference ?? "any",
@@ -627,6 +629,7 @@ function HomePageContent() {
         shopping_preference: shoppingPreference,
         improvement_preference: profile.improvementPreference ?? "",
         profile_type: profile.profileType ?? "",
+        symptoms: profile.symptoms?.trim() ? profile.symptoms : undefined,
         height_cm: Number.isFinite(heightVal) ? heightVal : undefined,
         weight_kg: Number.isFinite(weightVal) ? weightVal : undefined,
         supplement_form_preference: profile.supplementFormPreference === "no_pills" ? "no_pills" : "any",

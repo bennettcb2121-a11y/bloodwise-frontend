@@ -4,6 +4,13 @@
  */
 
 import { calculateScore } from "./calculateScore"
+import {
+  computeDriverPriorityScore,
+  isPriorityContextEmpty,
+  type UserPriorityContext,
+} from "./priorityRanking"
+
+export type { UserPriorityContext } from "./priorityRanking"
 
 export type BiomarkerResultForScore = {
   name?: string
@@ -150,10 +157,11 @@ export function getScoreDrivers(
   return limiters
 }
 
-/** Drivers sorted by severity (highest penalty first) for Action Center priority order. */
+/** Drivers sorted by severity + optional profile/symptom/sport context for Action Center priority order. */
 export function getOrderedScoreDrivers(
   report: BiomarkerResultForScore[] = [],
-  maxItems: number = 10
+  maxItems: number = 10,
+  priorityContext?: UserPriorityContext | null
 ): ScoreDriver[] {
   const statusToLabel: Record<string, string> = {
     deficient: "Low",
@@ -171,7 +179,16 @@ export function getOrderedScoreDrivers(
       markerName: item.name ?? "",
       status: item.status ?? "",
     }))
-  limiters.sort((a, b) => penaltyForStatus(b.status) - penaltyForStatus(a.status))
+  const useContext = priorityContext != null && !isPriorityContextEmpty(priorityContext)
+  if (useContext) {
+    limiters.sort(
+      (a, b) =>
+        computeDriverPriorityScore(b.markerName, b.status, report, priorityContext) -
+        computeDriverPriorityScore(a.markerName, a.status, report, priorityContext)
+    )
+  } else {
+    limiters.sort((a, b) => penaltyForStatus(b.status) - penaltyForStatus(a.status))
+  }
   return limiters.slice(0, maxItems)
 }
 

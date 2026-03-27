@@ -4,12 +4,15 @@ import React, { useEffect, useState } from "react"
 import Link from "next/link"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { loadSavedState, getBloodworkHistory } from "@/src/lib/bloodwiseDb"
-import type { BloodworkSaveRow } from "@/src/lib/bloodwiseDb"
+import type { BloodworkSaveRow, ProfileRow } from "@/src/lib/bloodwiseDb"
 import { ProtocolTracker } from "@/src/components/ProtocolTracker"
+import { DailyHealthCheckIn } from "@/src/components/DailyHealthCheckIn"
+import { BetweenPanelsInsight } from "@/src/components/BetweenPanelsInsight"
 
 export default function TrackingPage() {
   const { user } = useAuth()
   const [bloodwork, setBloodwork] = useState<BloodworkSaveRow | null>(null)
+  const [profile, setProfile] = useState<ProfileRow | null>(null)
   const [bloodworkHistory, setBloodworkHistory] = useState<BloodworkSaveRow[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -20,7 +23,8 @@ export default function TrackingPage() {
     }
     setLoading(true)
     loadSavedState(user.id)
-      .then(({ bloodwork: b }) => {
+      .then(({ profile: p, bloodwork: b }) => {
+        setProfile(p ?? null)
         setBloodwork(b ?? null)
       })
       .catch(() => setBloodwork(null))
@@ -50,13 +54,31 @@ export default function TrackingPage() {
       <div className="dashboard-tab-container">
         <header className="dashboard-tab-header">
           <h1 className="dashboard-tab-title">Tracking</h1>
-          <p className="dashboard-tab-subtitle">Daily protocol and your progress over time.</p>
+          <p className="dashboard-tab-subtitle">
+            Log habits between labs — your protocol, daily check-ins, and score history.
+          </p>
         </header>
+
+        <section id="daily-check-in" className="dashboard-tab-section" aria-labelledby="tracking-daily-heading">
+          <h2 id="tracking-daily-heading" className="dashboard-tab-section-title">
+            Today&apos;s habits
+          </h2>
+          <DailyHealthCheckIn userId={user?.id} />
+        </section>
 
         <section className="dashboard-tab-section" aria-labelledby="tracking-protocol-heading">
           <h2 id="tracking-protocol-heading" className="dashboard-tab-section-title">Today&apos;s plan</h2>
           <ProtocolTracker stackSnapshot={bloodwork?.stack_snapshot} userId={user?.id} />
         </section>
+
+        {user?.id && bloodworkHistory.length >= 2 && (
+          <BetweenPanelsInsight
+            userId={user.id}
+            bloodworkHistory={bloodworkHistory}
+            profile={profile}
+            sectionId="between-panels"
+          />
+        )}
 
         {bloodworkHistory.length >= 2 && (
           <section className="dashboard-tab-section" aria-labelledby="tracking-journey-heading">

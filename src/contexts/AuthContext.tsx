@@ -30,11 +30,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
       return
     }
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s)
-      setUser(s?.user ?? null)
-      setLoading(false)
-    })
+    supabase.auth
+      .getSession()
+      .then(({ data: { session: s } }) => {
+        setSession(s)
+        setUser(s?.user ?? null)
+      })
+      .catch(() => {
+        // Network / CORS / invalid Supabase URL — avoid unhandled rejection (shows as Next.js overlay in dev)
+        setSession(null)
+        setUser(null)
+      })
+      .finally(() => {
+        setLoading(false)
+      })
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, s) => {

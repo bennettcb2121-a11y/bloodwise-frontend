@@ -12,11 +12,14 @@ import { getInterpretationForMarker } from "@/src/lib/biomarkerInterpretation"
 import { getGuidesForBiomarker } from "@/src/lib/guides"
 import { PAID_PROTOCOLS } from "@/src/lib/paidProtocols"
 import { getScoreBreakdown, getCategoryForMarker, getOrderedScoreDrivers, penaltyForStatus, SCORE_CATEGORIES, type ScoreCategoryId } from "@/src/lib/scoreBreakdown"
+import { buildPriorityContextFromProfile } from "@/src/lib/priorityRanking"
 import { getRangeSliderPosition } from "@/src/lib/rangeSlider"
 import { getBiomarkerKeys } from "@/src/lib/panelEngine"
 import { getActionPlanForBiomarker } from "@/src/lib/actionPlans"
 import { getBiomarkerContext } from "@/src/lib/biomarkerContext"
 import { biomarkerDatabase } from "@/src/lib/biomarkerDatabase"
+import { getEvidenceForBiomarker } from "@/src/lib/biomarkerEvidence"
+import { getEvidenceStrengthForBiomarker } from "@/src/lib/recommendationEvidence"
 import { hasClarionAnalysisAccess } from "@/src/lib/accessGate"
 import { ChevronDown, Droplet, Leaf, Zap, Heart, Flame, TestTube2 } from "lucide-react"
 
@@ -108,13 +111,15 @@ export default function BiomarkersPage() {
     }))
   }, [allMarkerKeys, findResultForMarker])
 
+  const priorityContext = useMemo(() => buildPriorityContextFromProfile(profile), [profile])
+
   const orderedByPriority = useMemo(() => {
-    const drivers = getOrderedScoreDrivers(analysisResults, analysisResults.length)
+    const drivers = getOrderedScoreDrivers(analysisResults, analysisResults.length, priorityContext)
     const driverNames = new Set(drivers.map((d) => d.markerName))
     const rest = analysisResults.filter((r: { name?: string }) => !driverNames.has(r.name ?? ""))
     const fromDrivers = drivers.map((d) => analysisResults.find((r: { name?: string }) => r.name === d.markerName)).filter((r): r is (typeof analysisResults)[number] => r != null)
     return [...fromDrivers, ...rest]
-  }, [analysisResults])
+  }, [analysisResults, priorityContext])
 
   /** Full list grouped by category: each item is DisplayItem. Categories include all markers. */
   const groupedByCategoryFull = useMemo(() => {
@@ -303,6 +308,8 @@ export default function BiomarkersPage() {
                 const direction = (item!.status ?? "").toLowerCase() === "high" ? "high" : "low"
                 const causes = direction === "high" ? causesHigh : causesLow
                 const actionPlan = getActionPlanForBiomarker(markerName, analysisResults)
+                const evidenceStrength = getEvidenceStrengthForBiomarker(markerName)
+                const evidenceLinks = getEvidenceForBiomarker(markerName)
 
                 return (
                   <article
@@ -396,6 +403,33 @@ export default function BiomarkersPage() {
                           <p className="dashboard-biomarker-expand-text">{interpretation.nextStepCopy}</p>
                         )}
                       </div>
+                      {(evidenceStrength || evidenceLinks.length > 0) && (
+                        <div className="dashboard-biomarker-expand-block dashboard-biomarker-expand-block--evidence">
+                          <h4 className="dashboard-biomarker-expand-title">Evidence &amp; sources</h4>
+                          {evidenceStrength && (
+                            <p className="dashboard-biomarker-evidence-strength">
+                              <strong>Recommendation strength:</strong> {evidenceStrength.label}
+                            </p>
+                          )}
+                          {evidenceLinks.length > 0 && (
+                            <>
+                              <p className="dashboard-biomarker-evidence-lede">
+                                Education only—verify with your clinician. Official references and peer-reviewed links:
+                              </p>
+                              <ul className="dashboard-biomarker-evidence-list">
+                                {evidenceLinks.map((e, i) => (
+                                  <li key={`${e.url}-${i}`}>
+                                    <a href={e.url} target="_blank" rel="noopener noreferrer" className="dashboard-biomarker-evidence-link">
+                                      {e.title}
+                                    </a>
+                                    <span className="dashboard-biomarker-evidence-source"> — {e.source}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </>
+                          )}
+                        </div>
+                      )}
                       {(guide || paidProtocol) && (
                         <div className="dashboard-biomarker-links">
                           {paidProtocol && (
@@ -732,7 +766,7 @@ export default function BiomarkersPage() {
           transition: max-height 0.25s ease;
         }
         .dashboard-biomarker-card-back--open {
-          max-height: 600px;
+          max-height: 1400px;
         }
         .dashboard-biomarker-card-back > * {
           padding: 14px 0 0;
@@ -760,6 +794,43 @@ export default function BiomarkersPage() {
           font-size: 14px;
           color: var(--color-text-secondary);
           line-height: 1.5;
+        }
+        .dashboard-biomarker-expand-block--evidence {
+          padding-top: 4px;
+          border-top: 1px solid var(--color-border);
+        }
+        .dashboard-biomarker-evidence-strength {
+          margin: 0 0 8px;
+          font-size: 13px;
+          color: var(--color-text-secondary);
+          line-height: 1.45;
+        }
+        .dashboard-biomarker-evidence-lede {
+          margin: 0 0 8px;
+          font-size: 13px;
+          color: var(--color-text-muted);
+          line-height: 1.45;
+        }
+        .dashboard-biomarker-evidence-list {
+          margin: 0;
+          padding-left: 1.2em;
+          font-size: 13px;
+          color: var(--color-text-secondary);
+          line-height: 1.5;
+        }
+        .dashboard-biomarker-evidence-list li {
+          margin-bottom: 4px;
+        }
+        .dashboard-biomarker-evidence-link {
+          color: var(--color-accent);
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+        .dashboard-biomarker-evidence-link:hover {
+          opacity: 0.9;
+        }
+        .dashboard-biomarker-evidence-source {
+          color: var(--color-text-muted);
         }
         .dashboard-biomarker-links {
           display: flex;

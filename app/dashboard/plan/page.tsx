@@ -429,10 +429,10 @@ export default function DashboardPlanPage() {
           <div className="dashboard-card dashboard-saved-plan-card">
             <p className="dashboard-card-muted">Your plan and insights are saved.</p>
             <div className="dashboard-saved-plan-links">
-              <Link href="/results/insights" className="dashboard-saved-plan-link">
+              <Link href="/dashboard/biomarkers" className="dashboard-saved-plan-link">
                 Biomarker insights
               </Link>
-              <Link href="/results/stack" className="dashboard-saved-plan-link">
+              <Link href="/dashboard/plan#stack" className="dashboard-saved-plan-link">
                 Supplement plan
               </Link>
               <Link href="/?step=survey" className="dashboard-saved-plan-link">
@@ -444,7 +444,7 @@ export default function DashboardPlanPage() {
                 type="button"
                 className="dashboard-saved-plan-link dashboard-saved-plan-share-btn"
                 onClick={() => {
-                  const url = typeof window !== "undefined" ? `${window.location.origin}/results/insights` : ""
+                  const url = typeof window !== "undefined" ? `${window.location.origin}/dashboard/biomarkers` : ""
                   if (url && navigator.clipboard?.writeText) {
                     navigator.clipboard.writeText(url).then(() => {
                       notifications.show({ message: "Link copied to clipboard", color: "green" })
@@ -459,8 +459,8 @@ export default function DashboardPlanPage() {
                 className="dashboard-saved-plan-link dashboard-saved-plan-share-btn"
                 onClick={() => {
                   if (typeof window === "undefined") return
-                  const planUrl = `${window.location.origin}/results/insights`
-                  const mailto = `mailto:?subject=${encodeURIComponent("My Clarion health plan")}&body=${encodeURIComponent(`View my health plan and biomarker insights: ${planUrl}`)}`
+                  const planUrl = `${window.location.origin}/dashboard/biomarkers`
+                  const mailto = `mailto:?subject=${encodeURIComponent("My Clarion health plan")}&body=${encodeURIComponent(`View my biomarker insights in Clarion: ${planUrl}`)}`
                   window.location.href = mailto
                 }}
               >

@@ -8,6 +8,7 @@ import { loadSavedState, upsertProfile } from "@/src/lib/bloodwiseDb"
 import type { ProfileRow } from "@/src/lib/bloodwiseDb"
 import { ThemeToggle } from "@/src/components/ThemeToggle"
 import { PROFILE_TYPE_OPTIONS } from "@/src/lib/clarionProfiles"
+import { SYMPTOM_OPTIONS } from "@/src/lib/priorityRanking"
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -159,6 +160,34 @@ export default function SettingsPage() {
                       ))}
                     </select>
                   </label>
+                  <div className="settings-field">
+                    <span id="settings-symptoms-label">Symptoms to prioritize (optional)</span>
+                    <p className="settings-field-hint">Used to rank which flagged biomarkers matter most for you.</p>
+                    <div className="settings-symptom-pills" role="group" aria-labelledby="settings-symptoms-label">
+                      {SYMPTOM_OPTIONS.filter((o) => o.id !== "none").map((opt) => {
+                        const parts = (profile.symptoms ?? "").split(",").map((s) => s.trim()).filter(Boolean)
+                        const selected = parts.includes(opt.id)
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            className={`settings-symptom-pill ${selected ? "settings-symptom-pill--selected" : ""}`}
+                            aria-pressed={selected}
+                            onClick={() => {
+                              setProfile((p) => {
+                                if (!p) return null
+                                const cur = (p.symptoms ?? "").split(",").map((s) => s.trim()).filter(Boolean)
+                                const next = selected ? cur.filter((x) => x !== opt.id) : [...cur, opt.id]
+                                return { ...p, symptoms: next.length ? next.join(",") : null }
+                              })
+                            }}
+                          >
+                            {opt.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
                   <label className="settings-field">
                     <span>Age</span>
                     <input
@@ -510,6 +539,36 @@ export default function SettingsPage() {
           color: var(--color-text-secondary);
         }
         .settings-field span { font-weight: 500; }
+        .settings-field-hint {
+          margin: 0;
+          font-size: 12px;
+          color: var(--color-text-muted);
+          line-height: 1.4;
+        }
+        .settings-symptom-pills {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 4px;
+        }
+        .settings-symptom-pill {
+          padding: 8px 12px;
+          font-size: 13px;
+          border-radius: 9999px;
+          border: 1px solid var(--clarion-card-border);
+          background: var(--color-bg);
+          color: var(--color-text-secondary);
+          cursor: pointer;
+        }
+        .settings-symptom-pill:hover {
+          background: var(--color-surface-elevated);
+        }
+        .settings-symptom-pill--selected {
+          border-color: var(--color-accent);
+          font-weight: 500;
+          color: var(--color-text-primary);
+          background: rgba(31, 111, 91, 0.1);
+        }
         .settings-field-checkbox { flex-direction: row; align-items: center; gap: 10px; }
         .settings-field-checkbox span { font-weight: 400; }
         .settings-checkbox { width: 18px; height: 18px; accent-color: var(--color-accent); }

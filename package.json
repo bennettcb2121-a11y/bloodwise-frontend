@@ -11,7 +11,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:ci": "npm run build && cross-env CI=true playwright test"
+    "test:e2e:ci": "npm run build && cross-env CI=true playwright test",
+    "generate:wordmark-pdf": "node scripts/generate-wordmark-pdf.mjs",
+    "generate:logo-pdf": "node scripts/generate-wordmark-pdf.mjs",
+    "generate:pitch-pdf": "node scripts/generate-pitch-deck-pdf.mjs"
   },
   "dependencies": {
     "@lottiefiles/dotlottie-react": "^0.18.7",

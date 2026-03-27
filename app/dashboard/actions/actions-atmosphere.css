@@ -1,0 +1,541 @@
+/**
+ * Actions page: warm environmental layer + glass cards (complements dashboard sky from layout).
+ */
+
+@keyframes dashboard-actions-env-drift {
+  0% {
+    opacity: 0.55;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    opacity: 0.72;
+    transform: translate3d(1.5%, -0.8%, 0) scale(1.02);
+  }
+  100% {
+    opacity: 0.55;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes dashboard-actions-day-shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+.dashboard-actions-env {
+  position: relative;
+  isolation: isolate;
+}
+
+.dashboard-actions-env::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.4;
+  background: radial-gradient(ellipse 120% 80% at 50% 0%, rgba(251, 191, 36, 0.14), transparent 55%),
+    radial-gradient(ellipse 90% 60% at 80% 100%, rgba(56, 189, 248, 0.08), transparent 50%),
+    radial-gradient(ellipse 70% 50% at 10% 90%, rgba(16, 185, 129, 0.06), transparent 45%);
+  animation: dashboard-actions-env-drift 18s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-actions-env::before {
+    animation: none;
+    opacity: 0.35;
+  }
+}
+
+.dashboard-actions-env .dashboard-tab-container {
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Optimization banner ─── */
+.dashboard-actions-opt-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  background: color-mix(in srgb, var(--color-surface-elevated) 55%, rgba(20, 24, 22, 0.65));
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.dashboard-actions-opt-banner__text {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+
+.dashboard-actions-opt-banner__text em {
+  font-style: normal;
+  color: color-mix(in srgb, var(--color-accent) 85%, var(--color-text-primary));
+}
+
+.dashboard-actions-day-track {
+  flex: 1;
+  min-width: 140px;
+  max-width: 220px;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(251, 191, 36, 0.55) 0%,
+    rgba(56, 189, 248, 0.45) 45%,
+    rgba(99, 102, 241, 0.35) 72%,
+    rgba(244, 114, 182, 0.4) 100%
+  );
+  background-size: 200% 100%;
+  animation: dashboard-actions-day-shimmer 22s linear infinite;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-actions-day-track {
+    animation: none;
+  }
+}
+
+/* ─── Priority cards: cinematic image zone (~58%) + glass panel — one column on desktop ─── */
+.dashboard-actions-env .dashboard-action-priority-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 28px;
+  width: 100%;
+  max-width: 42rem;
+  margin-inline: auto;
+}
+
+@media (max-width: 599px) {
+  .dashboard-actions-env .dashboard-action-priority-row {
+    max-width: none;
+  }
+}
+
+.dashboard-actions-env .dashboard-priority-flip {
+  min-height: 440px;
+}
+
+/* Priority #1 — warm halo via box-shadow only (filter on the flip root flattens preserve-3d) */
+.dashboard-actions-env .dashboard-priority-flip .dashboard-priority-flip-face {
+  border-radius: 26px;
+}
+
+/*
+ * Front/back must stay position:absolute + inset:0 inside .dashboard-priority-flip-inner
+ * so the 3D flip works. Do not set position:relative on the front face.
+ */
+.dashboard-actions-env .dashboard-priority-flip-face--front {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  padding: 0;
+  overflow: hidden;
+  cursor: default;
+  background: rgba(0, 0, 0, 0.25);
+  border-color: color-mix(in srgb, var(--color-border) 55%, transparent);
+  transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.25s ease;
+  min-height: 320px;
+}
+
+@media (min-width: 640px) {
+  .dashboard-actions-env .dashboard-priority-flip-face--front {
+    min-height: 340px;
+  }
+}
+
+/* Top ~60%: photo dominates — cinematic band */
+.dashboard-actions-env .dashboard-priority-card-image-zone {
+  position: relative;
+  flex: 0 0 60%;
+  min-height: 220px;
+  max-height: 58vh;
+  overflow: hidden;
+  border-radius: 26px 26px 0 0;
+}
+
+@media (min-width: 640px) {
+  .dashboard-actions-env .dashboard-priority-card-image-zone {
+    min-height: 260px;
+  }
+}
+
+.dashboard-actions-env .dashboard-priority-card-underlay {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* Light fade at bottom of image into glass — no hard line */
+.dashboard-actions-env .dashboard-priority-card-image-zone-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.08) 0%,
+    rgba(0, 0, 0, 0.18) 45%,
+    rgba(0, 0, 0, 0.45) 100%
+  );
+}
+
+/* Glass stack: taller, softer, blends up into the photo */
+.dashboard-actions-env .dashboard-priority-card-glass-panel {
+  position: relative;
+  z-index: 2;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 0 0 26px 26px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  /* Keep tapzone + CTA in normal flow — no overlapping layers */
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.dashboard-actions-env .dashboard-priority-card-glass-panel::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  left: 0;
+  right: 0;
+  top: -48px;
+  height: 48px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.12) 35%, rgba(0, 0, 0, 0.32) 100%);
+}
+
+.dashboard-actions-env .dashboard-priority-flip:hover:not([data-priority-step="0"]) .dashboard-priority-flip-face--front {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35), 0 0 0 1px color-mix(in srgb, rgba(251, 191, 36, 0.25) 40%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-actions-env .dashboard-priority-flip:hover .dashboard-priority-flip-face--front,
+  .dashboard-actions-env .dashboard-priority-flip[data-priority-step="0"]:hover .dashboard-priority-flip-face--front {
+    transform: none;
+  }
+}
+
+.dashboard-actions-env .dashboard-priority-flip--urgent .dashboard-priority-flip-face--front {
+  border-color: color-mix(in srgb, rgba(251, 191, 36, 0.35) 50%, var(--color-border));
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.08), 0 12px 40px rgba(0, 0, 0, 0.38);
+}
+
+.dashboard-actions-env .dashboard-priority-flip--steady .dashboard-priority-flip-face--front {
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.32);
+}
+
+/* After urgent/steady so this wins — #1 card halo + depth */
+.dashboard-actions-env .dashboard-priority-flip[data-priority-step="0"] .dashboard-priority-flip-face--front {
+  box-shadow:
+    0 0 0 1px rgba(255, 200, 120, 0.28),
+    0 0 48px rgba(255, 200, 100, 0.18),
+    0 12px 40px rgba(0, 0, 0, 0.38);
+}
+
+.dashboard-actions-env .dashboard-priority-flip[data-priority-step="0"]:hover .dashboard-priority-flip-face--front {
+  transform: translateY(-3px);
+  box-shadow:
+    0 0 0 1px rgba(255, 210, 130, 0.35),
+    0 0 56px rgba(255, 200, 100, 0.22),
+    0 18px 52px rgba(0, 0, 0, 0.4);
+}
+
+.dashboard-actions-env .dashboard-priority-flip-front-top {
+  position: relative;
+  z-index: 1;
+  padding: 18px 20px 14px;
+  margin-bottom: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.22) 0%, transparent 100%);
+}
+
+.dashboard-actions-env .dashboard-priority-journey-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: none;
+  color: rgba(248, 250, 252, 0.88);
+  line-height: 1.4;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.65);
+}
+
+.dashboard-actions-env .dashboard-priority-journey-label strong {
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.dashboard-actions-env .dashboard-priority-flip-tapzone {
+  position: relative;
+  z-index: 1;
+  /* Size to content — flex:1 + min-height:0 was shrinking the button and overflowing onto the CTA row */
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 4px 20px 18px;
+  margin: 0;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.dashboard-actions-env .dashboard-priority-flip-tapzone > * {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.dashboard-actions-env .dashboard-priority-flip-tapzone:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.65);
+  outline-offset: -2px;
+  border-radius: 8px;
+}
+
+/* Outcome photography: image zone — fills top band; zoom + soft blur + feather */
+.dashboard-actions-env .action-card-outcome-visual {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.dashboard-actions-env .action-card-outcome-visual__frame {
+  position: absolute;
+  inset: -12px;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.dashboard-actions-env .action-card-outcome-visual__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.05);
+  filter: blur(6px) brightness(0.72) contrast(0.92) saturate(0.94);
+  opacity: 0.98;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-actions-env .action-card-outcome-visual__img {
+    transform: scale(1.02);
+    filter: brightness(0.78) contrast(0.94) saturate(0.95);
+  }
+}
+
+/* Edge feather — light falls off, not a hard crop */
+.dashboard-actions-env .action-card-outcome-visual__edge {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 0 56px rgba(0, 0, 0, 0.42);
+  background: radial-gradient(ellipse 95% 80% at 50% 38%, transparent 25%, rgba(0, 0, 0, 0.28) 100%);
+}
+
+/* Color grade on photo (image-zone scrim + glass blend handle contrast) */
+.dashboard-actions-env .action-card-outcome-visual__warmth {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.22) 0%, transparent 42%, rgba(255, 175, 75, 0.14) 100%);
+}
+
+.dashboard-actions-env .action-card-outcome-visual__fallback {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+}
+
+.dashboard-actions-env .action-card-outcome-visual__fallback--vitamin_d {
+  background: linear-gradient(145deg, #422006 0%, #0c1220 100%);
+}
+
+.dashboard-actions-env .action-card-outcome-visual__fallback--iron_o2 {
+  background: linear-gradient(145deg, #134e4a 0%, #0f172a 100%);
+}
+
+.dashboard-actions-env .action-card-outcome-visual__fallback--b12 {
+  background: linear-gradient(145deg, #14532d 0%, #0f172a 100%);
+}
+
+.dashboard-actions-env .dashboard-priority-flip-title {
+  margin: 0 0 14px;
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-transform: none;
+  line-height: 1.22;
+  color: #f8fafc;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.75);
+}
+
+.dashboard-actions-env .dashboard-priority-flip-tagline {
+  margin: 0 0 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(248, 250, 252, 0.88);
+  line-height: 1.45;
+  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.7);
+}
+
+.dashboard-actions-env .dashboard-priority-flip-teaser {
+  margin: 0;
+  font-size: 13px;
+  color: rgba(226, 232, 240, 0.82);
+  line-height: 1.5;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.65);
+}
+
+.dashboard-actions-env .dashboard-priority-front-cta-row {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: flex-start;
+  gap: 10px;
+  row-gap: 12px;
+  padding: 16px 20px 18px;
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.18);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.dashboard-actions-env .dashboard-priority-flip-tap {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  display: block;
+  margin-top: 0;
+  padding: 12px 20px 18px;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(248, 250, 252, 0.55);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+}
+
+.dashboard-actions-env .dashboard-priority-product-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  flex-shrink: 0;
+}
+
+.dashboard-actions-env .dashboard-priority-product-thumb--empty {
+  opacity: 0.25;
+  border-style: dashed;
+}
+
+.dashboard-actions-env .dashboard-priority-cta-buy {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-accent) 92%, #1a3d2a);
+  color: var(--color-accent-contrast);
+  text-decoration: none;
+  line-height: 1;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+  transition: filter 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-actions-env .dashboard-priority-cta-buy:hover {
+  filter: brightness(1.06);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.dashboard-actions-env .dashboard-priority-cta-learn {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, rgba(45, 212, 191, 0.45) 60%, var(--color-border));
+  color: color-mix(in srgb, #5eead4 75%, var(--color-text-primary));
+  text-decoration: none;
+  background: color-mix(in srgb, rgba(45, 212, 191, 0.08) 40%, transparent);
+}
+
+.dashboard-actions-env .dashboard-priority-cta-learn:hover {
+  background: color-mix(in srgb, rgba(45, 212, 191, 0.14) 50%, transparent);
+}
+
+.dashboard-actions-env .dashboard-priority-cta-spacer {
+  flex: 1;
+  min-width: 8px;
+}
+
+.dashboard-actions-env .dashboard-priority-cta-placeholder {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(248, 250, 252, 0.55);
+}
+
+[data-theme="light"] .dashboard-actions-env .dashboard-priority-card-image-zone-scrim {
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.06) 0%,
+    rgba(0, 0, 0, 0.12) 45%,
+    rgba(0, 0, 0, 0.38) 100%
+  );
+}
+
+[data-theme="light"] .dashboard-actions-env .dashboard-priority-card-glass-panel {
+  background: color-mix(in srgb, var(--color-surface) 82%, rgba(0, 0, 0, 0.22));
+}
+
+[data-theme="light"] .dashboard-actions-env .dashboard-priority-front-cta-row {
+  background: rgba(0, 0, 0, 0.06);
+  border-top-color: rgba(0, 0, 0, 0.1);
+}

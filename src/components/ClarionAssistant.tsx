@@ -65,7 +65,9 @@ export function ClarionAssistant() {
         <div className="clarion-assistant-panel">
           <div className="clarion-assistant-header">
             <h2 className="clarion-assistant-title">Ask Clarion</h2>
-            <p className="clarion-assistant-disclaimer">For education only. Not medical advice. Answers may not apply to your situation—discuss with your clinician.</p>
+            <p className="clarion-assistant-disclaimer">
+              For education only—not medical advice. This chat does not cite studies or guidelines line by line; do not treat replies as a literature review. Answers may be incomplete or wrong for your situation—verify with your clinician.
+            </p>
           </div>
           <div className="clarion-assistant-messages" ref={listRef}>
             {messages.length === 0 && (

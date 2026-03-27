@@ -3,7 +3,8 @@ import { notFound } from "next/navigation"
 import { getGuideBySlug } from "@/src/lib/guides"
 import { biomarkerDatabase } from "@/src/lib/biomarkerDatabase"
 import { getBiomarkerContext } from "@/src/lib/biomarkerContext"
-import { getEvidenceForBiomarker } from "@/src/lib/recommendationEvidence"
+import { getEvidenceForBiomarker } from "@/src/lib/biomarkerEvidence"
+import { getEvidenceStrengthForBiomarker } from "@/src/lib/recommendationEvidence"
 import { getActionPlanForBiomarker } from "@/src/lib/actionPlans"
 import { getRelatedBiomarkers } from "@/src/lib/biomarkerRelationships"
 import { getGuidesForBiomarker } from "@/src/lib/guides"
@@ -32,7 +33,8 @@ export default async function GuideDetailPage({ params }: Props) {
   const symptomsLow = entry?.symptomsLow?.length ? entry.symptomsLow : null
   const symptomsHigh = entry?.symptomsHigh?.length ? entry.symptomsHigh : null
   const possibleContributors = getBiomarkerContext(biomarkerKey, "low", null)
-  const evidence = getEvidenceForBiomarker(biomarkerKey)
+  const evidenceStrength = getEvidenceStrengthForBiomarker(biomarkerKey)
+  const evidenceLinks = getEvidenceForBiomarker(biomarkerKey)
   const actionPlan = getActionPlanForBiomarker(biomarkerKey)
   const relatedBiomarkers = getRelatedBiomarkers(biomarkerKey)
   const longTermInsight = getLongTermInsight(biomarkerKey)
@@ -46,7 +48,12 @@ export default async function GuideDetailPage({ params }: Props) {
           <p className="guides-subtitle">{guide.description}</p>
         </header>
 
-        {(whatItDoes || symptomsLow || symptomsHigh || possibleContributors.length > 0 || evidence) && (
+        {(whatItDoes ||
+          symptomsLow ||
+          symptomsHigh ||
+          possibleContributors.length > 0 ||
+          evidenceStrength ||
+          evidenceLinks.length > 0) && (
           <div className="guides-layers">
             {whatItDoes && (
               <section className="guides-layer">
@@ -88,10 +95,31 @@ export default async function GuideDetailPage({ params }: Props) {
                 </ul>
               </section>
             )}
-            {evidence && (
+            {evidenceStrength && (
               <p className="guides-evidence">
-                <strong>Evidence:</strong> {evidence.label}
+                <strong>Evidence strength (recommendations):</strong> {evidenceStrength.label}
               </p>
+            )}
+            {evidenceLinks.length > 0 && (
+              <section className="guides-citations" aria-labelledby="guides-citations-heading">
+                <h3 id="guides-citations-heading" className="guides-citations-title">
+                  Sources (education)
+                </h3>
+                <p className="guides-citations-lede">
+                  Peer-reviewed papers and official health references (NIH MedlinePlus, NIH ODS, ADA, AHA/ACC). Clarion does not
+                  endorse specific treatments—verify with your clinician.
+                </p>
+                <ul className="guides-citations-list">
+                  {evidenceLinks.map((e, i) => (
+                    <li key={`${e.url}-${i}`}>
+                      <a href={e.url} target="_blank" rel="noopener noreferrer" className="guides-citation-link">
+                        {e.title}
+                      </a>
+                      <span className="guides-citation-source"> — {e.source}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             )}
             {relatedBiomarkers.length > 0 && (
               <div className="guides-related">

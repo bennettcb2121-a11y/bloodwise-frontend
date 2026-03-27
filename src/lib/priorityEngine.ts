@@ -45,6 +45,28 @@ export function getStatusTone(status?: string): StatusTone {
   return { label: status || "Review", className: "tone-neutral", icon: "•" }
 }
 
+/**
+ * Softer labels for dashboard home (companion tone — not clinical).
+ * Keeps same `className` for styling; only `label` changes.
+ */
+export function getStatusToneFriendly(status?: string): StatusTone {
+  const base = getStatusTone(status)
+  const s = (status || "").toLowerCase()
+  if (s === "optimal" || s === "normal" || s === "in range") {
+    return { ...base, label: "In range" }
+  }
+  if (s === "suboptimal" || s === "borderline") {
+    return { ...base, label: "Building" }
+  }
+  if (s === "deficient") {
+    return { ...base, label: "Low" }
+  }
+  if (s === "high") {
+    return { ...base, label: "Elevated" }
+  }
+  return base
+}
+
 export function buildTopFocus<T extends AnalysisItem>(analysis: T[]): T[] {
   return analysis
     .filter((item) => {

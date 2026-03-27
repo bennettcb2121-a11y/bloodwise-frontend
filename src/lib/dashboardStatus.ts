@@ -101,7 +101,7 @@ export function getDoThisFirst(input: DoThisFirstInput): DoThisFirstResult | nul
   if (hasStack && protocolTodayComplete !== true) {
     return {
       title: "Complete today's plan",
-      line: "Check off your stack and keep your streak.",
+      line: "Daily logging keeps your protocol aligned with your labs—small gaps compound over weeks.",
       href: "/dashboard#protocol",
     }
   }
@@ -112,7 +112,7 @@ export function getDoThisFirst(input: DoThisFirstInput): DoThisFirstResult | nul
     const marker = first.markerName
     return {
       title: `Focus on ${marker}`,
-      line: `Your biggest lever for a higher score. See what to do.`,
+      line: `Addressing ${marker} first is consistent with where your markers have the most room to move.`,
       href: "/dashboard/actions",
     }
   }

@@ -451,6 +451,28 @@ const PANELS_BY_PROFILE: Record<ProfileTypeId, string[]> = {
 }
 
 /**
+ * Higher score = marker appears earlier in this profile's recommended panel → rank higher in Action Center.
+ * Uses panel order from {@link PANELS_BY_PROFILE}; exact or substring match on resolved vs raw display name.
+ */
+export function getProfilePanelBoost(
+  profileTypeId: string | null | undefined,
+  resolvedMarkerKey: string,
+  rawDisplayName?: string
+): number {
+  const id = (profileTypeId || "").trim() as ProfileTypeId
+  const panel = PANELS_BY_PROFILE[id]
+  if (!panel?.length) return 0
+  const candidates = [resolvedMarkerKey, rawDisplayName ?? ""].map((s) => s.trim()).filter(Boolean)
+  let bestIdx = -1
+  for (const c of candidates) {
+    const idx = panel.findIndex((k) => k === c || c.includes(k) || k.includes(c))
+    if (idx >= 0 && (bestIdx < 0 || idx < bestIdx)) bestIdx = idx
+  }
+  if (bestIdx < 0) return 0
+  return Math.max(0, 50 - bestIdx * 2)
+}
+
+/**
  * Onboarding health goal options (simple labels → profileType).
  */
 export const HEALTH_GOAL_OPTIONS: { id: string; label: string; profileType: ProfileTypeId }[] = [
