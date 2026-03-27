@@ -2159,6 +2159,120 @@ body.pitch-deck-active .clarion-global-footer {
   color: var(--color-text-secondary);
   margin: 0;
 }
+.settings-field-label-block {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 10px;
+}
+.current-supplements-editor-hint {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+  margin: 0 0 12px;
+}
+.current-supplements-editor-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.current-supplements-chip {
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.current-supplements-chip--on {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent-soft) 40%, var(--color-surface));
+  color: var(--color-text-primary);
+}
+.current-supplements-editor-custom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+  margin-bottom: 12px;
+}
+.current-supplements-editor-input {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+.current-supplements-editor-add-btn {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  cursor: pointer;
+  font-family: inherit;
+}
+.current-supplements-editor-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.current-supplements-editor-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+.current-supplements-editor-name {
+  font-weight: 600;
+  font-size: 14px;
+  min-width: 100px;
+  flex: 0 0 auto;
+}
+.current-supplements-editor-url {
+  flex: 1 1 180px;
+  min-width: 0;
+  font-size: 13px;
+}
+.current-supplements-editor-remove {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+.current-supplements-editor-remove:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+}
+.current-supplements-editor-sr-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+.onboarding-current-supplements-wrap {
+  margin-bottom: 8px;
+  text-align: left;
+}
 .dashboard-tab-subtitle--tight {
   margin-top: -4px;
   margin-bottom: 4px;

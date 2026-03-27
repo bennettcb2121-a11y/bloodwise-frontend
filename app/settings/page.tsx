@@ -9,6 +9,7 @@ import type { ProfileRow } from "@/src/lib/bloodwiseDb"
 import { ThemeToggle } from "@/src/components/ThemeToggle"
 import { PROFILE_TYPE_OPTIONS } from "@/src/lib/clarionProfiles"
 import { SYMPTOM_OPTIONS } from "@/src/lib/priorityRanking"
+import { CurrentSupplementsEditor } from "@/src/components/CurrentSupplementsEditor"
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -301,17 +302,14 @@ export default function SettingsPage() {
                       ? "We’ll prioritize gummies, powders, and drinks when available."
                       : "We’ll show the best option for each supplement."}
                   </p>
-                  <label className="settings-field">
-                    <span>Current supplements (if any)</span>
-                    <textarea
+                  <div className="settings-field">
+                    <span className="settings-field-label-block">Current supplements (if any)</span>
+                    <CurrentSupplementsEditor
+                      idPrefix="settings-supplements"
                       value={profile.current_supplements ?? ""}
-                      onChange={(e) => setProfile((p) => p ? { ...p, current_supplements: e.target.value } : null)}
-                      placeholder="e.g. Fish oil, Vitamin D…"
-                      rows={2}
-                      className="settings-input settings-textarea"
-                      style={{ resize: "vertical" }}
+                      onChange={(serialized) => setProfile((p) => (p ? { ...p, current_supplements: serialized } : null))}
                     />
-                  </label>
+                  </div>
                   <label className="settings-field">
                     <span>Monthly supplement spend (approx.)</span>
                     <input
@@ -384,7 +382,10 @@ export default function SettingsPage() {
                         onChange={(e) => setNotifyReorderEmail(e.target.checked)}
                         className="settings-checkbox"
                       />
-                      <span>Notify me when supplements are running low (in-app and email when available)</span>
+                      <span>
+                        Notify me when supplements are running low (in-app on Plan when you track inventory; email
+                        delivery is not wired yet)
+                      </span>
                     </label>
                     <label className="settings-field">
                       <span>Remind me this many days before running out</span>

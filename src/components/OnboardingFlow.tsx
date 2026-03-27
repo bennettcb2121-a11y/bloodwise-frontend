@@ -16,12 +16,6 @@ import { CLARION_RECOMMENDED_PANEL_KEYS } from "@/src/lib/coreBiomarkerProtocols
 import type { ProfileState } from "@/src/lib/panelEngine"
 import type { BloodworkSaveRow } from "@/src/lib/bloodwiseDb"
 import { HEALTH_GOAL_OPTIONS, healthGoalToProfileType } from "@/src/lib/clarionProfiles"
-import {
-  SUPPLEMENT_PRESETS,
-  parseCurrentSupplementsList,
-  serializeCurrentSupplementsList,
-  getSupplementDisplayName,
-} from "@/src/lib/supplementMetadata"
 import { compareStackToCurrentSupplements, getUnnecessaryCurrentSupplements } from "@/src/lib/stackComparison"
 import { BLOOD_TEST_PROVIDERS, resolveBloodTestCtaUrl } from "@/src/lib/bloodTestProviders"
 import { getEvidenceForBiomarker } from "@/src/lib/biomarkerEvidence"
@@ -29,6 +23,7 @@ import { getGuidesForBiomarker } from "@/src/lib/guides"
 import { PAID_PROTOCOLS } from "@/src/lib/paidProtocols"
 import { SYMPTOM_OPTIONS } from "@/src/lib/priorityRanking"
 import { ThemeToggle } from "@/src/components/ThemeToggle"
+import { CurrentSupplementsEditor } from "@/src/components/CurrentSupplementsEditor"
 import { TypewriterHeading } from "@/src/components/TypewriterHeading"
 import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
 
@@ -244,14 +239,6 @@ const reduceMotion = useReducedMotion()
 const [hasLabResults, setHasLabResults] = useState<boolean | null>(null)
 const [customSupplementInput, setCustomSupplementInput] = useState("")
 const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric">("imperial")
-
-const supplementList =
-  currentSupplements === "No" || !currentSupplements?.trim()
-    ? []
-    : parseCurrentSupplementsList(currentSupplements)
-const setSupplementList = (list: string[]) => {
-  setCurrentSupplements(list.length === 0 ? "" : serializeCurrentSupplementsList(list))
-}
 
 /* Selected state: soft glass (CSS only) */
 
@@ -647,6 +634,17 @@ const setSupplementList = (list: string[]) => {
             <div className="onboarding-slider-wrap">
               <div className="onboarding-slider-value">${sliderValue}{sliderValue >= 300 ? "+" : ""} / month</div>
               <input type="range" min={0} max={300} value={sliderValue} onChange={(e) => setCurrentSupplementSpend(e.target.value)} className="onboarding-slider" />
+            </div>
+            <p className="onboarding-field-label" style={{ marginTop: 24 }}>
+              What do you take today?
+            </p>
+            <p className="onboarding-subtext">We compare this to your lab-based plan — same engine as Settings.</p>
+            <div className="onboarding-current-supplements-wrap">
+              <CurrentSupplementsEditor
+                idPrefix="onboarding-supplements"
+                value={currentSupplements}
+                onChange={setCurrentSupplements}
+              />
             </div>
             <button type="button" className="onboarding-primary-btn" onClick={() => setCurrentStep(STEP_MID_PROGRESS)}>
               Continue <ChevronRight size={18} strokeWidth={2.5} aria-hidden />

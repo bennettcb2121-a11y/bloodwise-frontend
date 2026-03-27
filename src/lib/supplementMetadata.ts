@@ -67,19 +67,78 @@ export function getPresetIds(): string[] {
   return SUPPLEMENT_PRESETS.map((p) => p.id)
 }
 
-/** Parse current_supplements from DB/state: "No", JSON array, or legacy comma-separated. */
-export function parseCurrentSupplementsList(raw: string): string[] {
+/** One row the user takes today — preset chip and/or custom name, optional product link. */
+export type CurrentSupplementEntry = {
+  id?: string
+  name: string
+  productUrl?: string
+}
+
+function normalizeSupplementEntry(x: unknown): CurrentSupplementEntry | null {
+  if (typeof x === "string") {
+    const preset = getSupplementPreset(x)
+    if (preset) return { id: preset.id, name: preset.displayName }
+    const resolved = resolveSupplementToPresetId(x)
+    if (resolved) {
+      const p = getSupplementPreset(resolved)
+      return p ? { id: p.id, name: p.displayName } : { name: x.trim() }
+    }
+    return { name: x.trim() }
+  }
+  if (x && typeof x === "object") {
+    const o = x as { id?: string; name?: string; url?: string; productUrl?: string }
+    const url = (o.productUrl ?? o.url ?? "").trim()
+    const productUrl = url.length > 0 ? url : undefined
+    if (o.id && getSupplementPreset(o.id)) {
+      const p = getSupplementPreset(o.id)!
+      return { id: p.id, name: p.displayName, productUrl }
+    }
+    const name = (o.name ?? "").trim()
+    if (!name) return null
+    return { name, productUrl }
+  }
+  return null
+}
+
+/**
+ * Structured list for UI (chips + links). Supports legacy comma text and JSON string[].
+ */
+export function parseCurrentSupplementsEntries(raw: string): CurrentSupplementEntry[] {
   if (!raw || raw.trim() === "" || raw.trim().toLowerCase() === "no") return []
   const t = raw.trim()
   if (t.startsWith("[")) {
     try {
       const arr = JSON.parse(t) as unknown
-      return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === "string") : []
+      if (!Array.isArray(arr)) return []
+      return arr.map(normalizeSupplementEntry).filter((e): e is CurrentSupplementEntry => e != null && Boolean(e.name))
     } catch {
       return []
     }
   }
-  return t.split(",").map((s) => s.trim()).filter(Boolean)
+  return t
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((name) => normalizeSupplementEntry(name))
+    .filter((e): e is CurrentSupplementEntry => e != null)
+}
+
+/** For stack comparison: preset id when known, else label text. */
+export function parseCurrentSupplementsList(raw: string): string[] {
+  return parseCurrentSupplementsEntries(raw).map((e) => (e.id ? e.id : e.name))
+}
+
+/** Serialize structured entries for `profiles.current_supplements`. */
+export function serializeCurrentSupplementsEntries(entries: CurrentSupplementEntry[]): string {
+  const cleaned = entries
+    .map((e) => ({
+      ...(e.id ? { id: e.id } : {}),
+      name: e.name.trim(),
+      ...(e.productUrl?.trim() ? { productUrl: e.productUrl.trim() } : {}),
+    }))
+    .filter((e) => e.name.length > 0)
+  if (cleaned.length === 0) return ""
+  return JSON.stringify(cleaned)
 }
 
 /** Serialize list to string for DB/state (array of preset ids + custom names). */
