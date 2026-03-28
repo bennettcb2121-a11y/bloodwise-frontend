@@ -6,10 +6,18 @@ import {
   targetVitaminDIuPerDay,
   vitaminDRecommendationDisplayName,
 } from "@/src/lib/dosingTargets"
+import type { SupplementAdaptiveMeta } from "@/src/lib/adaptiveSupplementEngine"
+import {
+  buildAdaptiveContextFromProfile,
+  getAdaptiveRationale,
+  pickAdaptiveBestProduct,
+  type AdaptiveSupplementContext,
+  type ProfileAdaptiveInput,
+} from "@/src/lib/adaptiveSupplementEngine"
 
 type ActiveUnit = "mg" | "mcg" | "IU"
 
-type SupplementProduct = {
+export type SupplementProduct = {
   id: string
   brand: string
   productName: string
@@ -26,6 +34,8 @@ type SupplementProduct = {
   assumptions?: string[]
   caution?: string[]
   url?: string
+  /** Ranking hints for adaptive engine (budget vs quality vs diet). */
+  adaptive?: SupplementAdaptiveMeta
 }
 
 type AnalysisItem = {
@@ -72,6 +82,8 @@ export type SupplementRecommendation = {
   monthlyCostBreakdown: MonthlyCostBreakdown
   /** Shown when user prefers no pills but only pill form was available. */
   formNote?: string
+  /** Why this SKU was chosen for this user (budget/diet/shopping intent). */
+  adaptiveRationale?: string
 }
 
 /** True for gummy, powder, liquid, drink (case-insensitive). */
@@ -97,6 +109,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
         "Iron should only be recommended when appropriate to the biomarker context.",
         "Iron overdose is dangerous, especially for children.",
       ],
+      adaptive: { qualityTier: 1, priceTier: "budget", veganFriendly: true },
     },
     {
       id: "iron_nm_65_150",
@@ -109,6 +122,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       activeUnit: "mg",
       costPerUnitActive: 0.000603,
       notes: "Serving instructions not fully captured in source dataset.",
+      adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
     },
     {
       id: "iron_cypress_150_100",
@@ -121,6 +135,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       activeUnit: "mg",
       costPerUnitActive: 0.001256,
       notes: "Highest potency per capsule in the iron subset.",
+      adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
     },
     {
       id: "iron_vitamatic_104_120",
@@ -134,6 +149,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       costPerUnitActive: 0.00136,
       notes: "Includes vitamin C.",
       assumptions: ["Cost derived from listing dose and count."],
+      adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
     },
   ],
 
@@ -150,6 +166,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       costPerUnitActive: 9.99 / (2000 * 60),
       costPer1000IU: 0.08325,
       notes: "Gummy form for those who prefer not to take pills.",
+      adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
     },
     {
       id: "vitd_now_50000_50",
@@ -167,6 +184,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
         "High-potency vitamin D can exceed common maintenance dosing.",
         "Use dosing frequency that matches the user’s actual dose target.",
       ],
+      adaptive: { qualityTier: 2, priceTier: "mid", animalGelatin: true },
     },
     {
       id: "vitd_now_10000_240",
@@ -180,6 +198,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       costPerUnitActive: 15.73 / (10000 * 240),
       costPer1000IU: 0.00655,
       notes: "High-dose daily softgel; verify personal dosing.",
+      adaptive: { qualityTier: 2, priceTier: "mid", animalGelatin: true },
     },
     {
       id: "vitd_celebrate_25000_90",
@@ -194,6 +213,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       costPer1000IU: 0.00977,
       servingsPerWeek: 1,
       notes: "Product page notes 1 capsule once per week.",
+      adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
     },
   ],
 
@@ -209,6 +229,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       activeUnit: "mg",
       costPerUnitActive: 0.000109,
       notes: "Cheapest magnesium per mg in the priced set.",
+      adaptive: { qualityTier: 1, priceTier: "budget", veganFriendly: true },
     },
     {
       id: "mag_nb_500_200",
@@ -221,6 +242,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       activeUnit: "mg",
       costPerUnitActive: 0.000119,
       notes: "Very high potency per tablet.",
+      adaptive: { qualityTier: 1, priceTier: "budget", veganFriendly: true },
     },
     {
       id: "mag_le_500_100",
@@ -248,6 +270,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       activeUnit: "mcg",
       costPerUnitActive: 0.0133 / 1000,
       notes: "Best value B12 in this subset.",
+      adaptive: { qualityTier: 1, priceTier: "budget", veganFriendly: true },
     },
     {
       id: "b12_vitamatic_10000_60",
@@ -260,6 +283,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       activeUnit: "mcg",
       costPerUnitActive: 0.0167 / 1000,
       notes: "Highest potency per lozenge in the subset.",
+      adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
     },
     {
       id: "b12_now_10000_60",
@@ -272,6 +296,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       activeUnit: "mcg",
       costPerUnitActive: 0.0317 / 1000,
       notes: "Serving size 1 lozenge.",
+      adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
     },
   ],
 
@@ -289,6 +314,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       notes: "Omega-3 breakdown (EPA/DHA) not fully captured.",
       assumptions: ["Cost per mg assumes 1,250 mg per softgel."],
       caution: ["Omega-3 can interact with medications and may affect bleeding risk."],
+      adaptive: { qualityTier: 3, priceTier: "premium", animalGelatin: true },
     },
     {
       id: "curcumin_tn_1500_270",
@@ -302,6 +328,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       costPerUnitActive: 0.0000432,
       notes: "Very cheap per mg, but listing may reflect per serving not per capsule.",
       assumptions: ["Assumes 1,500 mg per capsule; verify label before hard claims in UI."],
+      adaptive: { qualityTier: 1, priceTier: "budget", veganFriendly: true },
     },
     {
       id: "mag_sv_400_250_crp",
@@ -314,6 +341,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       activeUnit: "mg",
       costPerUnitActive: 0.000109,
       notes: "Included because magnesium is commonly studied for inflammatory markers.",
+      adaptive: { qualityTier: 1, priceTier: "budget", veganFriendly: true },
     },
   ],
 
@@ -328,6 +356,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       amountPerUnit: 50,
       activeUnit: "mg",
       costPerUnitActive: 0.000833,
+      adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
     },
     {
       id: "ash_flora_300_120",
@@ -340,6 +369,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       activeUnit: "mg",
       costPerUnitActive: 0.000741,
       notes: "KSM-66 extract.",
+      adaptive: { qualityTier: 3, priceTier: "premium", veganFriendly: true },
     },
     {
       id: "boron_now_3_250",
@@ -352,6 +382,7 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       activeUnit: "mg",
       costPerUnitActive: 0.0155,
       notes: "Trials often use ~6 mg/day, which may imply 2 capsules/day.",
+      adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
     },
   ],
 }
@@ -637,6 +668,10 @@ function inferDoseText(marker: string, vitaminDBand?: VitaminDBand) {
 
 export type SupplementRecommendationsOptions = {
   supplementFormPreference?: "any" | "no_pills"
+  /** When set, adaptive ranking uses these profile fields (shopping, diet, form). */
+  profile?: ProfileAdaptiveInput | null
+  /** Override automatic context from profile (e.g. tests). */
+  adaptiveContext?: AdaptiveSupplementContext | null
 }
 
 export function supplementRecommendations(
@@ -645,6 +680,14 @@ export function supplementRecommendations(
 ): SupplementRecommendation[] {
   if (!Array.isArray(analysis)) return []
   const preferNoPills = options.supplementFormPreference === "no_pills"
+  const adaptiveCtxMerged: AdaptiveSupplementContext | null = (() => {
+    const raw = options.adaptiveContext ?? (options.profile ? buildAdaptiveContextFromProfile(options.profile) : null)
+    if (!raw) return null
+    return {
+      ...raw,
+      supplementFormPreference: preferNoPills ? "no_pills" : "any",
+    }
+  })()
 
   const recommendations: SupplementRecommendation[] = []
   const usedMarkers = new Set<string>()
@@ -713,6 +756,12 @@ export function supplementRecommendations(
       if (picked) {
         bestOverall = leaderboard.find((e) => e.id === picked.id) ?? bestOverall
       }
+    } else if (adaptiveCtxMerged) {
+      const adaptivePick = pickAdaptiveBestProduct(optionsList, adaptiveCtxMerged)
+      if (adaptivePick) {
+        const found = leaderboard.find((e) => e.id === adaptivePick.id)
+        if (found) bestOverall = found
+      }
     }
     const hadToUsePill = preferNoPills && !isNonPillForm(bestOverall.form)
 
@@ -722,6 +771,10 @@ export function supplementRecommendations(
     const dosingGuidance = getDosingGuidance(matchedKey, status, recommendationType)
     const estimatedMonthlyCost = estimateMonthlyCost(bestOverall)
     const monthlyCostBreakdown = getMonthlyCostBreakdown(bestOverall)
+    const adaptiveRationale = adaptiveCtxMerged
+      ? getAdaptiveRationale(adaptiveCtxMerged, bestOverall.productName, estimatedMonthlyCost)
+      : undefined
+    const whyThisIsRecommended = adaptiveRationale ? `${whyRecommended} ${adaptiveRationale}` : whyRecommended
 
     recommendations.push({
       name: displayNameOverride ?? bestOverall.productName,
@@ -732,7 +785,7 @@ export function supplementRecommendations(
       status,
       recommendationType,
       whyRecommended,
-      whyThisIsRecommended: whyRecommended,
+      whyThisIsRecommended,
       expectedBenefit,
       dosingGuidance,
       bestValue,
@@ -742,6 +795,7 @@ export function supplementRecommendations(
       estimatedMonthlyCost,
       monthlyCostBreakdown,
       formNote: hadToUsePill ? "Pill form; gummy or powder options may be available in stores." : undefined,
+      adaptiveRationale,
     })
 
     usedMarkers.add(matchedKey)
@@ -756,3 +810,4 @@ export {
   estimateMonthlyCost,
   resolveMarkerKey,
 }
+export type { SupplementAdaptiveMeta } from "@/src/lib/adaptiveSupplementEngine"

@@ -1,0 +1,133 @@
+"use client"
+
+import React, { useEffect, useState } from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { Plus, X, ListChecks, Droplets, LineChart, Pill, ScanLine } from "lucide-react"
+import { useAuth } from "@/src/contexts/AuthContext"
+import { SupplementCheckerSheet } from "@/src/components/SupplementCheckerSheet"
+
+/**
+ * One-tap entry to logging: protocol, daily habits, supplements, barcode checker.
+ * Fixed above bottom nav on mobile; bottom-left on desktop.
+ */
+export function DashboardLogFab() {
+  const pathname = usePathname()
+  const { user } = useAuth()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [checkerOpen, setCheckerOpen] = useState(false)
+
+  useEffect(() => {
+    if (!menuOpen && !checkerOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [menuOpen, checkerOpen])
+
+  useEffect(() => {
+    setMenuOpen(false)
+  }, [pathname])
+
+  if (!pathname?.startsWith("/dashboard")) return null
+
+  return (
+    <>
+      <button
+        type="button"
+        className={`dashboard-log-fab ${menuOpen ? "dashboard-log-fab--open" : ""}`}
+        aria-expanded={menuOpen}
+        aria-haspopup="dialog"
+        aria-label={menuOpen ? "Close log menu" : "Open log menu"}
+        onClick={() => setMenuOpen((o) => !o)}
+      >
+        {menuOpen ? <X size={28} strokeWidth={2} aria-hidden /> : <Plus size={28} strokeWidth={2} aria-hidden />}
+      </button>
+
+      {menuOpen && (
+        <>
+          <button type="button" className="dashboard-log-fab-backdrop" aria-label="Close log menu" onClick={() => setMenuOpen(false)} />
+          <div className="dashboard-log-fab-panel" role="dialog" aria-modal="true" aria-labelledby="dashboard-log-fab-title">
+            <h2 id="dashboard-log-fab-title" className="dashboard-log-fab-title">
+              Log &amp; track
+            </h2>
+            <p className="dashboard-log-fab-sub">Quick paths to what you already have in Clarion.</p>
+            <ul className="dashboard-log-fab-list">
+              <li>
+                <Link
+                  href="/dashboard#protocol"
+                  className="dashboard-log-fab-item"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <ListChecks size={20} strokeWidth={2} aria-hidden />
+                  <span>
+                    <strong>Today&apos;s protocol</strong>
+                    <small>Check off your stack</small>
+                  </span>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/dashboard#daily-check-in"
+                  className="dashboard-log-fab-item"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <Droplets size={20} strokeWidth={2} aria-hidden />
+                  <span>
+                    <strong>Daily check-in</strong>
+                    <small>Water, sun, sleep, activity</small>
+                  </span>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/dashboard/tracking#daily-check-in"
+                  className="dashboard-log-fab-item"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <LineChart size={20} strokeWidth={2} aria-hidden />
+                  <span>
+                    <strong>Tracking page</strong>
+                    <small>History &amp; charts</small>
+                  </span>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/dashboard#supplements-you-take"
+                  className="dashboard-log-fab-item"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <Pill size={20} strokeWidth={2} aria-hidden />
+                  <span>
+                    <strong>Supplements you take</strong>
+                    <small>Edit your list</small>
+                  </span>
+                </Link>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  className="dashboard-log-fab-item dashboard-log-fab-item--button"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    setCheckerOpen(true)
+                  }}
+                >
+                  <ScanLine size={20} strokeWidth={2} aria-hidden />
+                  <span>
+                    <strong>Supplement checker</strong>
+                    <small>Scan barcode · lab context</small>
+                  </span>
+                </button>
+              </li>
+            </ul>
+          </div>
+        </>
+      )}
+
+      {checkerOpen && <SupplementCheckerSheet userId={user?.id} onClose={() => setCheckerOpen(false)} />}
+    </>
+  )
+}

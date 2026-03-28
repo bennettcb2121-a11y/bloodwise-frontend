@@ -85,3 +85,45 @@ export function getPremiumHeroLede(input: PremiumNarrativeInput): string {
   }
   return "Details are in Biomarkers and Actions below."
 }
+
+/** Short education-only tips (rotate by day); not personalized medical advice. */
+export const DAILY_HEALTH_TIPS: string[] = [
+  "Vitamin D often absorbs better with a meal that includes fat.",
+  "Consistency matters more than perfection for supplement timing.",
+  "Hydration can affect some lab values—follow your clinician’s prep instructions before draws.",
+  "Logging today builds a clearer picture at your next panel—not a verdict on yesterday.",
+  "If you miss a day, pick up where you left off; streaks reward return, not guilt.",
+]
+
+export function getTipOfDayStable(date: Date = new Date()): string {
+  const start = new Date(date.getFullYear(), 0, 0)
+  const diff = date.getTime() - start.getTime()
+  const dayOfYear = Math.floor(diff / (24 * 60 * 60 * 1000))
+  const idx = dayOfYear % DAILY_HEALTH_TIPS.length
+  return DAILY_HEALTH_TIPS[idx] ?? DAILY_HEALTH_TIPS[0]
+}
+
+export type MindfulProtocolRailInput = {
+  hasStack: boolean
+  protocolTodayY: number
+  protocolTodayComplete: boolean | null
+  protocolStreakDays: number
+}
+
+/** Calm copy for the rail when protocol isn’t finished or stack is empty. */
+export function getMindfulProtocolRailMessage(input: MindfulProtocolRailInput): string | null {
+  const { hasStack, protocolTodayY, protocolTodayComplete, protocolStreakDays } = input
+  if (!hasStack) {
+    return "Add supplements on Plan to track a daily rhythm here."
+  }
+  if (protocolTodayY <= 0) {
+    return null
+  }
+  if (protocolTodayComplete === true) {
+    return "Today’s protocol is complete—nice consistency."
+  }
+  if (protocolStreakDays >= 1) {
+    return "No pressure—log when you can to keep your streak gentle."
+  }
+  return "Log your doses when ready; small check-ins add up."
+}

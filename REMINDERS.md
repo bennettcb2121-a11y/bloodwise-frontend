@@ -9,6 +9,7 @@ Users get in-app reminders and can receive **email** (and optionally **SMS**) wh
 - **Profiles** store `email` (synced from login), optional `phone`, and `retest_weeks` (default 8).
 - **In-app**: Main page and dashboard show a “Time to retest?” banner when their last test was ≥ `retest_weeks` ago.
 - **Cron API** `GET/POST /api/cron/retest-reminders` finds users due for retest and sends email via Resend.
+- **Daily protocol email** (`GET/POST /api/cron/daily-protocol-reminder`): users who opt in under Settings (“Email me a daily nudge…”) and have a supplement stack receive one email per day if they have not completed that day’s protocol checkboxes (UTC date). Scheduled in `vercel.json` (default 14:00 UTC). Same `CRON_SECRET`, `RESEND_*`, and `SUPABASE_SERVICE_ROLE_KEY` as retest reminders.
 
 Run the migration **`supabase/migrations/005_retest_reminders.sql`** in Supabase so `profiles` has `email`, `phone`, and `retest_weeks`.
 

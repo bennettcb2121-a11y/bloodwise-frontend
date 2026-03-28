@@ -3713,3 +3713,68 @@ a.dashboard-card:hover {
 .dashboard-protocol-finish-cta {
   display: none !important;
 }
+
+/* Guided home — Today’s checklist: compact but readable */
+.dashboard-home .dashboard-protocol-tracker {
+  padding-top: 0;
+}
+
+.dashboard-home .dashboard-protocol-plan-head {
+  margin-bottom: 16px;
+  gap: 12px 20px;
+}
+
+.dashboard-home .dashboard-protocol-plan-sub {
+  margin-top: 8px;
+  line-height: 1.55;
+}
+
+.dashboard-home .dashboard-protocol-points-note {
+  margin-top: 4px;
+  max-width: min(100%, 280px);
+  line-height: 1.5;
+}
+
+@media (max-width: 560px) {
+  .dashboard-home .dashboard-protocol-points-note {
+    margin-top: 0;
+  }
+}
+
+.dashboard-home .dashboard-protocol-header {
+  margin-bottom: 16px;
+}
+
+.dashboard-home .dashboard-protocol-progress-wrap {
+  gap: 11px;
+}
+
+.dashboard-home .dashboard-protocol-progress-bar {
+  height: 6px;
+  margin-top: 2px;
+}
+
+.dashboard-home .dashboard-protocol-pct {
+  margin-top: 4px;
+}
+
+.dashboard-home .dashboard-protocol-pct-meta {
+  display: block;
+  line-height: 1.5;
+  padding-top: 10px;
+  margin-top: 2px;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+}
+
+.dashboard-home .dashboard-protocol-list {
+  gap: 12px;
+}
+
+.dashboard-home .dashboard-protocol-list-item .dashboard-protocol-row {
+  padding: 14px 16px;
+}
+
+.dashboard-home .dashboard-protocol-footer {
+  margin-top: 16px;
+  padding-top: 14px;
+}

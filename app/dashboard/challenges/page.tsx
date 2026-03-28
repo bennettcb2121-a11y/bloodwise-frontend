@@ -45,6 +45,20 @@ export default function ChallengesPage() {
     [bloodworkHistory]
   )
 
+  const sortedChallenges = useMemo(() => {
+    const rows = CHALLENGES.map((challenge) => {
+      const prog = getChallengeProgress(challenge, byDate, challengeExtra)
+      return { challenge, ...prog }
+    })
+    rows.sort((a, b) => {
+      if (a.completed !== b.completed) return a.completed ? 1 : -1
+      const ra = a.challenge.target > 0 ? a.current / a.challenge.target : 0
+      const rb = b.challenge.target > 0 ? b.current / b.challenge.target : 0
+      return rb - ra
+    })
+    return rows
+  }, [byDate, challengeExtra])
+
   if (loading) {
     return (
       <main className="dashboard-tab-shell">
@@ -65,12 +79,13 @@ export default function ChallengesPage() {
       <div className="dashboard-tab-container">
         <header className="dashboard-tab-header">
           <h1 className="dashboard-tab-title">Challenges</h1>
-          <p className="dashboard-tab-subtitle">Build habits and hit your goals.</p>
+          <p className="dashboard-tab-subtitle">
+            Light, motivating milestones — celebrate small wins on the way to better labs.
+          </p>
         </header>
 
         <ul className="dashboard-tab-challenges-list" aria-label="Challenges">
-          {CHALLENGES.map((challenge) => {
-            const { current, completed } = getChallengeProgress(challenge, byDate, challengeExtra)
+          {sortedChallenges.map(({ challenge, current, completed }) => {
             const progressPct = challenge.target > 0 ? Math.min(100, (current / challenge.target) * 100) : 0
             const progressLabel =
               challenge.rule === "protocol_streak"

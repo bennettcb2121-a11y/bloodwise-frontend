@@ -79,13 +79,13 @@ export default function TrackingPage() {
         <header className="dashboard-tab-header">
           <h1 className="dashboard-tab-title">Tracking</h1>
           <p className="dashboard-tab-subtitle">
-            Log habits between labs — your protocol, daily check-ins, and score history.
+            A quiet place to reflect — habits and protocol logs between blood panels, without the noise of a clinic form.
           </p>
         </header>
 
         <section id="daily-check-in" className="dashboard-tab-section" aria-labelledby="tracking-daily-heading">
           <h2 id="tracking-daily-heading" className="dashboard-tab-section-title">
-            Today&apos;s habits
+            Daily check-in
           </h2>
           <DailyHealthCheckIn userId={user?.id} />
         </section>

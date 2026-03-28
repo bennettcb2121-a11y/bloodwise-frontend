@@ -100,8 +100,11 @@ export function BetweenPanelsInsight({ userId, bloodworkHistory, profile, sectio
   return (
     <section id={sectionId} className="between-panels" aria-labelledby="between-panels-heading">
       <h2 id="between-panels-heading" className="dashboard-tab-section-title">
-        Between your last two panels
+        Habits and your labs
       </h2>
+      <p className="between-panels-lead">
+        How your daily actions lined up with biomarker changes between panels — reflection, not diagnosis.
+      </p>
       <div className="dashboard-tab-card between-panels-card">
         <p className="between-panels-window">
           Logged habits: <strong>{window.startDate}</strong> → <strong>{window.endDate}</strong>
@@ -157,6 +160,13 @@ export function BetweenPanelsInsight({ userId, bloodworkHistory, profile, sectio
       </div>
 
       <style jsx>{`
+        .between-panels-lead {
+          margin: 0 0 16px;
+          font-size: 14px;
+          line-height: 1.5;
+          color: var(--color-text-secondary);
+          max-width: 52ch;
+        }
         .between-panels-window {
           margin: 0 0 12px;
           font-size: 13px;

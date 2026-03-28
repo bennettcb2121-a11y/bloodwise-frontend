@@ -371,7 +371,7 @@ export default function SettingsPage() {
                       onChange={(e) => setProfile((p) => p ? { ...p, daily_reminder: e.target.checked } : null)}
                       className="settings-checkbox"
                     />
-                    <span>Include daily protocol reminder in reminder emails</span>
+                    <span>Email me a daily nudge to log my protocol (if not complete yet; ~9am ET)</span>
                   </label>
                   <div className="settings-field-group">
                     <span className="settings-field-label">Supplement reorder reminders</span>

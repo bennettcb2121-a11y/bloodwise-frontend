@@ -33,3 +33,6 @@ export const chatRateLimiter = createSlidingWindowRateLimiter({ windowMs: 60_000
 
 /** Support chat FAQ + OpenAI fallback */
 export const supportChatRateLimiter = createSlidingWindowRateLimiter({ windowMs: 60_000, max: 24 })
+
+/** Barcode / supplement insight — authenticated; cap cost */
+export const supplementInsightRateLimiter = createSlidingWindowRateLimiter({ windowMs: 60_000, max: 12 })

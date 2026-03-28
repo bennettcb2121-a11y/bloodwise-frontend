@@ -40,7 +40,7 @@ Optional but recommended for production. Set a DSN to enable client and server S
 
 | Variable | Purpose |
 |----------|---------|
-| `OPENAI_API_KEY` | Enables **Ask Clarion** (`/api/chat`) and support chat LLM fallback. Without it, assistants return fallbacks or 503 where applicable. |
+| `OPENAI_API_KEY` | Enables **Ask Clarion** (`/api/chat`), support chat LLM fallback, and **supplement checker AI** (`/api/supplement-insight`). Without it, those features return fallbacks or 503 where applicable. |
 | `NEXT_PUBLIC_EVERLYWELL_AFFILIATE_URL` | Optional. When set to an `https://` Everlywell partner or affiliate link, the onboarding “Order online” step uses it for the Everlywell CTA instead of the default homepage. |
 | `CLARION_UNLOCK_CODES` | Comma-separated one-time codes for **free Clarion analysis** unlock (e.g. `BETA2025,FRIEND01`). Requires `unlock_redemptions` table (see `supabase/migrations/007_unlock_codes.sql` or `docs/SUPABASE_SQL_TO_PASTE.md`). Uses **service role** to record redemptions. |
 | `NEXT_PUBLIC_DEV_SKIP_PAYWALL` | Set to `1` **only in local dev** to bypass the analysis paywall (dashboard + home “paid” gates). Production: leave unset. |

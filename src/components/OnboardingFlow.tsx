@@ -628,17 +628,19 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
 
         {currentStep === STEP_SPEND && (
           <motion.section key="spend" className="onboarding-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={TRANSITION}>
-            <TypewriterHeading className="onboarding-headline">About how much do you spend on supplements per month?</TypewriterHeading>
-            <p className="onboarding-subtext">Most people overspend on supplements they don&apos;t actually need.</p>
+            <TypewriterHeading className="onboarding-headline">Supplement spend &amp; what you already take</TypewriterHeading>
+            <p className="onboarding-subtext">
+              Your monthly budget helps estimate savings. The list below is what you already take — we compare it to your lab-based plan (same as Dashboard and Settings).
+            </p>
             {Number(currentSupplementSpend) > 0 && <p className="onboarding-adaptive-response">{getSupplementSpendResponse()}</p>}
             <div className="onboarding-slider-wrap">
               <div className="onboarding-slider-value">${sliderValue}{sliderValue >= 300 ? "+" : ""} / month</div>
               <input type="range" min={0} max={300} value={sliderValue} onChange={(e) => setCurrentSupplementSpend(e.target.value)} className="onboarding-slider" />
             </div>
-            <p className="onboarding-field-label" style={{ marginTop: 24 }}>
-              What do you take today?
-            </p>
-            <p className="onboarding-subtext">We compare this to your lab-based plan — same engine as Settings.</p>
+            <h3 className="onboarding-section-header" style={{ marginTop: 24 }}>
+              Supplements you already take
+            </h3>
+            <p className="onboarding-subtext">Select chips, add custom names, optional product links — we use this to match your Clarion stack and flag upgrades.</p>
             <div className="onboarding-current-supplements-wrap">
               <CurrentSupplementsEditor
                 idPrefix="onboarding-supplements"

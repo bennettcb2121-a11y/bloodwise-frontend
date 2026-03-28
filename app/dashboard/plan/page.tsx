@@ -159,7 +159,9 @@ export default function DashboardPlanPage() {
       <div className="dashboard-tab-container">
         <header className="dashboard-tab-header">
           <h1 className="dashboard-tab-title">Plan & stack</h1>
-          <p className="dashboard-tab-subtitle">Supplements, roadmap, savings, and retest timing.</p>
+          <p className="dashboard-tab-subtitle">
+            Plan → check off on Home → log habits — stack, savings, and retest timing live here.
+          </p>
         </header>
 
         {(() => {
@@ -327,8 +329,12 @@ export default function DashboardPlanPage() {
           </h2>
           {userCurrentSpend === 0 && (
             <p className="dashboard-savings-nudge">
+              <Link href="/dashboard#supplements-you-take" className="dashboard-savings-nudge-link">
+                Add supplements you already take
+              </Link>
+              {" · "}
               <Link href="/settings" className="dashboard-savings-nudge-link">
-                Add your supplement spend in Settings
+                or monthly spend in Settings
               </Link>{" "}
               to see potential savings.
             </p>

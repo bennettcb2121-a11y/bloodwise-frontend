@@ -85,6 +85,7 @@ function HomePageContent() {
     alcohol: "",
     healthGoal: "",
     symptoms: "",
+    dietPreference: "",
   })
 
   const [inputs, setInputs] = useState<BiomarkerInputMap>(() => {
@@ -202,11 +203,23 @@ function HomePageContent() {
     try {
       return supplementRecommendations(analysisResults as any, {
         supplementFormPreference: profile.supplementFormPreference === "no_pills" ? "no_pills" : "any",
+        profile: {
+          shopping_preference: shoppingPreference,
+          diet_preference: profile.dietPreference?.trim() || null,
+          supplement_form_preference: profile.supplementFormPreference ?? "any",
+          improvement_preference: profile.improvementPreference ?? null,
+        },
       }) || []
     } catch {
       return []
     }
-  }, [analysisResults, profile.supplementFormPreference])
+  }, [
+    analysisResults,
+    profile.supplementFormPreference,
+    profile.dietPreference,
+    profile.improvementPreference,
+    shoppingPreference,
+  ])
 
   const optimizedStack = useMemo(() => {
     try {
@@ -329,6 +342,7 @@ function HomePageContent() {
             weightKg: rowProfile?.weight_kg != null ? String(rowProfile.weight_kg) : "",
             supplementFormPreference: (rowProfile?.supplement_form_preference === "no_pills" ? "no_pills" : "any") as "any" | "no_pills",
             symptoms: (p as ProfileRow).symptoms ?? "",
+            dietPreference: rowProfile?.diet_preference ?? "",
           })
           // Don’t overwrite optimistic paid state when returning from checkout (webhook may lag behind redirect).
           setHasPaidAnalysis(hasPaid || isPaymentReturn || isSubscriptionReturn)

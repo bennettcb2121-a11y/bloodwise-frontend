@@ -39,6 +39,8 @@ export type ProfileState = {
   healthGoal?: string
   /** Symptoms from onboarding (comma-separated or array for multi-select). */
   symptoms?: string
+  /** Diet pattern (e.g. omnivore, vegetarian, vegan) — drives supplement form filters. */
+  dietPreference?: string
 }
 
 export function normalize(text: string): string {

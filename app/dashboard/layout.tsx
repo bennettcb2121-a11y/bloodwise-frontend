@@ -13,6 +13,7 @@ import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
 import { DashboardSidebarNav } from "@/src/components/DashboardSidebarNav"
 import { DashboardSkyAtmosphereProvider } from "@/src/contexts/DashboardSkyAtmosphereContext"
 import { DashboardSkyShell } from "@/src/components/DashboardSkyShell"
+import { DashboardLogFab } from "@/src/components/DashboardLogFab"
 import { getSubscription } from "@/src/lib/bloodwiseDb"
 import type { SubscriptionRow } from "@/src/lib/bloodwiseDb"
 import {
@@ -200,7 +201,11 @@ function DashboardLayoutInner({
   const hasActiveSubscription = subscription?.status === "active" || subscription?.status === "trialing"
 
   return (
-    <div className="dashboard-app-shell dashboard-app-shell--clarion">
+    <div
+      className="dashboard-app-shell dashboard-app-shell--clarion"
+      data-clarion-shell="dashboard-guided-v2"
+      data-clarion-build={process.env.NEXT_PUBLIC_CLARION_BUILD_ID}
+    >
       <DashboardSkyAtmosphereProvider>
       <div className="dashboard-layout-row">
         <aside
@@ -244,6 +249,21 @@ function DashboardLayoutInner({
               <Link href="/dashboard" className="dashboard-top-brand dashboard-top-brand--bar" aria-label="Clarion Labs — dashboard home">
                 <ClarionLabsLogo variant="compact" />
               </Link>
+            </div>
+            <div className="dashboard-top-nav-links" aria-label="Sections">
+              {NAV_ITEMS.map(({ href, label }) => {
+                const isActive = href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href)
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={`dashboard-top-nav-link ${isActive ? "dashboard-top-nav-link--active" : ""}`}
+                    aria-current={isActive ? "page" : undefined}
+                  >
+                    {label}
+                  </Link>
+                )
+              })}
             </div>
             <div className="dashboard-top-tabs-actions">
               <button type="button" className="dashboard-top-logout" onClick={() => void handleLogOut()}>
@@ -302,6 +322,7 @@ function DashboardLayoutInner({
           )
         })}
       </nav>
+      <DashboardLogFab />
       </DashboardSkyAtmosphereProvider>
     </div>
   )
