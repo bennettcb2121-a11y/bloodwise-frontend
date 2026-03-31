@@ -3,6 +3,10 @@
  * key biomarker findings, and top priority actions for athletes and health-conscious users.
  */
 
+import type { PrioritySummary } from "@/src/lib/priorityEngine"
+
+export type { PrioritySummary }
+
 export type BiomarkerResult = {
   name?: string
   marker?: string
@@ -24,12 +28,6 @@ export type FocusItem = {
   status?: string
   value?: number
   [key: string]: unknown
-}
-
-export type PrioritySummary = {
-  biggestDrag: string
-  strongestMarker: string
-  nextBestAction: string
 }
 
 export type DetectedPattern = {
@@ -103,7 +101,9 @@ export function getBloodwiseSummary(input: BloodwiseSummaryInput): BloodwiseSumm
   if (topFocus.length > 0) {
     const names = topFocus.map((f) => f.name || f.marker || "marker").slice(0, 3)
     const list = names.length === 1 ? names[0] : names.length === 2 ? `${names[0]} and ${names[1]}` : `${names[0]}, ${names[1]}, and ${names[2]}`
-    keyFindings.push(`Markers that need the most attention: ${list}. These are where targeted changes (diet, supplements, recovery) can make a real difference.`)
+    keyFindings.push(
+      `Markers that need the most attention: ${list}. These are where targeted changes (diet, activity, recovery, and clinician-guided care where appropriate) can make a real difference.`
+    )
   }
   if (statusCounts.optimal > 0 && keyFindings.length < 3) {
     keyFindings.push(`${statusCounts.optimal} of your markers are in an optimal or solid range—that’s a good foundation to build on.`)

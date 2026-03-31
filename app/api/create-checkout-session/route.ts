@@ -33,7 +33,7 @@ export async function POST() {
     client_reference_id: authSession.user.id,
     customer_email: authSession.user.email ?? undefined,
     subscription_data: {
-      metadata: { user_id: authSession.user.id },
+      metadata: { user_id: authSession.user.id, type: "clarion_plus" },
     },
   })
 

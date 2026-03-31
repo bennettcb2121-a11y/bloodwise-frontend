@@ -176,6 +176,29 @@ export const BIOMARKER_EVIDENCE: BiomarkerEvidenceMap = {
   Estradiol: [
     { title: "Estradiol test", source: "MedlinePlus (NLM)", url: "https://medlineplus.gov/lab-tests/estradiol-test/" },
   ],
+  "Lipoprotein(a)": [
+    { title: "Lipoprotein (a) blood test", source: "MedlinePlus (NLM)", url: "https://medlineplus.gov/labtests/lipoproteinabloodtest.html" },
+    { title: "Cholesterol guidelines and risk assessment", source: "American College of Cardiology", url: "https://www.acc.org/guidelines" },
+  ],
+  "Free T4": [
+    { title: "Thyroid tests", source: "MedlinePlus (NLM)", url: "https://medlineplus.gov/thyroidtests.html" },
+    { title: "Free T4 test", source: "MedlinePlus Medical Encyclopedia (NLM)", url: "https://medlineplus.gov/ency/article/003517.htm" },
+  ],
+  "Alkaline phosphatase": [
+    { title: "Alkaline phosphatase (ALP) test", source: "MedlinePlus (NLM)", url: "https://medlineplus.gov/lab-tests/alp-test/" },
+    { title: "Liver function tests", source: "MedlinePlus (NLM)", url: "https://medlineplus.gov/liverfunctiontests.html" },
+  ],
+  "Total protein": [
+    {
+      title: "Total protein and albumin/globulin (A/G) ratio",
+      source: "MedlinePlus (NLM)",
+      url: "https://medlineplus.gov/lab-tests/total-protein-and-albumin-globulin-a-g-ratio",
+    },
+    { title: "Comprehensive metabolic panel", source: "MedlinePlus (NLM)", url: "https://medlineplus.gov/comprehensivemetabolicpanel.html" },
+  ],
+  "Cortisol (AM)": [
+    { title: "Cortisol test", source: "MedlinePlus (NLM)", url: "https://medlineplus.gov/lab-tests/cortisol-test/" },
+  ],
 }
 
 export function getEvidenceForBiomarker(markerName: string): EvidenceEntry[] {

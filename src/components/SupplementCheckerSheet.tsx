@@ -10,6 +10,8 @@ import Link from "next/link"
 type Props = {
   userId: string | null | undefined
   onClose: () => void
+  /** Opens “Supplements you already take” as a sheet (e.g. from log FAB) instead of navigating. */
+  onRequestSupplementsYouTake?: () => void
 }
 
 /** Rough keyword → biomarker name hints for education-only copy */
@@ -79,7 +81,60 @@ function parseServings(raw: string): number | undefined {
   return n
 }
 
-export function SupplementCheckerSheet({ userId, onClose }: Props) {
+/**
+ * Chromium exposes `BarcodeDetector` (fast). Safari / Firefox do not — use ZXing on the same image.
+ */
+async function decodeBarcodeFromImageFile(file: File): Promise<string | null> {
+  const BD =
+    typeof window !== "undefined"
+      ? (window as unknown as { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector
+      : undefined
+
+  if (BD) {
+    try {
+      const bitmap = await createImageBitmap(file)
+      try {
+        const detector = new BD({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"] })
+        const codes = await detector.detect(bitmap)
+        const raw = codes[0]?.rawValue
+        if (raw) return raw
+      } finally {
+        bitmap.close()
+      }
+    } catch {
+      /* fall through to ZXing */
+    }
+  }
+
+  const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType, NotFoundException }] = await Promise.all([
+    import("@zxing/browser"),
+    import("@zxing/library"),
+  ])
+
+  const hints = new Map<number, unknown>()
+  hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+    BarcodeFormat.EAN_13,
+    BarcodeFormat.EAN_8,
+    BarcodeFormat.UPC_A,
+    BarcodeFormat.UPC_E,
+    BarcodeFormat.CODE_128,
+  ])
+  hints.set(DecodeHintType.TRY_HARDER, true)
+  const reader = new BrowserMultiFormatReader(hints)
+  const url = URL.createObjectURL(file)
+  try {
+    const result = await reader.decodeFromImageUrl(url)
+    const text = result.getText()?.trim()
+    return text || null
+  } catch (e) {
+    if (e instanceof NotFoundException) return null
+    throw e
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
+export function SupplementCheckerSheet({ userId, onClose, onRequestSupplementsYouTake }: Props) {
   const [manualCode, setManualCode] = useState("")
   const [productName, setProductName] = useState<string | null>(null)
   const [lastBarcode, setLastBarcode] = useState<string | null>(null)
@@ -193,25 +248,16 @@ export function SupplementCheckerSheet({ userId, onClose }: Props) {
     e.target.value = ""
     if (!file) return
     setScanError(null)
-    const BD = typeof window !== "undefined" ? (window as unknown as { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector : undefined
-    if (!BD) {
-      setScanError("Barcode scanning isn’t available in this browser. Enter the code manually, or try Chrome.")
-      return
-    }
     try {
-      const bitmap = await createImageBitmap(file)
-      const detector = new BD({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"] })
-      const codes = await detector.detect(bitmap)
-      bitmap.close()
-      const raw = codes[0]?.rawValue
+      const raw = await decodeBarcodeFromImageFile(file)
       if (!raw) {
-        setScanError("No barcode found in that image. Try a clearer photo or type the code.")
+        setScanError("No barcode found in that image. Try a clearer photo, better light, or type the code.")
         return
       }
       setManualCode(raw)
       await runLookup(raw)
     } catch {
-      setScanError("Could not read that image. Try manual entry.")
+      setScanError("Could not read that image. Try another photo or enter the code manually.")
     }
   }
 
@@ -347,9 +393,22 @@ export function SupplementCheckerSheet({ userId, onClose }: Props) {
         )}
 
         <p className="dashboard-supplement-checker-footer">
-          <Link href="/dashboard#supplements-you-take" className="dashboard-supplement-checker-link" onClick={onClose}>
-            Add supplements you already take →
-          </Link>
+          {onRequestSupplementsYouTake ? (
+            <button
+              type="button"
+              className="dashboard-supplement-checker-link"
+              onClick={() => {
+                onClose()
+                onRequestSupplementsYouTake()
+              }}
+            >
+              Add supplements you already take →
+            </button>
+          ) : (
+            <Link href="/dashboard#supplements-you-take" className="dashboard-supplement-checker-link" onClick={onClose}>
+              Add supplements you already take →
+            </Link>
+          )}
         </p>
       </div>
     </div>

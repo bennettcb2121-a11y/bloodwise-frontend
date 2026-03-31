@@ -6,14 +6,20 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { loadSavedState } from "@/src/lib/bloodwiseDb"
 import { isDevPaywallBypass } from "@/src/lib/accessGate"
-import { getAnalysisPriceDisplayDollars, getSubscriptionPriceDisplayDollars } from "@/src/lib/analysisPricing"
+import {
+  getAnalysisPriceDisplayDollars,
+  getLitePriceDisplayDollars,
+  getSubscriptionPriceDisplayDollars,
+} from "@/src/lib/analysisPricing"
 import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
 
 export default function PaywallPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [liteCheckoutLoading, setLiteCheckoutLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [liteError, setLiteError] = useState<string | null>(null)
   const [unlockCode, setUnlockCode] = useState("")
   const [redeemLoading, setRedeemLoading] = useState(false)
   const [redeemError, setRedeemError] = useState<string | null>(null)
@@ -27,6 +33,7 @@ export default function PaywallPage() {
 
   const analysisPrice = getAnalysisPriceDisplayDollars()
   const subscriptionPrice = getSubscriptionPriceDisplayDollars()
+  const litePrice = getLitePriceDisplayDollars()
 
   // In dev: only skip paywall when NEXT_PUBLIC_DEV_SKIP_PAYWALL=1 (unless ?noRedirect=1 forces paywall for testing).
   useEffect(() => {
@@ -45,8 +52,37 @@ export default function PaywallPage() {
     }).catch(() => {})
   }, [user?.id, router])
 
+  async function handleLiteCheckout() {
+    setError(null)
+    setLiteError(null)
+    setLiteCheckoutLoading(true)
+    try {
+      const res = await fetch("/api/create-lite-checkout", {
+        method: "POST",
+        credentials: "include",
+      })
+      const text = await res.text()
+      let data: { url?: string; error?: string } = {}
+      try {
+        data = text ? JSON.parse(text) : {}
+      } catch {
+        const msg = res.ok ? "Invalid response from server" : `Checkout failed (${res.status})`
+        setLiteError(msg)
+        return
+      }
+      if (!res.ok) throw new Error(data.error || "Clarion Lite checkout failed")
+      if (data.url) window.location.href = data.url
+      else throw new Error("No checkout URL returned")
+    } catch (e) {
+      setLiteError(e instanceof Error ? e.message : "Something went wrong")
+    } finally {
+      setLiteCheckoutLoading(false)
+    }
+  }
+
   async function handleUnlock() {
     setError(null)
+    setLiteError(null)
     setCheckoutLoading(true)
     try {
       const res = await fetch("/api/create-analysis-checkout", { method: "POST" })
@@ -136,6 +172,62 @@ export default function PaywallPage() {
             <li>Ongoing biomarker tracking</li>
           </ul>
         </div>
+
+        <div className="paywall-compare-wrap">
+          <p className="paywall-compare-title">Choose your path</p>
+          <table className="paywall-compare" aria-label="Clarion Lite vs Full Clarion">
+            <thead>
+              <tr>
+                <th scope="col" className="paywall-compare-corner" />
+                <th scope="col">Clarion Lite</th>
+                <th scope="col">Full Clarion</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Dashboard &amp; habits</th>
+                <td>Yes</td>
+                <td>Yes</td>
+              </tr>
+              <tr>
+                <th scope="row">Symptom / profile topics</th>
+                <td>Yes</td>
+                <td>Yes</td>
+              </tr>
+              <tr>
+                <th scope="row">Panel score &amp; biomarker trends</th>
+                <td>—</td>
+                <td>Yes</td>
+              </tr>
+              <tr>
+                <th scope="row">Lab-matched stack &amp; dosing context</th>
+                <td>—</td>
+                <td>Yes</td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="paywall-lite-footnote" role="note">
+            Clarion Lite is education and habit support based on how you feel and your goals—not a substitute for labs or
+            medical care. It does not interpret your bloodwork.
+          </p>
+          <div className="paywall-lite-row">
+            <div className="paywall-lite-price">
+              <span className="paywall-lite-amount">${litePrice}</span>
+              <span className="paywall-lite-period">/ month</span>
+            </div>
+            <button
+              type="button"
+              className="paywall-lite-cta"
+              onClick={handleLiteCheckout}
+              disabled={liteCheckoutLoading}
+            >
+              {liteCheckoutLoading ? "Taking you to checkout…" : "Subscribe to Clarion Lite"}
+            </button>
+          </div>
+          {liteError && <p className="paywall-error paywall-error--lite">{liteError}</p>}
+        </div>
+
+        <p className="paywall-full-label">Full analysis + Clarion+</p>
         <div className="paywall-card">
           <div className="paywall-price">
             <span className="paywall-amount">${analysisPrice}</span>
@@ -161,8 +253,8 @@ export default function PaywallPage() {
           >
             {checkoutLoading ? "Taking you to checkout…" : "Unlock My Health Plan"}
           </button>
-          {error && <p className="paywall-error">{error}</p>}
         </div>
+        {error && <p className="paywall-error">{error}</p>}
         <p className="paywall-stripe-hint">At Stripe checkout you can also enter a promotion code if you have one.</p>
         <div className="paywall-code-wrap">
           <p className="paywall-code-label">Have a free Clarion unlock code?</p>
@@ -221,9 +313,103 @@ const paywallStyles = `
   .paywall-container {
     position: relative;
     z-index: 1;
-    max-width: 440px;
+    max-width: 520px;
     width: 100%;
     text-align: center;
+  }
+  .paywall-compare-wrap {
+    margin-bottom: 28px;
+    text-align: left;
+    padding: 18px 18px 20px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+  }
+  .paywall-compare-title {
+    margin: 0 0 12px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    text-align: center;
+  }
+  .paywall-compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+  }
+  .paywall-compare th,
+  .paywall-compare td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--color-border);
+    text-align: center;
+  }
+  .paywall-compare thead th {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    border-bottom: 2px solid var(--color-border-strong);
+  }
+  .paywall-compare tbody th[scope="row"] {
+    text-align: left;
+    font-weight: 500;
+    color: var(--color-text-primary);
+  }
+  .paywall-compare-corner {
+    width: 36%;
+  }
+  .paywall-lite-footnote {
+    margin: 14px 0 16px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--color-text-muted);
+  }
+  .paywall-lite-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .paywall-lite-price {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .paywall-lite-amount {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--color-text-primary);
+  }
+  .paywall-lite-period {
+    font-size: 13px;
+    color: var(--color-text-muted);
+  }
+  .paywall-lite-cta {
+    padding: 12px 18px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border-strong);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+  .paywall-lite-cta:hover:not(:disabled) {
+    background: var(--clarion-card-hover-bg);
+  }
+  .paywall-lite-cta:disabled {
+    opacity: 0.75;
+    cursor: not-allowed;
+  }
+  .paywall-full-label {
+    margin: 0 0 12px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
   }
   .paywall-logo-root {
     display: inline-flex;
@@ -354,6 +540,11 @@ const paywallStyles = `
     margin-top: 12px;
     font-size: 14px;
     color: var(--color-error);
+  }
+  .paywall-error--lite {
+    margin-top: 12px;
+    text-align: left;
+    line-height: 1.45;
   }
   .paywall-stripe-hint {
     font-size: 13px;

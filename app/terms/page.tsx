@@ -27,6 +27,12 @@ export default function TermsPage() {
             general educational purposes. Discuss any changes to your diet, supplements, or health
             routine with your clinician.
           </p>
+          <p className="terms-body">
+            <strong>Clarion Lite</strong> (when offered) provides education and habit support from your profile and
+            reported symptoms. It does not interpret your bloodwork, estimate deficiencies from your data as if it were lab
+            results, or replace clinical judgment. Upgrade to the full analysis when you want biomarker scoring,
+            trends, and lab-matched supplement context.
+          </p>
         </section>
 
         <section className="terms-section" aria-labelledby="use-heading">
@@ -51,7 +57,7 @@ export default function TermsPage() {
         </section>
 
         <p className="terms-footer-note">
-          For education only. Not medical advice. Last updated: March 2025.
+          For education only. Not medical advice. Last updated: March 2026.
         </p>
 
         <p className="terms-back">

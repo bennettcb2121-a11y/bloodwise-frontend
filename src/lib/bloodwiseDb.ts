@@ -40,6 +40,8 @@ export type ProfileRow = {
   notify_reorder_days?: number | null
   /** Comma-separated symptom ids (e.g. fatigue,low_energy) for priority ranking. */
   symptoms?: string | null
+  /** Stripe subscription tier: none | lite | full (webhook-synced from price id). */
+  plan_tier?: string | null
   updated_at?: string
 }
 
@@ -183,6 +185,7 @@ export async function upsertProfile(
       notify_reorder_email: profile.notify_reorder_email ?? undefined,
       notify_reorder_days: profile.notify_reorder_days ?? undefined,
       symptoms: profile.symptoms ?? undefined,
+      plan_tier: profile.plan_tier ?? undefined,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "user_id" }

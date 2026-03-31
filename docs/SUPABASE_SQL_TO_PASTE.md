@@ -244,11 +244,24 @@ The webhook uses the **service role**, which bypasses RLS. No policies are requi
 
 ---
 
+## 13. `plan_tier` (Clarion Lite vs full subscription)
+
+New query → paste → Run if you use Clarion Lite (`017_profiles_plan_tier.sql`).
+
+```sql
+alter table public.profiles
+  add column if not exists plan_tier text not null default 'none';
+
+comment on column public.profiles.plan_tier is 'Subscription tier: none | lite | full — from Stripe price (STRIPE_LITE_PRICE_ID vs Clarion+ price). Lab unlock remains analysis_purchased_at.';
+```
+
+---
+
 ## Done
 
-After running 1–12 in order you should have:
+After running 1–13 in order you should have:
 
-- **profiles** (with email, phone, retest_weeks, improvement_preference, profile_type, analysis_purchased_at, results_flow_completed_at, height_cm, weight_kg, supplement_form_preference)
+- **profiles** (with email, phone, retest_weeks, improvement_preference, profile_type, analysis_purchased_at, results_flow_completed_at, height_cm, weight_kg, supplement_form_preference, **plan_tier**)
 - **bloodwork_saves** (with score, detected_patterns, key_flagged_biomarkers)
 - **subscriptions**
 - **unlock_redemptions**

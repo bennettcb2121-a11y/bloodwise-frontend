@@ -35,6 +35,13 @@ export const FAQ_ITEMS: FaqItem[] = [
     keywords: ["bill", "billing", "payment", "charge", "refund", "subscription", "clarion+", "stripe", "receipt", "price", "pay"],
   },
   {
+    id: "clarion-lite",
+    question: "What is Clarion Lite?",
+    answer:
+      "Clarion Lite is a lower-priced subscription that gives you dashboard access and education based on your profile and symptoms—not on your lab results. It does not provide biomarker scoring, personalized lab interpretation, or lab-matched dosing. Full Clarion adds the one-time analysis and bloodwork-based personalization. Clarion Lite is for education and habit support only, not a substitute for labs or medical care.",
+    keywords: ["lite", "clarion lite", "cheap", "basic", "tier", "symptom", "without labs", "no bloodwork"],
+  },
+  {
     id: "labs",
     question: "How do I add or update my lab results?",
     answer:

@@ -19,6 +19,7 @@ import { getAdherence } from "@/src/lib/adherence"
 import { getEarnedBadges } from "@/src/lib/badges"
 import { getLatestLearningItem, getLearningItemForPriority } from "@/src/lib/learningFeed"
 import { getLongTermInsightForPriorities } from "@/src/lib/longTermInsights"
+import { CLARION_PROFILE_UPDATED_EVENT } from "@/src/lib/profileEvents"
 import { buildTopFocus, getPrioritySummary, getStatusTone, inferWhyItMatters } from "@/src/lib/priorityEngine"
 import { getGuidesForPriorities, getGuidesForBiomarker } from "@/src/lib/guides"
 import {
@@ -29,7 +30,8 @@ import {
 } from "@/src/lib/dashboardTips"
 import { parseSupplementRow, shortStackDoseLabel } from "@/src/lib/supplementDisplay"
 import { CHALLENGES, getChallengeProgress, getChallengeExtra } from "@/src/lib/challenges"
-import { hasClarionAnalysisAccess } from "@/src/lib/accessGate"
+import { hasClarionAnalysisAccess, hasLabPersonalizationAccess } from "@/src/lib/accessGate"
+import { buildLiteSupplementSuggestions, LITE_DISCLAIMER } from "@/src/lib/symptomLiteSupplements"
 import { getAffiliateProductForStackItem } from "@/src/lib/stackAffiliate"
 import { getSupplementDetail } from "@/src/lib/supplementProtocolDetail"
 import { getPriorityMarkerSeries } from "@/src/lib/dashboardTrendData"
@@ -288,6 +290,24 @@ export default function DashboardPage() {
     }
   }, [user, profile, prefsPhone, prefsRetestWeeks])
 
+  /** Keep Home in sync when supplements sheet saves from the log FAB / checker */
+  useEffect(() => {
+    const reload = () => {
+      if (!user?.id) return
+      loadSavedState(user.id)
+        .then(({ profile: p }) => {
+          if (p) {
+            setProfile(p)
+            setPrefsPhone(p.phone ?? "")
+            setPrefsRetestWeeks(p.retest_weeks ?? 8)
+          }
+        })
+        .catch(() => {})
+    }
+    window.addEventListener(CLARION_PROFILE_UPDATED_EVENT, reload)
+    return () => window.removeEventListener(CLARION_PROFILE_UPDATED_EVENT, reload)
+  }, [user?.id])
+
   const hasPaidAnalysis = Boolean(profile?.analysis_purchased_at)
   const hasActiveSubscription = subscription?.status === "active" || subscription?.status === "trialing"
   const returnedFromSubscriptionCheckout =
@@ -438,6 +458,24 @@ export default function DashboardPage() {
         setSubscription(sub)
         if (sub?.status === "active" || sub?.status === "trialing") router.replace("/dashboard")
       }).catch(() => {})
+    }
+    refetch()
+    const t1 = setTimeout(refetch, 1500)
+    const t2 = setTimeout(() => {
+      refetch()
+      router.replace("/dashboard")
+    }, 4000)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [user?.id, router])
+
+  // Clarion Lite checkout success — webhook may lag; refetch profile (plan_tier) + subscription
+  useEffect(() => {
+    if (!user?.id || typeof window === "undefined") return
+    const search = window.location.search
+    if (!search.includes("lite=success")) return
+    const refetch = () => {
+      loadSavedState(user.id).then(({ profile: p }) => { if (p) setProfile(p) }).catch(() => {})
+      getSubscription(user.id).then(setSubscription).catch(() => {})
     }
     refetch()
     const t1 = setTimeout(refetch, 1500)
@@ -698,6 +736,21 @@ export default function DashboardPage() {
       ((bloodwork.selected_panel?.length ?? 0) > 0 ||
         bloodwork.score != null ||
         (bloodwork.biomarker_inputs && Object.keys(bloodwork.biomarker_inputs).length > 0))
+  )
+  const hasLabPersonalization = useMemo(
+    () => hasLabPersonalizationAccess(profile, bloodwork),
+    [profile, bloodwork]
+  )
+  const liteSupplementSuggestions = useMemo(
+    () =>
+      profile
+        ? buildLiteSupplementSuggestions({
+            symptoms: profile.symptoms ?? null,
+            profile_type: profile.profile_type ?? null,
+            improvement_preference: profile.improvement_preference ?? null,
+          })
+        : [],
+    [profile]
   )
   const nudgeBanner = useMemo(() => {
     if (nudgeDismissed || !hasBloodwork) return null
@@ -1303,25 +1356,100 @@ export default function DashboardPage() {
         )}
 
         {!hasBloodwork ? (
-          <div className="dashboard-empty-wrap">
-            <h1 className="dashboard-page-headline">Get healthier today</h1>
-            <div className="dashboard-card dashboard-empty">
-              <div className="dashboard-empty-icon" aria-hidden>◇</div>
-              <h2 className="dashboard-empty-title">Get your personalized health plan</h2>
-              <p className="dashboard-empty-text">Complete your first panel to see your score and daily tasks.</p>
-              <div className="dashboard-empty-actions">
-                <Link href="/?step=labs" className="dashboard-cta dashboard-cta-primary">
-                  Start your analysis
-                </Link>
-                <Link href="/" className="dashboard-cta-secondary">How it works</Link>
+          hasLabPersonalization ? (
+            <div className="dashboard-empty-wrap">
+              <h1 className="dashboard-page-headline">Get healthier today</h1>
+              <div className="dashboard-card dashboard-empty">
+                <div className="dashboard-empty-icon" aria-hidden>◇</div>
+                <h2 className="dashboard-empty-title">Get your personalized health plan</h2>
+                <p className="dashboard-empty-text">Complete your first panel to see your score and daily tasks.</p>
+                <div className="dashboard-empty-actions">
+                  <Link href="/?step=labs" className="dashboard-cta dashboard-cta-primary">
+                    Start your analysis
+                  </Link>
+                  <Link href="/" className="dashboard-cta-secondary">How it works</Link>
+                </div>
+              </div>
+              <div className="dashboard-card dashboard-subscribe-card">
+                <div className="dashboard-card-label">Clarion+</div>
+                <p className="dashboard-card-muted">Trends, retest reminders, and recommendations. Cancel anytime.</p>
+                <SubscribeButton className="dashboard-cta dashboard-cta-subscribe">Subscribe — every 2 months</SubscribeButton>
               </div>
             </div>
-            <div className="dashboard-card dashboard-subscribe-card">
-              <div className="dashboard-card-label">Clarion+</div>
-              <p className="dashboard-card-muted">Trends, retest reminders, and recommendations. Cancel anytime.</p>
-              <SubscribeButton className="dashboard-cta dashboard-cta-subscribe">Subscribe — every 2 months</SubscribeButton>
+          ) : (
+            <div className="dashboard-empty-wrap">
+              <div className="dashboard-lite-upgrade-strip" role="region" aria-label="Upgrade to full Clarion">
+                <p className="dashboard-lite-upgrade-strip__text">
+                  Add bloodwork to unlock panel score, biomarker trends, and a lab-matched supplement stack—not symptom-only
+                  topics.
+                </p>
+                <Link href="/paywall" className="dashboard-lite-upgrade-strip__cta">
+                  Add bloodwork &amp; full analysis
+                </Link>
+              </div>
+              <h1 className="dashboard-lite-hero-title">Your Clarion Lite plan</h1>
+              <p className="dashboard-lite-hero-lede">
+                Education and habit support based on how you feel and your goals—not a substitute for labs or medical care.
+                Below are supplement <em>topics</em> often discussed in general wellness contexts; they are not based on your
+                bloodwork.
+              </p>
+              <div className="dashboard-card">
+                <h2 className="dashboard-empty-title" style={{ marginBottom: 12 }}>
+                  Topics to discuss with your clinician
+                </h2>
+                <ul className="dashboard-lite-suggest-list">
+                  {liteSupplementSuggestions.map((s) => (
+                    <li key={s.presetId} className="dashboard-lite-suggest-item">
+                      <p className="dashboard-lite-suggest-name">{s.displayName}</p>
+                      <p className="dashboard-lite-suggest-why">{s.whySuggested}</p>
+                    </li>
+                  ))}
+                </ul>
+                <p className="dashboard-lite-disclaimer">{LITE_DISCLAIMER}</p>
+              </div>
+              {profile ? (
+                <section className="dashboard-card" aria-labelledby="dashboard-lite-supplements-heading">
+                  <h2 id="dashboard-lite-supplements-heading" className="dashboard-empty-title">
+                    Supplements you already take
+                  </h2>
+                  <p className="dashboard-empty-text" style={{ textAlign: "left", maxWidth: "none" }}>
+                    Optional: tell us what you use so we can compare if you add labs later. Manage your full profile in
+                    Settings.
+                  </p>
+                  <div className="dashboard-current-supplements-editor">
+                    <CurrentSupplementsEditor
+                      idPrefix="dashboard-lite-supplements"
+                      value={profile.current_supplements ?? ""}
+                      onChange={(serialized) =>
+                        setProfile((p) => (p ? { ...p, current_supplements: serialized } : null))
+                      }
+                    />
+                  </div>
+                  <label className="dashboard-prefs-field dashboard-current-supplements-spend">
+                    <span>Monthly supplement spend (approx.)</span>
+                    <input
+                      type="text"
+                      className="dashboard-prefs-input"
+                      value={profile.current_supplement_spend ?? ""}
+                      onChange={(e) =>
+                        setProfile((p) => (p ? { ...p, current_supplement_spend: e.target.value } : null))
+                      }
+                      placeholder="e.g. 50"
+                      autoComplete="off"
+                    />
+                  </label>
+                  <p className="dashboard-tab-muted" style={{ marginTop: 16 }}>
+                    <Link href="/settings">Profile &amp; symptoms →</Link>
+                  </p>
+                </section>
+              ) : null}
+              <div className="dashboard-card dashboard-subscribe-card">
+                <div className="dashboard-card-label">Clarion+</div>
+                <p className="dashboard-card-muted">Already on Lite? Upgrade to full analysis + Clarion+ from the paywall.</p>
+                <SubscribeButton className="dashboard-cta dashboard-cta-subscribe">Subscribe — every 2 months</SubscribeButton>
+              </div>
             </div>
-          </div>
+          )
         ) : (
           <>
             {hasBloodwork && (

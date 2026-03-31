@@ -126,6 +126,12 @@
   --font-sans: var(--font-source-sans), system-ui, sans-serif;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+
 body {
   background: var(--color-bg);
   color: var(--color-text-primary);
@@ -1902,6 +1908,10 @@ body.pitch-deck-active .clarion-global-footer {
   }
 }
 @media (max-width: 899px) {
+  .dashboard-top-bar {
+    padding-left: max(10px, env(safe-area-inset-left, 0px));
+    padding-right: max(10px, env(safe-area-inset-right, 0px));
+  }
   .dashboard-sidebar {
     position: fixed;
     top: 0;
@@ -2768,10 +2778,11 @@ body.pitch-deck-active .clarion-global-footer {
   border: 1px solid var(--color-border);
   background: var(--color-bg);
 }
+/* Must stack above .dashboard-log-fab (z-index 10001) or the + button covers the sheet */
 .dashboard-log-sheet-root {
   position: fixed;
   inset: 0;
-  z-index: 1260;
+  z-index: 10050;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -2782,8 +2793,11 @@ body.pitch-deck-active .clarion-global-footer {
   position: absolute;
   inset: 0;
   z-index: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
-.dashboard-supplement-checker {
+.dashboard-log-sheet-root .dashboard-supplement-checker {
   position: relative;
   z-index: 1;
   width: 100%;
@@ -2794,17 +2808,21 @@ body.pitch-deck-active .clarion-global-footer {
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
   border-radius: 20px 20px 0 0;
-  box-shadow: 0 -12px 48px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 -16px 56px rgba(0, 0, 0, 0.38),
+    0 0 0 1px color-mix(in srgb, var(--color-border) 65%, transparent);
 }
 @media (min-width: 600px) {
   .dashboard-log-sheet-root {
     justify-content: center;
     padding: 24px;
   }
-  .dashboard-supplement-checker {
+  .dashboard-log-sheet-root .dashboard-supplement-checker {
     border-radius: 16px;
     padding-bottom: 24px;
-    box-shadow: var(--shadow-md);
+    box-shadow:
+      var(--shadow-md),
+      0 0 0 1px color-mix(in srgb, var(--color-border) 65%, transparent);
   }
 }
 .dashboard-supplement-checker-head {
@@ -3004,4 +3022,94 @@ body.pitch-deck-active .clarion-global-footer {
 }
 .dashboard-supplement-checker-link:hover {
   text-decoration: underline;
+}
+button.dashboard-supplement-checker-link {
+  display: inline;
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+  color: var(--color-accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+button.dashboard-supplement-checker-link:hover {
+  text-decoration: underline;
+}
+.current-supplements-sheet-lede {
+  margin: 0 0 16px;
+  font-size: 15px;
+  line-height: 1.55;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+/* Supplements sheet: higher contrast than dashboard cards (dark UI + dim chips/inputs) */
+[data-theme="dark"] .dashboard-log-sheet-root .dashboard-supplement-checker {
+  background: color-mix(in srgb, var(--color-surface-elevated) 72%, #c8d0d8 28%);
+  border-color: color-mix(in srgb, var(--color-border) 45%, rgba(255, 255, 255, 0.35) 55%);
+}
+[data-theme="light"] .dashboard-log-sheet-root .dashboard-supplement-checker {
+  background: var(--color-surface-elevated);
+  box-shadow:
+    0 -16px 56px rgba(0, 0, 0, 0.12),
+    0 0 0 1px color-mix(in srgb, var(--color-border) 80%, transparent);
+}
+.dashboard-log-sheet-root .current-supplements-editor-hint {
+  font-size: 15px;
+  line-height: 1.55;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+.dashboard-log-sheet-root .current-supplements-chip {
+  font-size: 14px;
+  padding: 10px 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  border-width: 1.5px;
+  border-color: color-mix(in srgb, var(--color-border) 55%, rgba(255, 255, 255, 0.28) 45%);
+  background: color-mix(in srgb, var(--color-surface) 55%, rgba(255, 255, 255, 0.12) 45%);
+}
+[data-theme="dark"] .dashboard-log-sheet-root .current-supplements-chip {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.95);
+}
+[data-theme="dark"] .dashboard-log-sheet-root .current-supplements-chip--on {
+  background: color-mix(in srgb, var(--color-accent) 35%, rgba(255, 255, 255, 0.12) 65%);
+  color: #fff;
+  border-color: color-mix(in srgb, var(--color-accent) 65%, rgba(255, 255, 255, 0.35) 35%);
+}
+.dashboard-log-sheet-root .current-supplements-editor .settings-input,
+.dashboard-log-sheet-root .dashboard-prefs-input {
+  border-width: 1.5px;
+  border-color: color-mix(in srgb, var(--color-border) 50%, rgba(255, 255, 255, 0.35) 50%);
+  font-size: 15px;
+}
+[data-theme="dark"] .dashboard-log-sheet-root .current-supplements-editor .settings-input,
+[data-theme="dark"] .dashboard-log-sheet-root .dashboard-prefs-input {
+  background: rgba(0, 0, 0, 0.22);
+  color: rgba(255, 255, 255, 0.96);
+}
+[data-theme="dark"] .dashboard-log-sheet-root .current-supplements-editor .settings-input::placeholder,
+[data-theme="dark"] .dashboard-log-sheet-root .dashboard-prefs-input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+.dashboard-log-sheet-root .dashboard-prefs-field,
+.dashboard-log-sheet-root .dashboard-prefs-field span {
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+.dashboard-log-sheet-root .current-supplements-editor-row {
+  border-color: color-mix(in srgb, var(--color-border) 55%, rgba(255, 255, 255, 0.25) 45%);
+  background: color-mix(in srgb, var(--color-bg) 70%, rgba(255, 255, 255, 0.06) 30%);
+}
+[data-theme="dark"] .dashboard-log-sheet-root .current-supplements-editor-row {
+  background: rgba(0, 0, 0, 0.18);
+}
+.dashboard-log-sheet-root .dashboard-supplement-checker-title {
+  font-size: 19px;
+  letter-spacing: -0.02em;
 }

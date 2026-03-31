@@ -54,7 +54,7 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     retest: "Retest in 8–12 weeks after intervention.",
     recommendedTests: ["CBC", "Iron Panel", "Transferrin Saturation"],
     researchSummary:
-      "Endurance athletes often perform better with ferritin clearly above minimum clinical norms.",
+      "Sports-medicine references often discuss ferritin thresholds above minimum anemia cutoffs for athletes with fatigue—targets are individualized.",
     whatItDoes: [
       "Stores iron for the body",
       "Supports oxygen transport",
@@ -119,7 +119,7 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     retest: "Retest in 8–12 weeks.",
     recommendedTests: ["Calcium", "PTH"],
     researchSummary:
-      "Athletes generally benefit from being above deficiency thresholds and often perform best in the mid-normal range.",
+      "Deficiency is associated with bone and muscle symptoms; correcting clear deficiency is evidence-supported; supraphysiologic targets are not established for performance.",
     ranges: {
       general: {
         deficient: 20,
@@ -159,7 +159,7 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     symptomsLow: ["Muscle cramps", "Fatigue", "Poor sleep", "Restlessness"],
     symptomsHigh: ["Diarrhea", "Weakness (rare)"],
     whyItMatters:
-      "Low magnesium can contribute to poor recovery, cramps, sleep issues, and reduced energy metabolism. One of the most marketable and broadly applicable biomarkers in consumer health. Use caution in kidney disease.",
+      "Low magnesium can contribute to poor recovery, cramps, sleep issues, and neuromuscular symptoms. NIH ODS notes many adults fall short on intake; use caution with supplements in kidney disease (hypermagnesemia risk).",
     foods:
       "Pumpkin seeds, almonds, cashews, black beans, dark chocolate, spinach and leafy greens.",
     lifestyle:
@@ -169,7 +169,7 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     retest: "Retest in 8–12 weeks.",
     recommendedTests: [],
     researchSummary:
-      "Athletes may need tighter magnesium sufficiency because of sweat loss and metabolic demand.",
+      "Athletes can lose magnesium via sweat; intake adequacy is supported by dietary guidance and ODS intake data for the general population.",
     ranges: {
       general: {
         deficient: 1.7,
@@ -218,7 +218,7 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     retest: "Retest in 8–12 weeks.",
     recommendedTests: ["Folate", "CBC"],
     researchSummary:
-      "Performance-minded users often do better above the low end of standard lab ranges.",
+      "Clinical deficiency merits treatment; mild low-normal values may warrant context (diet, medications, absorption).",
     ranges: {
       general: {
         deficient: 300,
@@ -281,9 +281,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
 
   CRP: {
     description:
-      "CRP is a broad marker of systemic inflammation and recovery strain.",
+      "C-reactive protein (often a broader-assay CRP); rises with infection, inflammation, and tissue injury.",
     whyItMatters:
-      "Elevated CRP may reflect poor recovery, recent illness, injury, excess inflammation, or metabolic stress.",
+      "Elevated CRP is nonspecific—infection, strenuous training, injury, or chronic inflammatory conditions can raise it. For cardiometabolic risk refinement, many guidelines reference hs-CRP rather than generic CRP.",
     foods:
       "Higher-quality whole-food diet with omega-3-rich foods, berries, olive oil, and vegetables.",
     lifestyle:
@@ -293,7 +293,7 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     retest: "Retest in 2–6 weeks depending on context.",
     recommendedTests: ["CBC"],
     researchSummary:
-      "Athletes can see transient CRP elevations, so context matters, but chronically low CRP is generally favorable.",
+      "CRP rises with acute illness and heavy training; persistent unexplained elevation warrants medical evaluation.",
     ranges: {
       general: {
         optimalMin: 0,
@@ -332,7 +332,7 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     retest: "Retest in 8–12 weeks.",
     recommendedTests: ["HbA1c", "Insulin"],
     researchSummary:
-      "Athletes usually benefit from strong insulin sensitivity and stable fasting glucose.",
+      "Fasting glucose aligns with ADA categories for prediabetes/diabetes when paired with confirmatory testing; exercise improves insulin sensitivity in many people.",
     ranges: {
       general: {
         optimalMin: 75,
@@ -371,7 +371,7 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     retest: "Retest in 6–12 weeks.",
     recommendedTests: ["HbA1c", "Glucose"],
     researchSummary:
-      "Athletes, especially endurance athletes, often do well with relatively low fasting insulin.",
+      "Fasting insulin correlates with insulin sensitivity; reference intervals vary by lab and assay.",
     ranges: {
       general: {
         optimalMin: 2,
@@ -398,9 +398,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
 
   Testosterone: {
     description:
-      "Testosterone supports recovery, muscle protein synthesis, red blood cell production, and training adaptation.",
+      "Total testosterone; interpretation depends on sex, age, time of day, assay, and SHBG (affects free androgen).",
     whyItMatters:
-      "Low testosterone in male athletes can reflect low energy availability, poor recovery, or endocrine strain.",
+      "In males, low values can associate with low energy availability, sleep debt, or medical causes. In females, reference ranges differ substantially—interpret with clinical context, not population “optimal” targets from male data.",
     foods:
       "Adequate energy intake, sufficient fats, zinc-rich foods, and balanced intake overall.",
     lifestyle:
@@ -446,8 +446,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
 
   // ——— Core launch: CBC, CMP, iron, lipids, inflammation, thyroid (minimal entries for panel recommendation) ———
   Hemoglobin: {
-    description: "Hemoglobin carries oxygen in red blood cells. Part of a CBC.",
-    whyItMatters: "Low hemoglobin can indicate anemia; high can reflect dehydration or adaptation.",
+    description: "Hemoglobin carries oxygen in red blood cells; central to the CBC.",
+    whyItMatters:
+      "Low hemoglobin suggests anemia until proven otherwise—interpret with MCV, ferritin, B12, and folate, and clinical context (bleeding, hemolysis). High values can reflect hemoconcentration or other causes.",
     foods: "Iron-rich foods, vitamin C for absorption.",
     lifestyle: "Hydration, altitude, training load.",
     supplementNotes: "Discuss with your doctor before supplementing; focus on diet and retest.",
@@ -463,8 +464,8 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     },
   },
   Hematocrit: {
-    description: "Percentage of blood volume that is red blood cells (CBC).",
-    whyItMatters: "Used with hemoglobin to assess anemia or hydration.",
+    description: "Hematocrit—percent of blood volume occupied by red cells (CBC).",
+    whyItMatters: "Tracks with hemoglobin; low suggests anemia; high can reflect dehydration or polycythemia—interpret with the full CBC and clinical context.",
     foods: "Iron-rich diet if low.",
     lifestyle: "Hydration, training load.",
     supplementNotes: "Medical follow-up for abnormal values; do not self-treat.",
@@ -480,7 +481,8 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
   },
   RBC: {
     description: "Red blood cell count (CBC).",
-    whyItMatters: "Low RBC can indicate anemia; context with hemoglobin and ferritin.",
+    whyItMatters:
+      "Interpret with hemoglobin, MCV, and iron/B12/folate status; isolated changes are less informative than the pattern.",
     foods: "Iron, B12, folate if deficient.",
     lifestyle: "Training, recovery.",
     supplementNotes: "Discuss with your doctor; focus on cause.",
@@ -495,8 +497,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     },
   },
   MCV: {
-    description: "Mean corpuscular volume — average red blood cell size (CBC).",
-    whyItMatters: "Helps distinguish types of anemia (microcytic vs macrocytic).",
+    description: "Mean corpuscular volume—average red blood cell size (CBC).",
+    whyItMatters:
+      "Classifies anemia pattern (microcytic vs macrocytic); pair with ferritin, B12, and folate rather than interpreting alone.",
     foods: "Context-dependent; B12/folate or iron.",
     lifestyle: "—",
     supplementNotes: "Medical follow-up; do not self-treat.",
@@ -543,8 +546,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { deficient: 15, suboptimalMin: 20, optimalMin: 20, optimalMax: 50, high: 55 } },
   },
   HbA1c: {
-    description: "Average blood glucose over ~3 months; key for metabolic health. ADA guidance strongly supports lifestyle interventions for prevention and delay of type 2 diabetes.",
-    whyItMatters: "Elevated HbA1c indicates prediabetes or diabetes risk. One of the clearest premium health software biomarkers.",
+    description: "Average blood glucose over ~3 months; key for metabolic health. ADA Standards of Care emphasize lifestyle interventions for prevention and delay of type 2 diabetes.",
+    whyItMatters:
+      "Elevated HbA1c indicates sustained hyperglycemia (prediabetes or diabetes per ADA thresholds). It complements fasting glucose and should be interpreted with symptoms and clinical context.",
     foods: "Meals built around beans, lentils, intact grains, vegetables, berries; Greek yogurt or other high-protein foods. Minimize refined carbohydrate and liquid calories.",
     lifestyle: "Post-meal walking (10–15 min), resistance training, weight loss if indicated, sleep regularity. Limit ultra-processed snacks and late-night overeating.",
     supplementNotes: "Berberine: common protocol 500 mg with meals 2–3x/day. Can interact with diabetes meds; avoid in pregnancy. Lifestyle-first; discuss with provider. Strong in-app warnings required.",
@@ -576,8 +580,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 0, optimalMax: 150, high: 200 } },
   },
   "HDL-C": {
-    description: "High-density lipoprotein; 'good' cholesterol.",
-    whyItMatters: "Higher HDL is generally protective; interpret with full lipid panel.",
+    description: "HDL-C (high-density lipoprotein cholesterol); one component of the lipid panel.",
+    whyItMatters:
+      "HDL is interpreted with LDL, triglycerides, and often ApoB or non-HDL—not alone. Trials of drugs that raised HDL did not reduce cardiovascular events; focus on overall risk reduction and lifestyle with your clinician.",
     foods: "Healthy fats, fiber, exercise.",
     lifestyle: "Activity, smoking cessation.",
     supplementNotes: "Lifestyle-first; niacin/other only with provider.",
@@ -609,8 +614,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 0, optimalMax: 200, high: 240 } },
   },
   ApoB: {
-    description: "Apolipoprotein B; one particle count for atherogenic lipid burden.",
-    whyItMatters: "Useful for cardiovascular risk refinement.",
+    description: "Apolipoprotein B—approximates number of atherogenic lipoprotein particles.",
+    whyItMatters:
+      "Often complements LDL-C in risk assessment; interpret with the rest of the lipid panel and overall risk (ACC/AHA frameworks reference ApoB in selected patients).",
     foods: "Same as lipid panel.",
     lifestyle: "Activity, weight.",
     supplementNotes: "Discuss with provider.",
@@ -620,8 +626,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 0, optimalMax: 100, high: 120 } },
   },
   "Lipoprotein(a)": {
-    description: "Lp(a); genetically influenced, risk-enhancing marker.",
-    whyItMatters: "≥50 mg/dL (or 75 nmol/L) is risk-enhancing; often not modifiable by lifestyle alone.",
+    description: "Lipoprotein(a)—genetically influenced particle linked to atherosclerotic risk; labs report mg/dL or nmol/L (units are not interchangeable).",
+    whyItMatters:
+      "Elevated Lp(a) is considered risk-enhancing in major guidelines (thresholds differ by unit—use your lab report and clinician). Lifestyle has limited effect; management is individualized and clinician-directed.",
     foods: "—",
     lifestyle: "—",
     supplementNotes: "Medical follow-up; do not self-treat.",
@@ -631,8 +638,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 0, optimalMax: 30, high: 50 } },
   },
   "hs-CRP": {
-    description: "High-sensitivity C-reactive protein; marker of inflammation. ACC/AHA-aligned guidance emphasizes lifestyle for lowering inflammatory risk.",
-    whyItMatters: "≥2 mg/L is risk-enhancing; useful for recovery and cardiometabolic context. Users understand it as 'something is stressing the system.'",
+    description: "High-sensitivity C-reactive protein; systemic inflammation marker used in cardiovascular risk discussion (hs-CRP assay preferred over standard CRP for that purpose).",
+    whyItMatters:
+      "Persistently elevated hs-CRP can reflect inflammation from lifestyle, recovery, or illness; epidemiologic risk thresholds (e.g. ≥2 mg/L) are used in some frameworks—interpret with lipids, blood pressure, and symptoms, not as a single diagnostic.",
     foods: "Mediterranean-style pattern: fatty fish, extra-virgin olive oil, berries, legumes, nuts. More minimally processed foods.",
     lifestyle: "150+ min/week moderate activity, weight reduction if needed, smoking cessation, better sleep regularity and stress management.",
     supplementNotes: "Curcumin phytosome 500–1,000 mg/day. Omega-3 1–2 g/day EPA+DHA. Bleeding-risk warnings for omega-3 and curcumin if on anticoagulants.",
@@ -647,8 +655,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     },
   },
   ESR: {
-    description: "Erythrocyte sedimentation rate; nonspecific inflammation marker.",
-    whyItMatters: "Elevated in inflammation, infection, some chronic conditions.",
+    description: "Erythrocyte sedimentation rate—nonspecific marker that tends to rise with inflammation.",
+    whyItMatters:
+      "Many conditions elevate ESR (infection, autoimmune disease, pregnancy, anemia of chronic disease). It is not specific for any one diagnosis—interpret with symptoms and other labs.",
     foods: "—",
     lifestyle: "Context: illness, recovery.",
     supplementNotes: "Medical follow-up; do not self-treat.",
@@ -658,9 +667,10 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 0, optimalMax: 20, high: 30 } },
   },
   TSH: {
-    description: "Thyroid-stimulating hormone; screens thyroid function.",
-    whyItMatters: "Abnormal TSH warrants Free T4 and clinical context.",
-    foods: "Iodine adequacy; avoid excess goitrogens if deficient.",
+    description: "Thyroid-stimulating hormone (pituitary signal to the thyroid); first-line screen with free T4.",
+    whyItMatters:
+      "Abnormal TSH should be interpreted with free T4 (and sometimes free T3), symptoms, medications, and pregnancy status—TSH alone is not sufficient for full diagnosis.",
+    foods: "Adequate iodine intake for most people; avoid radical iodine changes without guidance.",
     lifestyle: "Stress, sleep.",
     supplementNotes: "Do not self-treat thyroid with supplements; medical follow-up.",
     retest: "As advised by provider.",
@@ -669,8 +679,8 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { deficient: 0.4, suboptimalMin: 0.5, optimalMin: 0.5, optimalMax: 4.5, high: 5 } },
   },
   "Free T4": {
-    description: "Free thyroxine; active thyroid hormone.",
-    whyItMatters: "Interpret with TSH for thyroid function.",
+    description: "Free thyroxine (T4)—unbound thyroid hormone available to tissues.",
+    whyItMatters: "Interpret with TSH; borderline results often need repeat testing and clinical correlation.",
     foods: "—",
     lifestyle: "—",
     supplementNotes: "Medical follow-up only; do not self-treat.",
@@ -680,8 +690,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 0.8, optimalMax: 1.8, high: 2 } },
   },
   BUN: {
-    description: "Blood urea nitrogen; kidney and protein metabolism.",
-    whyItMatters: "Elevated with dehydration or kidney concern; interpret with creatinine.",
+    description: "Blood urea nitrogen—waste product related to protein metabolism and renal excretion.",
+    whyItMatters:
+      "Rises with reduced kidney perfusion, high protein intake, GI bleeding, and other causes; interpret with creatinine and eGFR rather than BUN alone.",
     foods: "Hydration, protein intake.",
     lifestyle: "Hydration.",
     supplementNotes: "Medical follow-up for abnormal values.",
@@ -691,8 +702,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 7, optimalMax: 20, high: 25 } },
   },
   Creatinine: {
-    description: "Kidney function marker; waste product.",
-    whyItMatters: "Elevated creatinine can indicate reduced kidney function.",
+    description: "Serum creatinine—muscle metabolism waste filtered by the kidneys.",
+    whyItMatters:
+      "Used with age and sex in eGFR equations to estimate kidney filtration; acute changes need urgent context (hydration, medications, obstruction).",
     foods: "—",
     lifestyle: "Hydration.",
     supplementNotes: "Do not self-treat; medical follow-up.",
@@ -702,8 +714,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 0.7, optimalMax: 1.3, high: 1.5 } },
   },
   Albumin: {
-    description: "Main blood protein; liver and nutrition marker.",
-    whyItMatters: "Low albumin can reflect nutrition or liver status.",
+    description: "Serum albumin—major plasma protein made by the liver.",
+    whyItMatters:
+      "Low values can reflect chronic illness, liver disease, malnutrition, or protein loss; interpret with total protein, liver enzymes, and clinical context—not as a single wellness score.",
     foods: "Adequate protein.",
     lifestyle: "—",
     supplementNotes: "Medical follow-up.",
@@ -713,8 +726,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { deficient: 3.2, suboptimalMin: 3.5, optimalMin: 3.5, optimalMax: 5.5, high: 6 } },
   },
   SHBG: {
-    description: "Sex hormone-binding globulin; binds testosterone.",
-    whyItMatters: "Affects free testosterone; interpret with total testosterone.",
+    description: "Sex hormone-binding globulin—binds sex steroids and modulates free hormone availability.",
+    whyItMatters:
+      "Rises with aging, thyroid status, and insulin sensitivity; affects calculated free testosterone—interpret with total testosterone and clinical context.",
     foods: "—",
     lifestyle: "Body composition, insulin sensitivity.",
     supplementNotes: "Do not self-treat hormones; discuss with provider.",
@@ -724,8 +738,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 20, optimalMax: 80, high: 100 } },
   },
   "Free testosterone": {
-    description: "Unbound, biologically active testosterone.",
-    whyItMatters: "Often more relevant than total T when SHBG is abnormal.",
+    description: "Free (unbound) testosterone—often measured or calculated from total T and SHBG.",
+    whyItMatters:
+      "More informative than total T when SHBG is very high or low; interpretation varies by sex, age, and assay.",
     foods: "—",
     lifestyle: "Sleep, stress, energy availability.",
     supplementNotes: "Medical follow-up; do not self-treat with hormones.",
@@ -735,8 +750,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 50, optimalMax: 200, high: 250 } },
   },
   Estradiol: {
-    description: "Primary estrogen; important in both sexes.",
-    whyItMatters: "Relevant for bone, cardiovascular, and reproductive health.",
+    description: "Estradiol—major estrogen; reference ranges differ by sex, age, and menstrual status.",
+    whyItMatters:
+      "Interpretation is highly context-dependent (menstrual cycle, menopause, hormone therapy, fertility). Not a standalone “optimization” target.",
     foods: "—",
     lifestyle: "—",
     supplementNotes: "Do not self-treat; medical follow-up.",
@@ -746,8 +762,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 15, optimalMax: 50, high: 60 } },
   },
   "Cortisol (AM)": {
-    description: "Morning cortisol; stress and adrenal axis.",
-    whyItMatters: "High or low can reflect stress, sleep, or adrenal function.",
+    description: "Morning serum cortisol; diurnal rhythm and stress affect results.",
+    whyItMatters:
+      "A single AM value is easy to misinterpret—medications, sleep, timing, and illness matter. Abnormal results warrant clinician follow-up; do not self-treat “adrenal fatigue.”",
     foods: "—",
     lifestyle: "Sleep, stress management, recovery.",
     supplementNotes: "Do not self-treat; focus on lifestyle and retest.",
@@ -758,8 +775,8 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
   },
   // CBC remainder
   MCH: {
-    description: "Mean corpuscular hemoglobin; average hemoglobin per red cell (CBC).",
-    whyItMatters: "Helps classify anemia with MCV and MCHC.",
+    description: "Mean corpuscular hemoglobin—average hemoglobin per red cell (CBC).",
+    whyItMatters: "Used with MCV and RDW to characterize anemia pattern.",
     foods: "—",
     lifestyle: "—",
     supplementNotes: "Medical follow-up.",
@@ -769,8 +786,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 27, optimalMax: 33, high: 34 } },
   },
   RDW: {
-    description: "Red cell distribution width; variation in red cell size (CBC).",
-    whyItMatters: "Elevated in some anemias (e.g. iron deficiency).",
+    description: "Red cell distribution width—variation in red blood cell size (CBC).",
+    whyItMatters:
+      "Often rises in early iron deficiency and mixed deficiencies; nonspecific—interpret with MCV, ferritin, and B12/folate.",
     foods: "—",
     lifestyle: "—",
     supplementNotes: "Medical follow-up.",
@@ -780,8 +798,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 11.5, optimalMax: 14.5, high: 15 } },
   },
   WBC: {
-    description: "White blood cell count (CBC).",
-    whyItMatters: "Infection, inflammation, or immune context.",
+    description: "White blood cell count (CBC)—immune cell total.",
+    whyItMatters:
+      "High or low counts have many causes (infection, stress, medications, bone marrow disorders). Differential count adds detail—clinician interpretation if abnormal.",
     foods: "—",
     lifestyle: "—",
     supplementNotes: "Medical follow-up for abnormal values.",
@@ -791,8 +810,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 4.5, optimalMax: 11, high: 12 } },
   },
   Platelets: {
-    description: "Platelet count (CBC); clotting support.",
-    whyItMatters: "Very high or low can warrant follow-up.",
+    description: "Platelet count (CBC)—involved in clot formation.",
+    whyItMatters:
+      "Thrombocytopenia and thrombocytosis have diverse causes (infection, meds, marrow disorders). Persistent abnormalities need medical evaluation.",
     foods: "—",
     lifestyle: "—",
     supplementNotes: "Medical follow-up.",
@@ -803,8 +823,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
   },
   // CMP remainder
   Calcium: {
-    description: "Serum calcium; bone and metabolism (CMP).",
-    whyItMatters: "Interpret with albumin; abnormal may need PTH/vitamin D workup.",
+    description: "Total serum calcium (often corrected or interpreted with albumin).",
+    whyItMatters:
+      "Abnormal calcium needs clinical context (PTH, vitamin D, magnesium, medications, malignancy). Do not self-supplement high doses without monitoring.",
     foods: "Dairy, fortified foods, greens.",
     lifestyle: "—",
     supplementNotes: "Medical follow-up.",
@@ -814,8 +835,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 8.6, optimalMax: 10.2, high: 10.5 } },
   },
   Sodium: {
-    description: "Serum sodium; electrolyte (CMP).",
-    whyItMatters: "Hydration and kidney context.",
+    description: "Serum sodium—primary extracellular cation; tightly regulated.",
+    whyItMatters:
+      "Abnormal sodium reflects water balance, kidney function, hormones, and medications—can be dangerous at extremes; clinician-guided correction.",
     foods: "—",
     lifestyle: "Hydration.",
     supplementNotes: "Medical follow-up.",
@@ -825,8 +847,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 136, optimalMax: 145, high: 146 } },
   },
   Potassium: {
-    description: "Serum potassium; electrolyte (CMP).",
-    whyItMatters: "Heart and muscle function.",
+    description: "Serum potassium—critical for nerve and muscle (including cardiac) function.",
+    whyItMatters:
+      "High or low potassium can be medical emergencies; causes include medications, kidney disease, and GI losses—do not self-treat with supplements.",
     foods: "Bananas, potatoes, leafy greens.",
     lifestyle: "Hydration.",
     supplementNotes: "Do not self-supplement; medical follow-up.",
@@ -836,8 +859,8 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 3.5, optimalMax: 5.0, high: 5.2 } },
   },
   Chloride: {
-    description: "Serum chloride; electrolyte (CMP).",
-    whyItMatters: "Often interpreted with sodium and CO2.",
+    description: "Serum chloride—usually interpreted with sodium and acid-base status.",
+    whyItMatters: "Part of electrolyte and acid-base assessment with sodium, potassium, and bicarbonate/CO2.",
     foods: "—",
     lifestyle: "—",
     supplementNotes: "Medical follow-up.",
@@ -847,8 +870,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 98, optimalMax: 106, high: 108 } },
   },
   CO2: {
-    description: "CO2 / bicarbonate; electrolyte (CMP).",
-    whyItMatters: "Acid-base and kidney context.",
+    description: "CO2 (bicarbonate surrogate on many panels)—acid-base status.",
+    whyItMatters:
+      "Low or high bicarbonate suggests metabolic acidosis/alkalosis patterns; interpret with anion gap, kidney function, and clinical context.",
     foods: "—",
     lifestyle: "—",
     supplementNotes: "Medical follow-up.",
@@ -858,8 +882,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 23, optimalMax: 29, high: 31 } },
   },
   "Total protein": {
-    description: "Total serum protein (CMP).",
-    whyItMatters: "Nutrition and liver context with albumin.",
+    description: "Total serum protein—albumin plus globulins (CMP).",
+    whyItMatters:
+      "Changes may reflect hydration, inflammation (globulins), liver synthetic function, or protein loss—interpret with albumin and A/G ratio when provided.",
     foods: "Adequate protein intake.",
     lifestyle: "—",
     supplementNotes: "Medical follow-up.",
@@ -869,8 +894,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 6.0, optimalMax: 8.3, high: 8.5 } },
   },
   AST: {
-    description: "Aspartate aminotransferase; liver/muscle enzyme (CMP).",
-    whyItMatters: "Elevated with liver or muscle stress; interpret with ALT.",
+    description: "AST—aspartate aminotransferase; found in liver and muscle.",
+    whyItMatters:
+      "Rises with hepatocellular injury and also with muscle injury, strenuous exercise, or hemolysis—interpret with ALT and clinical context.",
     foods: "—",
     lifestyle: "Avoid alcohol excess; recovery.",
     supplementNotes: "Do not self-treat; medical follow-up.",
@@ -880,8 +906,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 10, optimalMax: 40, high: 50 } },
   },
   ALT: {
-    description: "Alanine aminotransferase; liver enzyme (CMP).",
-    whyItMatters: "Liver health; interpret with AST.",
+    description: "ALT—alanine aminotransferase; relatively liver-specific.",
+    whyItMatters:
+      "Elevated ALT suggests hepatocellular injury; chronic mild elevations warrant medical evaluation (metabolic liver disease, medications, viral hepatitis, etc.).",
     foods: "—",
     lifestyle: "Avoid alcohol excess.",
     supplementNotes: "Medical follow-up.",
@@ -902,8 +929,9 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     ranges: { general: { optimalMin: 44, optimalMax: 147, high: 150 } },
   },
   Bilirubin: {
-    description: "Bilirubin; liver breakdown product (CMP).",
-    whyItMatters: "Liver function and hemolysis context.",
+    description: "Bilirubin—heme breakdown product; total vs direct fractionation matters when abnormal.",
+    whyItMatters:
+      "Elevated bilirubin can reflect liver excretion problems, hemolysis, or inherited conditions—needs clinical pattern, not self-diagnosis.",
     foods: "—",
     lifestyle: "—",
     supplementNotes: "Medical follow-up.",

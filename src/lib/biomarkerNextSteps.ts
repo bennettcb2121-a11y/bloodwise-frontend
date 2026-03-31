@@ -102,7 +102,8 @@ const FALLBACK_NEXT_STEPS: Record<string, BiomarkerNextStep> = {
   },
   "HDL-C": {
     nextStepType: "lifestyle",
-    nextStepCopy: "Activity and diet first; niacin or other only with provider.",
+    nextStepCopy:
+      "Lifestyle first (activity, smoking cessation, diet pattern). Interpret HDL with LDL, triglycerides, and overall risk—medications to raise HDL are not a substitute for panel-based prevention.",
   },
   "LDL-C": {
     nextStepType: "diet",

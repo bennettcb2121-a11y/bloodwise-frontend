@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { Plus, X, ListChecks, Droplets, LineChart, Pill, ScanLine } from "lucide-react"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { SupplementCheckerSheet } from "@/src/components/SupplementCheckerSheet"
+import { CurrentSupplementsSheet } from "@/src/components/CurrentSupplementsSheet"
 
 /**
  * One-tap entry to logging: protocol, daily habits, supplements, barcode checker.
@@ -16,6 +17,7 @@ export function DashboardLogFab() {
   const { user } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
   const [checkerOpen, setCheckerOpen] = useState(false)
+  const [supplementsSheetOpen, setSupplementsSheetOpen] = useState(false)
 
   useEffect(() => {
     if (!menuOpen && !checkerOpen) return
@@ -94,17 +96,20 @@ export function DashboardLogFab() {
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/dashboard#supplements-you-take"
-                  className="dashboard-log-fab-item"
-                  onClick={() => setMenuOpen(false)}
+                <button
+                  type="button"
+                  className="dashboard-log-fab-item dashboard-log-fab-item--button"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    setSupplementsSheetOpen(true)
+                  }}
                 >
                   <Pill size={20} strokeWidth={2} aria-hidden />
                   <span>
                     <strong>Supplements you take</strong>
                     <small>Edit your list</small>
                   </span>
-                </Link>
+                </button>
               </li>
               <li>
                 <button
@@ -127,7 +132,14 @@ export function DashboardLogFab() {
         </>
       )}
 
-      {checkerOpen && <SupplementCheckerSheet userId={user?.id} onClose={() => setCheckerOpen(false)} />}
+      {checkerOpen && (
+        <SupplementCheckerSheet
+          userId={user?.id}
+          onClose={() => setCheckerOpen(false)}
+          onRequestSupplementsYouTake={() => setSupplementsSheetOpen(true)}
+        />
+      )}
+      {supplementsSheetOpen && <CurrentSupplementsSheet userId={user?.id} onClose={() => setSupplementsSheetOpen(false)} />}
     </>
   )
 }

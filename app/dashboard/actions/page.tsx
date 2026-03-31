@@ -19,7 +19,8 @@ import { getSupplementDetail } from "@/src/lib/supplementProtocolDetail"
 import type { SupplementDetail } from "@/src/lib/supplementProtocolDetail"
 import { getGuidesForBiomarker } from "@/src/lib/guides"
 import { PAID_PROTOCOLS } from "@/src/lib/paidProtocols"
-import { hasClarionAnalysisAccess } from "@/src/lib/accessGate"
+import { hasClarionAnalysisAccess, hasLabPersonalizationAccess } from "@/src/lib/accessGate"
+import { LabUpgradeCallout } from "@/src/components/LabUpgradeCallout"
 import {
   getJourneyStepCopy,
   getLifestyleTaglineForMarker,
@@ -317,6 +318,7 @@ export default function ActionsPage() {
 
   const noBloodwork = !bloodwork?.biomarker_inputs || Object.keys(bloodwork.biomarker_inputs).length === 0
   if (noBloodwork) {
+    const awaitingUpload = hasLabPersonalizationAccess(profile, bloodwork)
     return (
       <main className="dashboard-tab-shell dashboard-actions-env">
         <div className="dashboard-tab-container">
@@ -324,14 +326,14 @@ export default function ActionsPage() {
             <h1 className="dashboard-tab-title">Your plan</h1>
             <p className="dashboard-tab-subtitle">One priority at a time. Start with #1.</p>
           </header>
-          <div className="dashboard-tab-card dashboard-actions-empty">
-            <p className="dashboard-actions-empty-text">
-              Complete your first bloodwork panel to see your personalized action list and product recommendations.
-            </p>
-            <Link href="/?step=labs" className="dashboard-actions-cta">
-              Start your analysis
-            </Link>
-          </div>
+          <LabUpgradeCallout
+            awaitingUpload={awaitingUpload}
+            intro={
+              awaitingUpload
+                ? "Complete your first bloodwork panel to see your personalized action list and product recommendations."
+                : "Lab-matched priorities and product recommendations unlock when you add bloodwork and the one-time analysis. Clarion Lite does not replace labs."
+            }
+          />
           <p className="dashboard-tab-muted">
             <Link href="/dashboard">Back to Home</Link>
           </p>

@@ -394,6 +394,47 @@ export const coreBiomarkerProtocols: Record<string, CoreBiomarkerProtocol> = {
     },
   },
 
+  "HDL-C": {
+    biomarker: "HDL-C",
+    displayName: "HDL-C",
+    whyItMatters:
+      "HDL-C is one piece of your lipid panel. Risk is not predicted from HDL alone—clinicians interpret LDL, HDL, triglycerides, and often ApoB or non-HDL together. Lifestyle (activity, smoking cessation, diet pattern) matters; this is not a marker to “optimize” with the same supplement playbook as LDL.",
+    foods: [
+      "Mediterranean-style pattern: olive oil, nuts, legumes, vegetables",
+      "Fatty fish in context of overall fat quality",
+      "Minimize trans fats; limit ultra-processed foods",
+    ],
+    lifestyle: [
+      "Regular aerobic and resistance training",
+      "Smoking cessation if applicable",
+      "Weight and metabolic health (often linked with triglycerides and LDL context)",
+    ],
+    suggestedProtocol:
+      "There is no strong evidence-based ‘HDL-raising’ supplement stack. Focus on lifestyle and interpret HDL with your full lipid panel and clinician. Omega-3 is sometimes discussed for triglycerides and general cardiovascular context—use only with clinician awareness, especially on blood thinners.",
+    warnings:
+      "Do not mirror LDL-focused fiber/sterols here for ‘raising HDL’—interpretation is panel-based and individualized.",
+    products: {
+      cheapest: {
+        label: "Cheapest",
+        productName: "Kirkland Signature Fish Oil",
+        asin: "B01L0S0T8I",
+        why: "Often discussed for triglycerides and general omega-3 intake—not a standalone HDL strategy.",
+      },
+      premium: {
+        label: "Premium",
+        productName: "Thorne Super EPA Pro",
+        asin: "B005CD3J9E",
+        why: "Concentrated EPA+DHA when a clinician supports omega-3 in your plan.",
+      },
+      overallWinner: {
+        label: "Overall winner",
+        productName: "Sports Research Triple Strength Omega-3",
+        asin: "B07DX89ZHN",
+        why: "Practical omega-3 option; pair with lipid panel discussion—not a substitute for medical risk assessment.",
+      },
+    },
+  },
+
   Triglycerides: {
     biomarker: "Triglycerides",
     displayName: "Triglycerides",

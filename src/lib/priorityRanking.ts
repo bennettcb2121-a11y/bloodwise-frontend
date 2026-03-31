@@ -6,6 +6,7 @@
 
 import { resolveActionPlanDbKey } from "./actionPlans"
 import { getProfilePanelBoost } from "./clarionProfiles"
+import { isLipidRelatedMarkerName } from "./lipidPanelContext"
 
 /** Single source for onboarding + settings (ids match SYMPTOM_MARKER_WEIGHTS keys). */
 export const SYMPTOM_OPTIONS = [
@@ -246,6 +247,40 @@ function ironSynergyBoost(
   return 0
 }
 
+/** When multiple lipid markers are off, keep them comparably ranked for heart/metabolic profiles (panel thinking). */
+function lipidPanelSynergyBoost(
+  ctx: UserPriorityContext,
+  report: { name?: string; status?: string }[],
+  resolved: string,
+  raw: string
+): number {
+  const pt = (ctx.profileType || "").toLowerCase()
+  const g = (ctx.goal || "").toLowerCase()
+  const heartish =
+    pt.includes("heart") ||
+    pt.includes("longevity") ||
+    pt.includes("weight_loss") ||
+    pt.includes("insulin") ||
+    pt.includes("metabolic") ||
+    pt.includes("prediabetes") ||
+    g.includes("heart") ||
+    g.includes("lipid") ||
+    g.includes("cholesterol")
+  if (!heartish) return 0
+
+  const flaggedLipids = report.filter((item) => {
+    const st = (item.status || "").toLowerCase()
+    if (!["deficient", "low", "suboptimal", "high"].includes(st)) return false
+    const n = (item.name || "").trim()
+    return n.length > 0 && isLipidRelatedMarkerName(n)
+  })
+  if (flaggedLipids.length < 2) return 0
+
+  const label = `${resolved} ${raw}`
+  if (isLipidRelatedMarkerName(label)) return 26
+  return 0
+}
+
 function goalBoost(goal: string | undefined, resolved: string, raw: string): number {
   const g = (goal || "").toLowerCase()
   let b = 0
@@ -293,6 +328,7 @@ export function computeDriverPriorityScore(
     sportBoost(ctx.sport, resolved, raw) +
     sexAgeBoost(ctx, resolved, raw) +
     ironSynergyBoost(symptoms, report, resolved, raw) +
+    lipidPanelSynergyBoost(ctx, report, resolved, raw) +
     goalBoost(ctx.goal, resolved, raw)
 
   return base + boost

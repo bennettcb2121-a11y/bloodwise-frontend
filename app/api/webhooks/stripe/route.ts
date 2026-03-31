@@ -3,6 +3,7 @@ import Stripe from "stripe"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { isDuplicateKeyError } from "@/src/lib/stripeWebhookIdempotency"
 import { CLARION_SUBSCRIPTION_TRIAL_DAYS } from "@/src/lib/analysisPricing"
+import { syncProfilePlanTierForStripeSubscription } from "@/src/lib/planTier"
 
 async function processStripeEvent(event: Stripe.Event, stripe: Stripe, supabase: SupabaseClient) {
   switch (event.type) {
@@ -72,6 +73,11 @@ async function processStripeEvent(event: Stripe.Event, stripe: Stripe, supabase:
                 },
                 { onConflict: "user_id" }
               )
+              try {
+                await syncProfilePlanTierForStripeSubscription(supabase, stripe, subWithPeriod.id)
+              } catch (e) {
+                console.error("Stripe: sync plan_tier after analysis Clarion+ create:", e)
+              }
             }
           } catch (err) {
             console.error("Stripe: auto-create subscription with trial after $49 analysis failed:", err)
@@ -97,6 +103,11 @@ async function processStripeEvent(event: Stripe.Event, stripe: Stripe, supabase:
           },
           { onConflict: "user_id" }
         )
+        try {
+          await syncProfilePlanTierForStripeSubscription(supabase, stripe, subscriptionId)
+        } catch (e) {
+          console.error("Stripe: sync plan_tier after checkout.session.completed:", e)
+        }
       }
       break
     }
@@ -114,6 +125,11 @@ async function processStripeEvent(event: Stripe.Event, stripe: Stripe, supabase:
           updated_at: new Date().toISOString(),
         })
         .eq("stripe_subscription_id", sub.id)
+      try {
+        await syncProfilePlanTierForStripeSubscription(supabase, stripe, sub.id)
+      } catch (e) {
+        console.error("Stripe: sync plan_tier after subscription update:", e)
+      }
       break
     }
     default:

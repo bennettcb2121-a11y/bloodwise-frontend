@@ -2,6 +2,16 @@
  * Priority and focus: status tone, top-focus list, why-it-matters and next-step copy.
  */
 
+import { getLipidPanelCoachingNote } from "@/src/lib/lipidPanelContext"
+
+function compactMarkerKey(marker: string): string {
+  return marker
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/_/g, "")
+    .replace(/-/g, "")
+}
+
 export type StatusTone = {
   label: string
   className: string
@@ -12,6 +22,8 @@ export type PrioritySummary = {
   biggestDrag: string
   strongestMarker: string
   nextBestAction: string
+  /** Education-only line when lipid markers are flagged; emphasizes full panel + clinician. */
+  lipidPanelNote: string | null
 }
 
 export type AnalysisItem = {
@@ -78,6 +90,7 @@ export function buildTopFocus<T extends AnalysisItem>(analysis: T[]): T[] {
 
 export function inferWhyItMatters(marker: string): string {
   const normalized = marker.toLowerCase()
+  const compact = compactMarkerKey(marker)
 
   if (normalized.includes("ferritin")) {
     return "Iron stores can directly affect endurance, oxygen delivery, and fatigue resistance."
@@ -106,8 +119,20 @@ export function inferWhyItMatters(marker: string): string {
   if (normalized.includes("hba1c") || normalized.includes("glucose") || normalized.includes("fasting insulin") || normalized.includes("insulin")) {
     return "Glycemic and metabolic markers affect energy, body composition, and long-term health."
   }
-  if (normalized.includes("triglyceride") || normalized.includes("hdl") || normalized.includes("ldl") || normalized.includes("cholesterol") || normalized.includes("apob") || normalized.includes("lipoprotein")) {
-    return "Lipids and ApoB influence cardiovascular risk and metabolic health."
+  if (compact.includes("nonhdl")) {
+    return "Non-HDL cholesterol captures several atherogenic particles; it’s usually interpreted with LDL and triglycerides as a panel, not alone."
+  }
+  if (compact.includes("hdl") && !compact.includes("nonhdl")) {
+    return "HDL is one part of your lipid picture; cardiovascular risk is judged using the full panel (including LDL and triglycerides) and your history."
+  }
+  if (
+    normalized.includes("triglyceride") ||
+    normalized.includes("ldl") ||
+    normalized.includes("cholesterol") ||
+    normalized.includes("apob") ||
+    normalized.includes("lipoprotein")
+  ) {
+    return "Lipids and ApoB influence cardiovascular risk; interpret as a panel with your clinician."
   }
   if (normalized.includes("tsh") || normalized.includes("free t4") || normalized.includes("t4")) {
     return "Thyroid markers affect energy, metabolism, and recovery; interpret with your provider."
@@ -122,17 +147,48 @@ export function inferWhyItMatters(marker: string): string {
     return "Liver enzymes reflect liver and sometimes muscle stress; discuss results with your provider."
   }
   if (normalized.includes("cortisol")) {
-    return "Cortisol reflects stress, sleep, and recovery; lifestyle and context matter."
+    return "Cortisol reflects stress, sleep, and recovery; a single AM value is easy to misinterpret without clinical context."
   }
   if (normalized.includes("shbg") || normalized.includes("estradiol")) {
-    return "Hormone context helps interpret energy, body composition, and recovery."
+    return "Sex-hormone markers are highly context-dependent (sex, age, cycle, medications); interpret with your clinician."
+  }
+  if (normalized.includes("folate") || compact.includes("folic")) {
+    return "Folate supports DNA synthesis and red blood cells; always interpret alongside B12—high folate can mask B12 deficiency."
+  }
+  if (normalized.includes("mcv") || normalized.includes("mch") || normalized.includes("rdw")) {
+    return "Red cell indices help classify anemia; interpret with hemoglobin, ferritin, B12, and folate as a pattern."
+  }
+  if (normalized.includes("wbc") || normalized.includes("platelet")) {
+    return "White cells and platelets reflect infection, inflammation, and marrow function—interpret with symptoms and the full CBC."
+  }
+  if (
+    normalized.includes("potassium") ||
+    normalized.includes("sodium") ||
+    normalized.includes("chloride") ||
+    normalized.includes("co2") ||
+    normalized.includes("bicarbonate")
+  ) {
+    return "Electrolytes affect heart, muscle, and fluid balance; abnormal values need prompt clinician interpretation."
+  }
+  if (normalized.includes("calcium")) {
+    return "Calcium is interpreted with albumin, vitamin D, and PTH; do not self-supplement without medical guidance."
+  }
+  if (normalized.includes("alkaline phosphatase")) {
+    return "ALP can rise from liver or bone sources; your clinician interprets it with the rest of the panel."
+  }
+  if (normalized.includes("total protein")) {
+    return "Total protein reflects nutrition, inflammation, and liver synthetic function—interpret with albumin."
+  }
+  if (normalized.includes("bilirubin")) {
+    return "Bilirubin changes can reflect liver or blood-cell turnover; needs clinical context, not guesswork."
   }
 
-  return "This marker can influence performance, energy, and recovery."
+  return "This marker should be interpreted with the rest of your panel, your history, and your clinician."
 }
 
 export function inferNextStep(marker: string, status?: string): string {
   const normalized = marker.toLowerCase()
+  const compact = compactMarkerKey(marker)
   const s = (status || "").toLowerCase()
 
   if (normalized.includes("ferritin")) {
@@ -193,9 +249,26 @@ export function inferNextStep(marker: string, status?: string): string {
     return "Maintain healthy habits and retest on schedule."
   }
 
+  if (compact.includes("nonhdl")) {
+    if (s === "high" || s === "suboptimal") {
+      return "Non-HDL is read with LDL and triglycerides. Lifestyle first (diet, activity, weight); discuss goals with your clinician."
+    }
+    return "Discuss with your clinician in context of your full lipid panel."
+  }
+
+  if (compact.includes("hdl") && !compact.includes("nonhdl")) {
+    if (s === "deficient" || s === "low" || s === "suboptimal") {
+      return "Low HDL is usually interpreted with LDL and triglycerides—not alone. Activity, smoking cessation, and diet pattern matter; ask your clinician about your overall risk."
+    }
+    if (s === "high") {
+      return "Very high HDL is uncommon; confirm interpretation with your clinician alongside the rest of your lipid panel."
+    }
+    return "Keep HDL in context with LDL, triglycerides, and overall risk—your clinician can help prioritize next steps."
+  }
+
   if (normalized.includes("triglyceride") || normalized.includes("ldl") || normalized.includes("cholesterol") || normalized.includes("apob") || normalized.includes("lipoprotein")) {
     if (s === "high" || s === "suboptimal") {
-      return "Diet, activity, and weight matter. Discuss targets and options with your provider."
+      return "Diet, activity, and weight matter. Discuss how this marker fits with your full lipid panel and overall risk with your clinician."
     }
     return "Maintain and retest as advised."
   }
@@ -220,7 +293,40 @@ export function inferNextStep(marker: string, status?: string): string {
     return "Interpret with your provider; focus on sleep, stress, and lifestyle first."
   }
 
-  return "Review in context and plan the next action step."
+  if (normalized.includes("folate") || compact.includes("folic")) {
+    if (s === "deficient" || s === "low" || s === "suboptimal") {
+      return "Address diet and confirm B12 status; high-dose folic acid without B12 evaluation can mask deficiency—ask your clinician."
+    }
+    return "Maintain balanced intake and monitor with your provider."
+  }
+
+  if (normalized.includes("mcv") || normalized.includes("mch") || normalized.includes("rdw")) {
+    return "Do not self-treat by index alone; your clinician ties MCV/RDW to iron, B12, folate, and symptoms."
+  }
+
+  if (normalized.includes("wbc") || normalized.includes("platelet")) {
+    return "Abnormal counts can be benign or serious—discuss promptly with your clinician, especially if new symptoms."
+  }
+
+  if (
+    normalized.includes("potassium") ||
+    normalized.includes("sodium") ||
+    normalized.includes("chloride") ||
+    normalized.includes("co2") ||
+    normalized.includes("bicarbonate")
+  ) {
+    return "Electrolyte problems can be urgent—seek clinician guidance; do not self-adjust salt or potassium supplements."
+  }
+
+  if (normalized.includes("calcium")) {
+    return "Discuss with your clinician; avoid calcium or vitamin D megadoses without monitoring."
+  }
+
+  if (normalized.includes("alkaline phosphatase") || normalized.includes("bilirubin") || normalized.includes("total protein")) {
+    return "Discuss with your clinician; avoid alcohol and new supplements until the pattern is explained."
+  }
+
+  return "Review with your clinician in the context of your full lab panel and health history."
 }
 
 export function getPrioritySummary(
@@ -241,5 +347,7 @@ export function getPrioritySummary(
         )
       : "Maintain current habits and retest on schedule."
 
-  return { biggestDrag, strongestMarker, nextBestAction }
+  const lipidPanelNote = getLipidPanelCoachingNote(analysisResults)
+
+  return { biggestDrag, strongestMarker, nextBestAction, lipidPanelNote }
 }

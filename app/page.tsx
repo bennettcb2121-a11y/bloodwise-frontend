@@ -404,8 +404,10 @@ function HomePageContent() {
           return
         }
 
-        // If returning from payment or subscription checkout, don't redirect — dedicated effects will show results flow
-        if (typeof window !== "undefined" && (window.location.search.includes("paid=1") || window.location.search.includes("subscription=success"))) return
+        // If returning from payment or subscription checkout, don't redirect — dedicated effects will show results flow.
+        // Use flags captured when this effect ran, not window.location here: the ?paid=1 effect may have already
+        // router.replace("/")'d and stripped the query before this promise resolves, which would wrongly fall through to setCurrentStep(0).
+        if (isPaymentReturn || isSubscriptionReturn) return
 
         const subActive = subscription?.status === "active" || subscription?.status === "trialing"
         const hasBloodworkAccess = b && (b.score != null || (b.selected_panel?.length ?? 0) > 0)

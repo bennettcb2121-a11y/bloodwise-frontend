@@ -11,7 +11,8 @@ import { analyzeBiomarkers } from "@/src/lib/analyzeBiomarkers"
 import { getTrendInsights } from "@/src/lib/trendInsights"
 import { TrendingUp } from "lucide-react"
 import { getTrendData } from "@/src/lib/dashboardTrendData"
-import { hasClarionAnalysisAccess } from "@/src/lib/accessGate"
+import { hasClarionAnalysisAccess, hasLabPersonalizationAccess } from "@/src/lib/accessGate"
+import { LabUpgradeCallout } from "@/src/components/LabUpgradeCallout"
 import "../dashboard.css"
 
 const BiomarkerTrendChartLazy = dynamic(
@@ -102,6 +103,7 @@ export default function DashboardTrendsPage() {
 
   const noBloodwork = !bloodwork?.biomarker_inputs || Object.keys(bloodwork.biomarker_inputs).length === 0
   if (noBloodwork) {
+    const awaitingUpload = hasLabPersonalizationAccess(profile, bloodwork)
     return (
       <main className="dashboard-tab-shell">
         <div className="dashboard-tab-container">
@@ -109,12 +111,14 @@ export default function DashboardTrendsPage() {
             <h1 className="dashboard-tab-title">Trends</h1>
             <p className="dashboard-tab-subtitle">See how your labs change over time.</p>
           </header>
-          <div className="dashboard-tab-card dashboard-biomarkers-empty">
-            <p className="dashboard-biomarkers-empty-text">Add bloodwork to unlock trend charts.</p>
-            <Link href="/?step=labs" className="dashboard-actions-cta">
-              Add bloodwork
-            </Link>
-          </div>
+          <LabUpgradeCallout
+            awaitingUpload={awaitingUpload}
+            intro={
+              awaitingUpload
+                ? "Add bloodwork to unlock trend charts."
+                : "Biomarker trends and change summaries unlock when you add bloodwork and the one-time analysis."
+            }
+          />
           <p className="dashboard-tab-muted">
             <Link href="/dashboard">Back to Home</Link>
           </p>

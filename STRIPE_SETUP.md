@@ -117,7 +117,9 @@ If the webhook returns 4xx/5xx, check Vercel **Functions** logs for the `/api/we
 | Variable                     | Where it’s used        | Where to get it |
 |-----------------------------|------------------------|-----------------|
 | `STRIPE_SECRET_KEY`        | Checkout + webhook     | Stripe → Developers → API keys → Secret key |
-| `STRIPE_PRICE_ID`          | Checkout                | Stripe → Products → your product → Price ID |
+| `STRIPE_PRICE_ID`          | Checkout (Clarion+ recurring) | Stripe → Products → your Clarion+ price → Price ID |
+| `STRIPE_LITE_PRICE_ID`     | Optional: Clarion Lite checkout (`/api/create-lite-checkout`) | Separate recurring Price (lower tier); webhook sets `profiles.plan_tier` to `lite` |
+| `STRIPE_SUBSCRIPTION_PRICE_ID` | Analysis bundle webhook (Clarion+ trial) | Same as Clarion+ price if used; falls back to `STRIPE_PRICE_ID` |
 | `STRIPE_WEBHOOK_SECRET`    | Webhook verification   | Stripe → Developers → Webhooks → endpoint → Signing secret |
 | `SUPABASE_SERVICE_ROLE_KEY`| Webhook (writes to DB) | Supabase → Settings → API → service_role |
 | `NEXT_PUBLIC_APP_URL`      | Success/cancel URLs    | Your app URL, e.g. `https://clarionlabs.vercel.app` (optional; app has a fallback) |

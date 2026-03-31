@@ -20,7 +20,8 @@ import { getBiomarkerContext } from "@/src/lib/biomarkerContext"
 import { biomarkerDatabase } from "@/src/lib/biomarkerDatabase"
 import { getEvidenceForBiomarker } from "@/src/lib/biomarkerEvidence"
 import { getEvidenceStrengthForBiomarker } from "@/src/lib/recommendationEvidence"
-import { hasClarionAnalysisAccess } from "@/src/lib/accessGate"
+import { hasClarionAnalysisAccess, hasLabPersonalizationAccess } from "@/src/lib/accessGate"
+import { LabUpgradeCallout } from "@/src/components/LabUpgradeCallout"
 import { ChevronDown, Droplet, Leaf, Zap, Heart, Flame, TestTube2 } from "lucide-react"
 
 export type SortOption = "priority" | "category" | "alphabetical"
@@ -175,6 +176,7 @@ export default function BiomarkersPage() {
 
   const noBloodwork = !bloodwork?.biomarker_inputs || Object.keys(bloodwork.biomarker_inputs).length === 0
   if (noBloodwork) {
+    const awaitingUpload = hasLabPersonalizationAccess(profile, bloodwork)
     return (
       <main className="dashboard-tab-shell">
         <div className="dashboard-tab-container">
@@ -182,14 +184,14 @@ export default function BiomarkersPage() {
             <h1 className="dashboard-tab-title">Biomarkers</h1>
             <p className="dashboard-tab-subtitle">Your results at a glance.</p>
           </header>
-          <div className="dashboard-tab-card dashboard-biomarkers-empty">
-            <p className="dashboard-biomarkers-empty-text">
-              Add your bloodwork to see your biomarker cards and simple explanations for each result.
-            </p>
-            <Link href="/?step=labs" className="dashboard-actions-cta">
-              Add bloodwork
-            </Link>
-          </div>
+          <LabUpgradeCallout
+            awaitingUpload={awaitingUpload}
+            intro={
+              awaitingUpload
+                ? "Add your bloodwork to see your biomarker cards and simple explanations for each result."
+                : "Panel score, biomarker cards, and lab-matched supplement context unlock when you add bloodwork and the one-time analysis."
+            }
+          />
           <p className="dashboard-tab-muted">
             <Link href="/dashboard">Back to Home</Link>
           </p>

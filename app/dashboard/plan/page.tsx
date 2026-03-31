@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState, useMemo } from "react"
 import Link from "next/link"
-import { hasClarionAnalysisAccess } from "@/src/lib/accessGate"
+import { hasClarionAnalysisAccess, hasLabPersonalizationAccess } from "@/src/lib/accessGate"
+import { buildLiteSupplementSuggestions, LITE_DISCLAIMER } from "@/src/lib/symptomLiteSupplements"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { loadSavedState, getSubscription } from "@/src/lib/bloodwiseDb"
@@ -16,6 +17,8 @@ import { getRoadmapPhase } from "@/src/lib/healthRoadmap"
 import { getSupplementDetail } from "@/src/lib/supplementProtocolDetail"
 import { Package, TrendingUp, BarChart2, CalendarCheck, Bookmark, DollarSign } from "lucide-react"
 import { SupplementInventoryTracker } from "@/src/components/SupplementInventoryTracker"
+import { CurrentSupplementsSheet } from "@/src/components/CurrentSupplementsSheet"
+import { CLARION_PROFILE_UPDATED_EVENT } from "@/src/lib/profileEvents"
 import { notifications } from "@mantine/notifications"
 import "../dashboard.css"
 
@@ -26,6 +29,7 @@ export default function DashboardPlanPage() {
   const [bloodwork, setBloodwork] = useState<BloodworkSaveRow | null>(null)
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null)
   const [loading, setLoading] = useState(true)
+  const [supplementsSheetOpen, setSupplementsSheetOpen] = useState(false)
 
   useEffect(() => {
     if (!user?.id) {
@@ -45,6 +49,17 @@ export default function DashboardPlanPage() {
         setSubscription(null)
       })
       .finally(() => setLoading(false))
+  }, [user?.id])
+
+  useEffect(() => {
+    const reload = () => {
+      if (!user?.id) return
+      loadSavedState(user.id)
+        .then(({ profile: p }) => setProfile(p ?? null))
+        .catch(() => {})
+    }
+    window.addEventListener(CLARION_PROFILE_UPDATED_EVENT, reload)
+    return () => window.removeEventListener(CLARION_PROFILE_UPDATED_EVENT, reload)
   }, [user?.id])
 
   const hasAccess = hasClarionAnalysisAccess(profile, subscription, bloodwork)
@@ -133,19 +148,71 @@ export default function DashboardPlanPage() {
   if (!user) return null
 
   if (!hasBloodwork) {
+    const awaitingUpload = hasLabPersonalizationAccess(profile, bloodwork)
+    if (awaitingUpload) {
+      return (
+        <main className="dashboard-tab-shell">
+          <div className="dashboard-tab-container">
+            <header className="dashboard-tab-header">
+              <h1 className="dashboard-tab-title">Plan & stack</h1>
+              <p className="dashboard-tab-subtitle">Roadmap, supplements, and savings.</p>
+            </header>
+            <div className="dashboard-tab-card dashboard-biomarkers-empty">
+              <p className="dashboard-biomarkers-empty-text">Complete a panel to see your plan and stack.</p>
+              <Link href="/?step=labs" className="dashboard-actions-cta">
+                Add bloodwork
+              </Link>
+            </div>
+            <p className="dashboard-tab-muted">
+              <Link href="/dashboard">Back to Home</Link>
+            </p>
+          </div>
+        </main>
+      )
+    }
+    const liteSuggestions = buildLiteSupplementSuggestions({
+      symptoms: profile?.symptoms ?? null,
+      profile_type: profile?.profile_type ?? null,
+      improvement_preference: profile?.improvement_preference ?? null,
+    })
     return (
       <main className="dashboard-tab-shell">
         <div className="dashboard-tab-container">
           <header className="dashboard-tab-header">
             <h1 className="dashboard-tab-title">Plan & stack</h1>
-            <p className="dashboard-tab-subtitle">Roadmap, supplements, and savings.</p>
+            <p className="dashboard-tab-subtitle">Clarion Lite — education topics, not lab dosing.</p>
           </header>
-          <div className="dashboard-tab-card dashboard-biomarkers-empty">
-            <p className="dashboard-biomarkers-empty-text">Complete a panel to see your plan and stack.</p>
-            <Link href="/?step=labs" className="dashboard-actions-cta">
-              Add bloodwork
-            </Link>
+          <div className="dashboard-tab-card dashboard-lab-upgrade-callout">
+            <p className="dashboard-lab-upgrade-callout__eyebrow">Full Clarion</p>
+            <p className="dashboard-biomarkers-empty-text">
+              Add bloodwork for a personalized roadmap, lab-matched stack, and savings estimates. Below is a symptom-based
+              topic list only—never a substitute for your labs.
+            </p>
+            <p className="dashboard-lab-upgrade-callout__muted" role="note">
+              {LITE_DISCLAIMER}
+            </p>
+            <div className="dashboard-lab-upgrade-callout__actions">
+              <Link href="/paywall" className="dashboard-actions-cta">
+                Add bloodwork &amp; full analysis
+              </Link>
+              <Link href="/dashboard" className="dashboard-tab-link dashboard-lab-upgrade-callout__secondary">
+                Back to Home
+              </Link>
+            </div>
           </div>
+          <section className="dashboard-section" aria-labelledby="dashboard-plan-lite-topics">
+            <h2 id="dashboard-plan-lite-topics" className="dashboard-section-title">
+              <Package className="dashboard-section-title-icon" size={18} aria-hidden /> Topics to explore
+            </h2>
+            <ul className="dashboard-lite-suggest-list">
+              {liteSuggestions.map((s) => (
+                <li key={s.presetId} className="dashboard-lite-suggest-item">
+                  <p className="dashboard-lite-suggest-name">{s.displayName}</p>
+                  <p className="dashboard-lite-suggest-why">{s.whySuggested}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
           <p className="dashboard-tab-muted">
             <Link href="/dashboard">Back to Home</Link>
           </p>
@@ -155,7 +222,8 @@ export default function DashboardPlanPage() {
   }
 
   return (
-    <main className="dashboard-tab-shell">
+    <>
+      <main className="dashboard-tab-shell">
       <div className="dashboard-tab-container">
         <header className="dashboard-tab-header">
           <h1 className="dashboard-tab-title">Plan & stack</h1>
@@ -329,9 +397,9 @@ export default function DashboardPlanPage() {
           </h2>
           {userCurrentSpend === 0 && (
             <p className="dashboard-savings-nudge">
-              <Link href="/dashboard#supplements-you-take" className="dashboard-savings-nudge-link">
+              <button type="button" className="dashboard-savings-nudge-link dashboard-savings-nudge-link--button" onClick={() => setSupplementsSheetOpen(true)}>
                 Add supplements you already take
-              </Link>
+              </button>
               {" · "}
               <Link href="/settings" className="dashboard-savings-nudge-link">
                 or monthly spend in Settings
@@ -482,6 +550,10 @@ export default function DashboardPlanPage() {
           <Link href="/dashboard/trends">Trends</Link>
         </p>
       </div>
-    </main>
+      </main>
+      {supplementsSheetOpen ? (
+        <CurrentSupplementsSheet userId={user?.id} onClose={() => setSupplementsSheetOpen(false)} />
+      ) : null}
+    </>
   )
 }

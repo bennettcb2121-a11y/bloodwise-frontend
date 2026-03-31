@@ -7,6 +7,8 @@
 export const ANALYSIS_DEFAULT_PRICE_CENTS = 4900
 /** Clarion+ subscription: first bill after trial; must match STRIPE subscription price amount. */
 export const SUBSCRIPTION_DEFAULT_PRICE_CENTS = 2900
+/** Clarion Lite (symptom-based plan; optional product in Stripe). */
+export const LITE_DEFAULT_PRICE_CENTS = 999
 /** Trial days for Clarion+ before first recurring bill (bundled with analysis signup). */
 export const CLARION_SUBSCRIPTION_TRIAL_DAYS = 60
 
@@ -27,5 +29,14 @@ export function getSubscriptionPriceDisplayDollars(): string {
       ? Number.parseInt(String(raw), 10)
       : SUBSCRIPTION_DEFAULT_PRICE_CENTS
   if (!Number.isFinite(cents) || cents < 0) return (SUBSCRIPTION_DEFAULT_PRICE_CENTS / 100).toFixed(2)
+  return (cents / 100).toFixed(2)
+}
+
+/** e.g. "9.99" for Lite monthly — set NEXT_PUBLIC_LITE_PRICE_CENTS to match Stripe Lite Price. */
+export function getLitePriceDisplayDollars(): string {
+  const raw = process.env.NEXT_PUBLIC_LITE_PRICE_CENTS
+  const cents =
+    raw != null && raw !== "" ? Number.parseInt(String(raw), 10) : LITE_DEFAULT_PRICE_CENTS
+  if (!Number.isFinite(cents) || cents < 0) return (LITE_DEFAULT_PRICE_CENTS / 100).toFixed(2)
   return (cents / 100).toFixed(2)
 }

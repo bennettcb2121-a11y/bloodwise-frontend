@@ -2339,6 +2339,20 @@ a.dashboard-priority-action-muted:hover { color: var(--color-accent); text-decor
 .dashboard-savings-nudge { font-size: 14px; color: var(--color-text-secondary); margin: 0 0 12px; }
 .dashboard-savings-nudge-link { font-weight: 600; color: var(--color-accent); text-decoration: none; }
 .dashboard-savings-nudge-link:hover { text-decoration: underline; }
+button.dashboard-savings-nudge-link--button {
+  border: none;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-accent);
+  cursor: pointer;
+  text-decoration: none;
+}
+button.dashboard-savings-nudge-link--button:hover {
+  text-decoration: underline;
+}
 .dashboard-see-more-trigger { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 18px 24px; cursor: pointer; text-align: left; border-radius: 16px; border: 1px solid var(--color-border); background: var(--clarion-card-bg, var(--color-surface)); font: inherit; color: var(--color-text-primary); }
 .dashboard-see-more-trigger:hover { background: var(--color-surface-elevated); border-color: var(--color-border-strong); }
 a.dashboard-expand-trigger {
@@ -3777,4 +3791,116 @@ a.dashboard-card:hover {
 .dashboard-home .dashboard-protocol-footer {
   margin-top: 16px;
   padding-top: 14px;
+}
+
+/* Clarion Lite — lab upgrade callouts on subpages */
+.dashboard-lab-upgrade-callout {
+  text-align: left;
+  padding: 24px 22px;
+}
+.dashboard-lab-upgrade-callout__eyebrow {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+.dashboard-lab-upgrade-callout__muted {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+.dashboard-lab-upgrade-callout__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 20px;
+}
+.dashboard-lab-upgrade-callout__secondary {
+  font-size: 14px;
+}
+
+/* Clarion Lite home (dashboard — no saved panel yet) */
+.dashboard-lite-upgrade-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border-strong);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface-elevated));
+}
+.dashboard-lite-upgrade-strip__text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--color-text-primary);
+  max-width: 520px;
+}
+.dashboard-lite-upgrade-strip__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  white-space: nowrap;
+}
+.dashboard-lite-upgrade-strip__cta:hover {
+  filter: brightness(1.05);
+}
+.dashboard-lite-hero-title {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+}
+.dashboard-lite-hero-lede {
+  margin: 0 0 16px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--color-text-secondary);
+  max-width: 560px;
+}
+.dashboard-lite-suggest-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dashboard-lite-suggest-item {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-elevated);
+}
+.dashboard-lite-suggest-name {
+  margin: 0 0 6px;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--color-text-primary);
+}
+.dashboard-lite-suggest-why {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+.dashboard-lite-disclaimer {
+  margin: 16px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--color-text-muted);
 }

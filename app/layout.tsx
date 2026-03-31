@@ -12,12 +12,21 @@ import { SupportAssistant } from "@/src/components/SupportAssistant";
 import Link from "next/link";
 import { Analytics } from "@vercel/analytics/next";
 import { themeScript } from "./theme-script";
+import type { Viewport } from "next";
 
 const TAGLINE = "The bloodwork coach that explains your numbers and your next steps.";
 
 export const metadata = {
   title: "Clarion Labs",
   description: TAGLINE,
+};
+
+/** Device-width scaling + safe-area for notched phones; prevents odd mobile zoom/layout. */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: "cover",
 };
 
 const plusJakarta = Plus_Jakarta_Sans({
