@@ -27,10 +27,21 @@ export function DashboardSkyShell({ children }: Props) {
   const mood: DashboardSkyMood = state.moodOverride ?? ambient
   const sky = useDashboardSkyCrossfade(mood, true)
 
+  /** Match `data-sky` / body chrome to the layer that’s actually visible so we don’t flash dark tints while the sky is still light (or vice versa). */
+  const displaySkyMood: DashboardSkyMood =
+    sky.top.opacity > sky.bottom.opacity ? sky.top.mood : sky.bottom.mood
+
+  /** Sidebar + top bar sit outside this wrapper; mirror **visible** sky for low-light chrome in light theme. */
+  useEffect(() => {
+    if (typeof document === "undefined") return
+    document.body.setAttribute("data-dashboard-sky", displaySkyMood)
+    return () => document.body.removeAttribute("data-dashboard-sky")
+  }, [displaySkyMood])
+
   return (
     <div
       className="dashboard-route-sky-wrap dashboard-shell--clarion-home dashboard-shell--sky-active"
-      data-sky={mood}
+      data-sky={displaySkyMood}
       data-night-incomplete={state.nightIncomplete ? "true" : undefined}
     >
       <div className="dashboard-sky-stack" aria-hidden>

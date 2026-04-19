@@ -1,7 +1,9 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { PricingTiers } from "@/src/components/PricingTiers"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
 import { Target, Pill, Droplet, Activity, Wallet, TrendingUp, ChevronLeft, Lock, FileText, Stethoscope, CheckCircle2, Zap, Utensils, Moon, Layers, Heart, Dumbbell, Lightbulb, ChevronRight, FlaskConical, ShoppingBag, Check } from "lucide-react"
 import { SubscribeButton } from "@/src/components/SubscribeButton"
@@ -9,21 +11,39 @@ import { getMarkerReason, getInputPlaceholder, titleCase, getBiomarkerTiers } fr
 import { getStatusTone, inferWhyItMatters, inferNextStep } from "@/src/lib/priorityEngine"
 import { getDisplayRange } from "@/src/lib/analyzeBiomarkers"
 import { biomarkerDatabase } from "@/src/lib/biomarkerDatabase"
-import { getAffiliateProductsForBiomarker, AFFILIATE_DISCLOSURE } from "@/src/lib/affiliateProducts"
+import {
+  applyAmazonAssociatesTag,
+  getAffiliateProductsForBiomarker,
+  AFFILIATE_DISCLOSURE,
+} from "@/src/lib/affiliateProducts"
 import { getAffiliateProductForStackItem, getAmazonSearchUrl } from "@/src/lib/stackAffiliate"
 import { getSupplementDetail } from "@/src/lib/supplementProtocolDetail"
 import { CLARION_RECOMMENDED_PANEL_KEYS } from "@/src/lib/coreBiomarkerProtocols"
 import type { ProfileState } from "@/src/lib/panelEngine"
 import type { BloodworkSaveRow } from "@/src/lib/bloodwiseDb"
-import { HEALTH_GOAL_OPTIONS, healthGoalToProfileType } from "@/src/lib/clarionProfiles"
-import { compareStackToCurrentSupplements, getUnnecessaryCurrentSupplements } from "@/src/lib/stackComparison"
+import {
+  HEALTH_GOAL_OPTIONS,
+  TRAINING_FOCUS_OPTIONS,
+  TRAINING_FOCUS_NONE_ID,
+  parseHealthGoalIds,
+  primaryProfileTypeFromHealthGoalsAndTraining,
+} from "@/src/lib/clarionProfiles"
+import {
+  compareStackToCurrentSupplements,
+  getUnnecessaryCurrentSupplements,
+  getLabReviewItemsForCurrentSupplements,
+} from "@/src/lib/stackComparison"
 import { BLOOD_TEST_PROVIDERS, resolveBloodTestCtaUrl } from "@/src/lib/bloodTestProviders"
 import { getEvidenceForBiomarker } from "@/src/lib/biomarkerEvidence"
 import { getGuidesForBiomarker } from "@/src/lib/guides"
 import { PAID_PROTOCOLS } from "@/src/lib/paidProtocols"
+import { getStackItemBadgeKind } from "@/src/lib/stackLabSafety"
+import type { SavedSupplementStackItem } from "@/src/lib/bloodwiseDb"
 import { SYMPTOM_OPTIONS } from "@/src/lib/priorityRanking"
 import { ThemeToggle } from "@/src/components/ThemeToggle"
 import { CurrentSupplementsEditor } from "@/src/components/CurrentSupplementsEditor"
+import { useAuth } from "@/src/contexts/AuthContext"
+import { CurrentSupplementsCaptureModal } from "@/src/components/CurrentSupplementsCaptureModal"
 import { TypewriterHeading } from "@/src/components/TypewriterHeading"
 import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
 
@@ -91,12 +111,26 @@ function getPanelResponse(): string {
   return "This is your recommended panel. You can customize it, but we've already prioritized the highest-signal markers."
 }
 
+/** Total inches rounded so ft/in split never yields 12 inches (avoids 4'12" → 5' → 5'12" → 6' jump). */
 function cmToFeetInches(cm: number): { feet: number; inches: number } {
-  const totalInches = cm / 2.54
-  return { feet: Math.floor(totalInches / 12), inches: Math.round(totalInches % 12) }
+  if (!Number.isFinite(cm) || cm <= 0) return { feet: 0, inches: 0 }
+  const totalInches = Math.round(cm / 2.54)
+  const feet = Math.floor(totalInches / 12)
+  const inches = totalInches % 12
+  return { feet, inches }
 }
+
+function normalizeFeetInches(feet: number, inches: number): { feet: number; inches: number } {
+  const f = Number.isFinite(feet) ? Math.trunc(feet) : 0
+  const i = Number.isFinite(inches) ? Math.round(inches) : 0
+  let total = f * 12 + i
+  if (total < 0) total = 0
+  return { feet: Math.floor(total / 12), inches: total % 12 }
+}
+
 function feetInchesToCm(feet: number, inches: number): number {
-  return feet * 30.48 + inches * 2.54
+  const { feet: ft, inches: inch } = normalizeFeetInches(feet, inches)
+  return ft * 30.48 + inch * 2.54
 }
 function kgToLb(kg: number): number {
   return kg * 2.205
@@ -186,6 +220,7 @@ type OnboardingFlowProps = {
 }
 
 export function OnboardingFlow(props: OnboardingFlowProps) {
+  const { signOut } = useAuth()
   const {
     currentStep,
     setCurrentStep,
@@ -234,13 +269,43 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
   resultsView = null,
 } = props
 
-const reduceMotion = useReducedMotion()
+  const router = useRouter()
 
-const [hasLabResults, setHasLabResults] = useState<boolean | null>(null)
-const [customSupplementInput, setCustomSupplementInput] = useState("")
-const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric">("imperial")
+  const handleHeroTier2Click = useCallback(() => {
+    if (userId) router.push("/paywall")
+    else router.push("/login")
+  }, [userId, router])
 
-/* Selected state: soft glass (CSS only) */
+  /** Unlock results UI: paid flag from parent, Stripe subscription, or profile plan tier (webhook can lag vs parent memo). */
+  const resultsUnlocked = useMemo(() => {
+    const pt = (profile.planTier ?? "").toLowerCase()
+    return Boolean(
+      hasPaidAnalysis || hasActiveSubscription || pt === "full" || pt === "lite"
+    )
+  }, [hasPaidAnalysis, hasActiveSubscription, profile.planTier])
+
+  const [showCaptureSupplementsModal, setShowCaptureSupplementsModal] = useState(false)
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (currentStep !== STEP_SCORE) return
+    if (sessionStorage.getItem("clarion_capture_supplements_v1") === "1") return
+    setShowCaptureSupplementsModal(true)
+  }, [currentStep])
+
+  const dismissCaptureSupplementsModal = useCallback(() => {
+    if (typeof window !== "undefined") sessionStorage.setItem("clarion_capture_supplements_v1", "1")
+    setShowCaptureSupplementsModal(false)
+  }, [])
+
+  const selectedHealthGoalIds = parseHealthGoalIds(profile.healthGoal ?? "")
+
+  const reduceMotion = useReducedMotion()
+
+  const [hasLabResults, setHasLabResults] = useState<boolean | null>(null)
+  const [customSupplementInput, setCustomSupplementInput] = useState("")
+  const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric">("imperial")
+
+  /* Selected state: soft glass (CSS only) */
 
   const [analysisMessageIndex, setAnalysisMessageIndex] = React.useState(0)
   const [displayedScore, setDisplayedScore] = React.useState(0)
@@ -333,13 +398,26 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
           <ClarionLabsLogo variant="header" href="/" />
           <div className="onboarding-header-actions">
             <ThemeToggle className="onboarding-header-theme-toggle" />
-            {userId ? (
+                       {userId ? (
               <>
-                <SubscribeButton className="onboarding-header-btn">Subscribe</SubscribeButton>
+                <SubscribeButton className="onboarding-header-btn" subscribedLabel="You're subscribed">
+                  Subscribe
+                </SubscribeButton>
                 <Link href="/dashboard" className="onboarding-header-btn">Dashboard</Link>
+                <button
+                  type="button"
+                  className="onboarding-header-btn"
+                  onClick={() => {
+                    void signOut()
+                  }}
+                >
+                  Log out
+                </button>
               </>
             ) : (
-              <Link href="/login" className="onboarding-header-btn">Log in</Link>
+              <Link href="/login?next=%2F" className="onboarding-header-btn">
+                Log in
+              </Link>
             )}
           </div>
         </div>
@@ -454,6 +532,23 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
                 </motion.div>
               </div>
             </motion.section>
+
+            {!resultsUnlocked && (
+              <section className="onboarding-hero-pricing" aria-label="Plans and pricing">
+                <div className="onboarding-hero-pricing-heading">
+                  <h2 className="onboarding-hero-pricing-title">Three ways to use Clarion</h2>
+                  <p className="onboarding-hero-pricing-sub">
+                    Start free. Add a one-time analysis when you have labs. Go monthly when you want Clarion running your stack.
+                  </p>
+                </div>
+                <PricingTiers
+                  variant="marketing"
+                  onTier1Click={onWelcomeContinue ?? goNext}
+                  onTier2Click={handleHeroTier2Click}
+                  onTier3Click={handleHeroTier2Click}
+                />
+              </section>
+            )}
           </div>
         )}
 
@@ -482,7 +577,7 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
         {currentStep === STEP_BIOLOGICAL && (
           <motion.section
             key="biological"
-            className="onboarding-screen"
+            className="onboarding-screen onboarding-screen--biological"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -518,9 +613,9 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
                 <label className="onboarding-field-label">
                   <span>Height</span>
                   <div className="onboarding-height-row">
-                    <input type="number" placeholder="5" min={3} max={8} value={profile.heightCm?.trim() && Number(profile.heightCm) > 0 ? String(cmToFeetInches(Number(profile.heightCm)).feet) : ""} onChange={(e) => { const feet = e.target.value === "" ? 0 : Number(e.target.value); const { inches } = profile.heightCm?.trim() ? cmToFeetInches(Number(profile.heightCm)) : { inches: 0 }; setProfile((p) => ({ ...p, heightCm: feet || inches ? String(Math.round(feetInchesToCm(feet, inches))) : "" })) }} className="onboarding-input onboarding-input-ft" />
+                    <input type="number" placeholder="5" min={3} max={8} value={profile.heightCm?.trim() && Number(profile.heightCm) > 0 ? String(cmToFeetInches(Number(profile.heightCm)).feet) : ""} onChange={(e) => { const feet = e.target.value === "" ? 0 : Number(e.target.value); const { inches } = profile.heightCm?.trim() ? cmToFeetInches(Number(profile.heightCm)) : { inches: 0 }; const n = normalizeFeetInches(feet, inches); const totalIn = n.feet * 12 + n.inches; setProfile((p) => ({ ...p, heightCm: totalIn > 0 ? String(Math.round(feetInchesToCm(feet, inches))) : "" })) }} className="onboarding-input onboarding-input-ft" />
                     <span className="onboarding-unit-suffix">ft</span>
-                    <input type="number" placeholder="10" min={0} max={11} value={profile.heightCm?.trim() && Number(profile.heightCm) > 0 ? String(cmToFeetInches(Number(profile.heightCm)).inches) : ""} onChange={(e) => { const inches = e.target.value === "" ? 0 : Number(e.target.value); const { feet } = profile.heightCm?.trim() ? cmToFeetInches(Number(profile.heightCm)) : { feet: 0 }; setProfile((p) => ({ ...p, heightCm: feet || inches ? String(Math.round(feetInchesToCm(feet, inches))) : "" })) }} className="onboarding-input onboarding-input-in" />
+                    <input type="number" placeholder="10" min={0} max={11} value={profile.heightCm?.trim() && Number(profile.heightCm) > 0 ? String(cmToFeetInches(Number(profile.heightCm)).inches) : ""} onChange={(e) => { const inches = e.target.value === "" ? 0 : Number(e.target.value); const { feet } = profile.heightCm?.trim() ? cmToFeetInches(Number(profile.heightCm)) : { feet: 0 }; const n = normalizeFeetInches(feet, inches); const totalIn = n.feet * 12 + n.inches; setProfile((p) => ({ ...p, heightCm: totalIn > 0 ? String(Math.round(feetInchesToCm(feet, inches))) : "" })) }} className="onboarding-input onboarding-input-in" />
                     <span className="onboarding-unit-suffix">in</span>
                   </div>
                 </label>
@@ -574,6 +669,37 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
                 <button key={opt.id} type="button" className={`onboarding-answer-pill ${profile.alcohol === opt.id ? "selected" : ""}`} onClick={() => setProfile((p) => ({ ...p, alcohol: opt.id }))} aria-pressed={profile.alcohol === opt.id}>{opt.label}</button>
               ))}
             </div>
+            <p className="onboarding-field-label onboarding-field-label--section">Training context</p>
+            <p className="onboarding-subtext onboarding-subtext--tight">
+              Optional. If you train for performance, we adjust target ranges and supplement emphasis—on top of your health goals.
+            </p>
+            <div className="onboarding-pill-row onboarding-training-grid" role="group" aria-label="Training focus">
+              {TRAINING_FOCUS_OPTIONS.map((opt) => {
+                const cur = (profile.trainingFocus ?? "").trim() || TRAINING_FOCUS_NONE_ID
+                const isOn = cur === opt.id
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className={`onboarding-answer-pill onboarding-answer-pill--stack ${isOn ? "selected" : ""}`}
+                    onClick={() =>
+                      setProfile((p) => {
+                        const goals = parseHealthGoalIds(p.healthGoal)
+                        return {
+                          ...p,
+                          trainingFocus: opt.id,
+                          profileType: primaryProfileTypeFromHealthGoalsAndTraining(goals, opt.id),
+                        }
+                      })
+                    }
+                    aria-pressed={isOn}
+                  >
+                    <span className="onboarding-answer-pill-title">{opt.label}</span>
+                    <span className="onboarding-answer-pill-desc">{opt.description}</span>
+                  </button>
+                )
+              })}
+            </div>
             <button type="button" className="onboarding-primary-btn" onClick={() => setCurrentStep(STEP_GOALS)}>
               Continue <ChevronRight size={18} strokeWidth={2.5} aria-hidden />
             </button>
@@ -583,21 +709,40 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
         {currentStep === STEP_GOALS && (
           <motion.section key="goals" className="onboarding-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={TRANSITION}>
             <TypewriterHeading className="onboarding-headline">What are your main health goals?</TypewriterHeading>
-            <p className="onboarding-subtext">We&apos;ll tailor your panel and recommendations to what you want to improve.</p>
-            <div className="onboarding-pill-row onboarding-improvement-grid" role="group" aria-label="Health goals">
-              {HEALTH_GOAL_OPTIONS.map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  className={`onboarding-answer-pill ${profile.healthGoal === opt.id ? "selected" : ""}`}
-                  onClick={() => setProfile((p) => ({ ...p, healthGoal: opt.id, profileType: opt.profileType }))}
-                  aria-pressed={profile.healthGoal === opt.id}
-                >
-                  <span className="onboarding-answer-pill-title">{opt.label}</span>
-                </button>
-              ))}
+            <p className="onboarding-subtext">Select all that apply. We&apos;ll tailor your panel and recommendations to cover every focus you choose.</p>
+            <div className="onboarding-pill-row onboarding-improvement-grid" role="group" aria-label="Health goals (select all that apply)">
+              {HEALTH_GOAL_OPTIONS.map((opt) => {
+                const isOn = selectedHealthGoalIds.includes(opt.id)
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className={`onboarding-answer-pill ${isOn ? "selected" : ""}`}
+                    onClick={() =>
+                      setProfile((p) => {
+                        const cur = parseHealthGoalIds(p.healthGoal)
+                        const next = cur.includes(opt.id) ? cur.filter((id) => id !== opt.id) : [...cur, opt.id]
+                        const csv = next.join(",")
+                        return {
+                          ...p,
+                          healthGoal: csv,
+                          profileType: primaryProfileTypeFromHealthGoalsAndTraining(next, p.trainingFocus ?? ""),
+                        }
+                      })
+                    }
+                    aria-pressed={isOn}
+                  >
+                    <span className="onboarding-answer-pill-title">{opt.label}</span>
+                  </button>
+                )
+              })}
             </div>
-            <button type="button" className="onboarding-primary-btn" onClick={() => setCurrentStep(STEP_SYMPTOMS)} disabled={!profile.healthGoal}>
+            <button
+              type="button"
+              className="onboarding-primary-btn"
+              onClick={() => setCurrentStep(STEP_SYMPTOMS)}
+              disabled={selectedHealthGoalIds.length === 0}
+            >
               Continue <ChevronRight size={18} strokeWidth={2.5} aria-hidden />
             </button>
           </motion.section>
@@ -907,12 +1052,27 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
             exit={{ opacity: 0 }}
             transition={TRANSITION}
           >
-            <div className={userId && !hasPaidAnalysis ? "onboarding-results-blur" : ""}>
+            <div className={userId && !resultsUnlocked ? "onboarding-results-blur" : ""}>
             <TypewriterHeading className="onboarding-headline onboarding-score-title">Your Health Score</TypewriterHeading>
             <p className="onboarding-score-subline">Several biomarkers may be outside optimal ranges.</p>
-            {profile.profileType && (
-              <p className="onboarding-adaptive-response">Tailored to your {profile.profileType.replace(/_/g, " ").toLowerCase()} goals</p>
+            {userId && resultsUnlocked && (
+              <p className="onboarding-paid-access-note" role="status">
+                {hasActiveSubscription || (profile.planTier ?? "").toLowerCase() === "full" || (profile.planTier ?? "").toLowerCase() === "lite"
+                  ? "You're already subscribed—your full plan stays unlocked. Continue to your score and dashboard."
+                  : "Your purchase is on your account—full results stay unlocked. Continue to your score and dashboard."}
+              </p>
             )}
+            {selectedHealthGoalIds.length > 0 ? (
+              <p className="onboarding-adaptive-response">
+                Tailored to:{" "}
+                {selectedHealthGoalIds
+                  .map((id) => HEALTH_GOAL_OPTIONS.find((o) => o.id === id)?.label)
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
+            ) : profile.profileType ? (
+              <p className="onboarding-adaptive-response">Tailored to your {profile.profileType.replace(/_/g, " ").toLowerCase()} goals</p>
+            ) : null}
             {(() => {
               const topImprove = (analysisResults as any[]).filter((r: any) => r.status === "suboptimal" || r.status === "deficient").slice(0, 5)
               if (topImprove.length === 0) return null
@@ -961,7 +1121,7 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
             })()}
             <button type="button" className="onboarding-primary-btn" onClick={goNext}>Continue <ChevronRight size={18} strokeWidth={2.5} aria-hidden /></button>
             </div>
-            {userId && !hasPaidAnalysis && (
+            {userId && !resultsUnlocked && (
               <div className="onboarding-results-lock-overlay">
                 <div className="onboarding-results-lock-card">
                   <Lock size={40} strokeWidth={1.5} className="onboarding-results-lock-icon" />
@@ -983,7 +1143,7 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
             exit={{ opacity: 0 }}
             transition={TRANSITION}
           >
-            <div className={userId && !hasPaidAnalysis ? "onboarding-results-blur" : ""}>
+            <div className={userId && !resultsUnlocked ? "onboarding-results-blur" : ""}>
             <TypewriterHeading className="onboarding-headline">Your Action Plan includes</TypewriterHeading>
             <ul className="onboarding-action-plan-list">
               <li>Personalized biomarker ranges</li>
@@ -999,11 +1159,11 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
               </div>
             )}
             <div className="onboarding-next-actions">
-              {hasPaidAnalysis && onGoToDashboard ? (
+              {resultsUnlocked && onGoToDashboard ? (
                 <button type="button" className="onboarding-next-btn onboarding-next-btn-primary onboarding-primary-btn" onClick={onGoToDashboard}>
                   Go to Dashboard <ChevronRight size={18} strokeWidth={2.5} aria-hidden />
                 </button>
-              ) : hasPaidAnalysis ? (
+              ) : resultsUnlocked ? (
                 <Link href="/dashboard" className="onboarding-next-btn onboarding-next-btn-primary onboarding-primary-btn">Go to Dashboard <ChevronRight size={18} strokeWidth={2.5} aria-hidden /></Link>
               ) : (
                 <Link href="/paywall" className="onboarding-primary-btn onboarding-results-lock-cta onboarding-next-btn onboarding-next-btn-primary">
@@ -1012,7 +1172,7 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
               )}
             </div>
             </div>
-            {userId && !hasPaidAnalysis && (
+            {userId && !resultsUnlocked && (
               <div className="onboarding-results-lock-overlay">
                 <div className="onboarding-results-lock-card">
                   <Lock size={40} strokeWidth={1.5} className="onboarding-results-lock-icon" />
@@ -1039,7 +1199,7 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
                 <Link href="/dashboard" className="onboarding-results-back">← Back to dashboard</Link>
               </p>
             )}
-            <div className={userId && !hasPaidAnalysis ? "onboarding-results-blur" : ""}>
+            <div className={userId && !resultsUnlocked ? "onboarding-results-blur" : ""}>
             <TypewriterHeading className="onboarding-headline">Understanding your results</TypewriterHeading>
             <p className="onboarding-subtext">
               What your results mean, why they matter for you, and what to do next.
@@ -1106,7 +1266,7 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
             </div>
             <button type="button" className="onboarding-primary-btn" onClick={goNext}>Continue <ChevronRight size={18} strokeWidth={2.5} aria-hidden /></button>
             </div>
-            {userId && !hasPaidAnalysis && (
+            {userId && !resultsUnlocked && (
               <div className="onboarding-results-lock-overlay">
                 <div className="onboarding-results-lock-card">
                   <Lock size={40} strokeWidth={1.5} className="onboarding-results-lock-icon" />
@@ -1133,7 +1293,7 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
                 <Link href="/dashboard" className="onboarding-results-back">← Back to dashboard</Link>
               </p>
             )}
-            <div className={userId && !hasPaidAnalysis ? "onboarding-results-blur" : ""}>
+            <div className={userId && !resultsUnlocked ? "onboarding-results-blur" : ""}>
             <TypewriterHeading className="onboarding-headline">Your recommended plan</TypewriterHeading>
             <p className="onboarding-subtext">A plan built from your biomarkers, goals, and how you prefer to improve — {profile.improvementPreference === "Diet" ? "diet-first" : profile.improvementPreference === "Lifestyle" ? "lifestyle-first" : profile.improvementPreference === "Combination" ? "supplements, diet, and lifestyle" : "supplements"}.</p>
             <p className="onboarding-stack-disclaimer">Discuss supplements and doses with your clinician.</p>
@@ -1187,8 +1347,27 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
                 {(() => {
                   const compared = compareStackToCurrentSupplements(currentSupplements, optimizedStack.stack)
                   const unnecessary = getUnnecessaryCurrentSupplements(currentSupplements, optimizedStack.stack)
+                  const labReviewItems = getLabReviewItemsForCurrentSupplements(currentSupplements, analysisResults as { name?: string; status?: string }[])
                   return (
                     <>
+                      {labReviewItems.length > 0 && (
+                        <div className="onboarding-stack-lab-review-list" role="region" aria-label="Review with your labs">
+                          {labReviewItems.map((item) => (
+                            <div key={item.presetId} className="onboarding-stack-card onboarding-stack-card--lab-review">
+                              <div className="onboarding-stack-card-top onboarding-stack-card-top--lab-review">
+                                <div>
+                                  <strong className="onboarding-stack-lab-review-title">
+                                    <span className="onboarding-stack-review-mark" aria-hidden title="Review">!</span>
+                                    {item.displayName}
+                                  </strong>
+                                  <span className="onboarding-stack-lab-review-badge">On your list · lab high</span>
+                                </div>
+                              </div>
+                              <p className="onboarding-stack-status onboarding-stack-status-review_lab">{item.statusMessage}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       {unnecessary.length > 0 && (
                         <p className="onboarding-stack-unnecessary">You&apos;re currently taking {unnecessary.join(", ")}; based on your biomarkers they&apos;re not a current priority. You can keep taking them or pause and retest later.</p>
                       )}
@@ -1198,11 +1377,39 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
                           const key = `${rec.supplementKey}-${idx}`
                           const leaderboard = rec.leaderboard || []
                           const premium = leaderboard.length > 1 ? leaderboard[1] : null
+                          const stackItemForBadge: SavedSupplementStackItem = {
+                            supplementName: rec.name ?? "",
+                            dose: rec.dose ?? "",
+                            monthlyCost: Number(rec.estimatedMonthlyCost || 0),
+                            recommendationType: rec.recommendationType ?? "",
+                            reason: rec.whyThisIsRecommended ?? rec.whyRecommended ?? "",
+                            marker: rec.marker,
+                            ...(rec.stackHint ? { stackHint: rec.stackHint } : {}),
+                          }
+                          const badgeKind = getStackItemBadgeKind(stackItemForBadge, analysisResults as { name: string; status: string }[])
                           return (
                             <div key={key} className="onboarding-stack-card">
                               <div className="onboarding-stack-card-top">
                                 <div>
-                                  <strong>{rec.name}</strong>
+                                  <strong>
+                                    {rec.name}
+                                    {badgeKind === "maintenance" ? (
+                                      <span className="onboarding-stack-lab-optional" title="Maintenance context — labs in range; optional for your training profile">
+                                        !
+                                      </span>
+                                    ) : badgeKind === "optional_lab" ? (
+                                      <span className="onboarding-stack-lab-optional" title="Labs look good — optional review">
+                                        !
+                                      </span>
+                                    ) : badgeKind === "user_product_review" ? (
+                                      <span
+                                        className="onboarding-stack-lab-optional"
+                                        title="You kept this product after a lab fit note — confirm with your clinician."
+                                      >
+                                        !
+                                      </span>
+                                    ) : null}
+                                  </strong>
                                   <span className="onboarding-stack-dose">{rec.dose}</span>
                                 </div>
                                 <span className="onboarding-stack-price">${Number(rec.estimatedMonthlyCost || 0).toFixed(2)}/mo</span>
@@ -1212,7 +1419,9 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
                         {(() => {
                           const stackItem = { supplementName: rec.name, dose: rec.dose ?? "", monthlyCost: Number(rec.estimatedMonthlyCost || 0), recommendationType: "", reason: "", marker: rec.marker }
                           const affiliate = getAffiliateProductForStackItem(stackItem)
-                          const reorderUrl = affiliate?.affiliateUrl ?? getAmazonSearchUrl(rec.name)
+                          const reorderUrl = applyAmazonAssociatesTag(
+                            affiliate?.affiliateUrl ?? getAmazonSearchUrl(rec.name)
+                          )
                           return (
                             <div className="onboarding-stack-recommended-pick">
                               <span className="onboarding-stack-pick-label">Recommended pick</span>
@@ -1253,7 +1462,14 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
                                 <span>{best.productName}</span>
                                 {best.pricePerServing != null && <span className="onboarding-stack-per-serve">${Number(best.pricePerServing).toFixed(2)}/serving</span>}
                                 {best.url && (
-                                  <a href={best.url} target="_blank" rel="noreferrer noopener" className="onboarding-link-btn onboarding-link-btn-small">Buy on Amazon</a>
+                                  <a
+                                    href={applyAmazonAssociatesTag(best.url)}
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    className="onboarding-link-btn onboarding-link-btn-small"
+                                  >
+                                    Buy on Amazon
+                                  </a>
                                 )}
                               </div>
                             )}
@@ -1262,7 +1478,14 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
                                 <span className="onboarding-stack-pick-label">Premium pick</span>
                                 <span>{premium.productName}</span>
                                 {premium.url && (
-                                  <a href={premium.url} target="_blank" rel="noreferrer noopener" className="onboarding-link-btn onboarding-link-btn-small">Buy on Amazon</a>
+                                  <a
+                                    href={applyAmazonAssociatesTag(premium.url)}
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    className="onboarding-link-btn onboarding-link-btn-small"
+                                  >
+                                    Buy on Amazon
+                                  </a>
                                 )}
                               </div>
                             )}
@@ -1295,7 +1518,7 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
                   <h3 className="onboarding-what-to-expect-title">What to expect</h3>
                   <p>Iron support may take several weeks to materially change ferritin. Vitamin D is usually reassessed after 8–12 weeks. Magnesium may affect sleep, recovery, or muscle function sooner.</p>
                 </div>
-                {hasActiveSubscription ? (
+                {hasActiveSubscription || (profile.planTier ?? "").toLowerCase() === "full" || (profile.planTier ?? "").toLowerCase() === "lite" ? (
                   <motion.div
                     className="onboarding-welcome-clarion"
                     initial={{ opacity: 0 }}
@@ -1340,7 +1563,14 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
                             <strong className="onboarding-affiliate-card-title">{p.title}</strong>
                             <p className="onboarding-affiliate-why">{p.whyRecommended}</p>
                             {p.monthlyCostEstimate != null && <span className="onboarding-affiliate-cost">~${p.monthlyCostEstimate}/mo</span>}
-                            <a href={p.affiliateUrl} target="_blank" rel="noreferrer noopener" className="onboarding-affiliate-btn">Buy on Amazon</a>
+                            <a
+                              href={applyAmazonAssociatesTag(p.affiliateUrl)}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="onboarding-affiliate-btn"
+                            >
+                              Buy on Amazon
+                            </a>
                           </div>
                         ))}
                       </div>
@@ -1352,7 +1582,7 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
             )}
             <button type="button" className="onboarding-primary-btn" onClick={goNext}>Continue <ChevronRight size={18} strokeWidth={2.5} aria-hidden /></button>
             </div>
-            {userId && !hasPaidAnalysis && (
+            {userId && !resultsUnlocked && (
               <div className="onboarding-results-lock-overlay">
                 <div className="onboarding-results-lock-card">
                   <Lock size={40} strokeWidth={1.5} className="onboarding-results-lock-icon" />
@@ -1374,7 +1604,7 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
             exit={{ opacity: 0 }}
             transition={TRANSITION}
           >
-            <div className={userId && !hasPaidAnalysis ? "onboarding-results-blur" : ""}>
+            <div className={userId && !resultsUnlocked ? "onboarding-results-blur" : ""}>
             <TypewriterHeading className="onboarding-headline">You're all set</TypewriterHeading>
             <p className="onboarding-subtext">Your Clarion Health Score: <strong>{score}</strong> / 100. Follow your protocol, retest in 8–12 weeks, and track progress in your dashboard.</p>
             <div className="onboarding-summary-score-block">
@@ -1400,7 +1630,7 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
               )}
               {!onGoToDashboard && <Link href="/dashboard" className="onboarding-next-btn onboarding-next-btn-primary onboarding-primary-btn">Go to Dashboard <ChevronRight size={18} strokeWidth={2.5} aria-hidden /></Link>}
               <button type="button" className="onboarding-next-btn onboarding-next-btn-secondary" onClick={() => setCurrentStep(STEP_STACK)}>Back to stack</button>
-              {hasActiveSubscription ? (
+              {hasActiveSubscription || (profile.planTier ?? "").toLowerCase() === "full" || (profile.planTier ?? "").toLowerCase() === "lite" ? (
                 <span className="onboarding-next-badge">You&apos;re a Clarion+ member</span>
               ) : (
                 <span className="onboarding-next-clarion-link"><SubscribeButton className="onboarding-ghost-btn">Clarion+ — full history &amp; retest reminders</SubscribeButton></span>
@@ -1408,7 +1638,7 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
             </div>
             <p className="onboarding-next-footer">Your dashboard will show your score, top priorities, protocol tracker, and biomarker trends.</p>
             </div>
-            {userId && !hasPaidAnalysis && (
+            {userId && !resultsUnlocked && (
               <div className="onboarding-results-lock-overlay">
                 <div className="onboarding-results-lock-card">
                   <Lock size={40} strokeWidth={1.5} className="onboarding-results-lock-icon" />
@@ -1422,6 +1652,13 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
         )}
       </AnimatePresence>
       </div>
+
+      <CurrentSupplementsCaptureModal
+        open={showCaptureSupplementsModal}
+        onClose={dismissCaptureSupplementsModal}
+        currentSupplements={currentSupplements}
+        onChangeSupplements={setCurrentSupplements}
+      />
 
       <style jsx>{`
         .onboarding-shell {
@@ -1523,11 +1760,15 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
         .onboarding-header-btn {
           font-size: 14px;
           font-weight: 600;
+          font-family: inherit;
           color: var(--color-text-secondary);
           text-decoration: none;
           padding: 10px 18px;
           border-radius: var(--clarion-radius-md);
           transition: background 0.2s, color 0.2s;
+          border: none;
+          background: transparent;
+          cursor: pointer;
         }
         .onboarding-header-btn:hover { background: var(--color-surface-elevated); color: var(--color-text-primary); }
         .onboarding-progress-wrap {
@@ -2343,14 +2584,14 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
           gap: 10px;
           min-height: 52px;
           padding: 12px 22px;
-          border-radius: var(--clarion-radius-pill, 9999px);
+          border-radius: 9999px;
           border: 1px solid rgba(255, 255, 255, 0.12);
           background: rgba(255, 255, 255, 0.05);
           color: #fafafa;
           font-size: 16px;
           font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s ease;
+          transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
           text-align: left;
         }
         .onboarding-answer-pill:hover {
@@ -2361,20 +2602,34 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
           box-shadow: 0 0 0 3px rgba(31, 111, 91, 0.35);
         }
         .onboarding-answer-pill.selected {
-          background: var(--clarion-card-selected-bg);
-          border: 1px solid var(--clarion-card-selected-border);
-          box-shadow: var(--clarion-card-selected-shadow);
-          color: #fff;
+          background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+          border: none;
+          outline: none;
+          border-radius: 9999px;
+          box-shadow:
+            0 2px 10px rgba(31, 111, 91, 0.18),
+            0 6px 28px rgba(31, 111, 91, 0.22),
+            0 0 44px rgba(42, 140, 114, 0.14);
+          color: var(--color-text-primary);
+        }
+        .onboarding-answer-pill.selected:focus-visible {
+          outline: none;
+          box-shadow:
+            0 2px 10px rgba(31, 111, 91, 0.18),
+            0 6px 28px rgba(31, 111, 91, 0.22),
+            0 0 44px rgba(42, 140, 114, 0.14);
         }
         .onboarding-answer-pill-icon {
           flex-shrink: 0;
           color: #1F6F5B;
         }
         .onboarding-answer-pill.selected .onboarding-answer-pill-icon {
-          color: rgba(255, 255, 255, 0.95);
+          color: var(--color-accent);
         }
         .onboarding-answer-pill-icon--muted { color: rgba(255, 255, 255, 0.5); }
-        .onboarding-answer-pill.selected .onboarding-answer-pill-icon--muted { color: rgba(255, 255, 255, 0.85); }
+        .onboarding-answer-pill.selected .onboarding-answer-pill-icon--muted {
+          color: color-mix(in srgb, var(--color-accent) 85%, var(--color-text-primary));
+        }
         .onboarding-answer-pill-icon,
         .onboarding-answer-pill-title,
         .onboarding-answer-pill-text,
@@ -2389,6 +2644,23 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
           color: rgba(255, 255, 255, 0.9);
         }
         .onboarding-answer-pill.selected .onboarding-answer-pill-desc { opacity: 0.9; }
+        .onboarding-field-label--section { margin-top: 12px; }
+        .onboarding-subtext--tight { margin-bottom: 14px; font-size: 15px; max-width: 560px; }
+        .onboarding-training-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+          gap: 10px;
+          margin-bottom: var(--space-32);
+        }
+        .onboarding-answer-pill--stack {
+          flex-direction: column;
+          align-items: flex-start;
+          min-height: auto;
+          padding: 14px 18px;
+          border-radius: 14px;
+          width: 100%;
+          box-sizing: border-box;
+        }
         .onboarding-input-age { height: 52px; }
         .onboarding-units-toggle-wrap { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
         .onboarding-units-label { font-size: 14px; font-weight: 600; color: var(--color-text-secondary); }
@@ -2595,16 +2867,27 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
           z-index: 10; padding: 24px;
         }
         .onboarding-results-lock-card {
-          background: rgba(15, 10, 26, 0.95); border: 1px solid rgba(255,255,255,0.12);
+          background: var(--color-surface-elevated);
+          border: 1px solid var(--color-border);
           border-radius: 20px; padding: 32px; max-width: 360px; text-align: center;
-          box-shadow: none;
+          box-shadow: var(--shadow-sm);
         }
-        .onboarding-results-lock-icon { color: rgba(255,255,255,0.5); margin-bottom: 16px; }
-        .onboarding-results-lock-title { font-size: 20px; font-weight: 700; color: #fef2f2; margin: 0 0 12px; }
-        .onboarding-results-lock-text { font-size: 15px; color: rgba(255,255,255,0.75); line-height: 1.5; margin: 0 0 24px; }
+        .onboarding-results-lock-icon { color: var(--color-text-muted); margin-bottom: 16px; }
+        .onboarding-results-lock-title { font-size: 20px; font-weight: 700; color: var(--color-text-primary); margin: 0 0 12px; }
+        .onboarding-results-lock-text { font-size: 15px; color: var(--color-text-secondary); line-height: 1.5; margin: 0 0 24px; }
         .onboarding-results-lock-cta { display: inline-block; text-decoration: none; }
         .onboarding-score-title { margin-top: var(--space-32); margin-bottom: var(--space-8); }
         .onboarding-score-subline { font-size: 15px; color: var(--color-text-secondary); margin: 0 0 var(--space-24); }
+        .onboarding-paid-access-note {
+          font-size: 14px;
+          line-height: 1.5;
+          color: rgba(255, 255, 255, 0.82);
+          margin: -8px 0 20px;
+          max-width: 420px;
+          margin-left: auto;
+          margin-right: auto;
+          text-align: center;
+        }
         .onboarding-score-priority-card {
           background: var(--clarion-card-bg);
           border: 1px solid var(--clarion-card-border);
@@ -2695,10 +2978,36 @@ const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric"
         .onboarding-ghost-btn { background: none; border: none; color: var(--color-accent); font-size: 14px; font-weight: 600; cursor: pointer; padding: 0; margin-top: 8px; }
         .onboarding-science-drawer { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 14px; color: rgba(255,255,255,0.7); line-height: 1.5; }
         .onboarding-stack-list { display: flex; flex-direction: column; gap: 20px; margin-bottom: 24px; }
+        .onboarding-stack-lab-review-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+        .onboarding-stack-card--lab-review { border-color: rgba(255, 200, 120, 0.22); background: rgba(40, 36, 28, 0.55); }
+        .onboarding-stack-card-top--lab-review { margin-bottom: 8px; }
+        .onboarding-stack-lab-review-title { display: flex; align-items: center; gap: 8px; font-size: 16px; }
+        .onboarding-stack-review-mark {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 20px; height: 20px; border-radius: 50%;
+          font-size: 12px; font-weight: 800;
+          background: rgba(255, 200, 120, 0.18); color: rgba(255, 220, 160, 0.95);
+        }
+        .onboarding-stack-lab-review-badge { display: block; font-size: 11px; color: rgba(255,255,255,0.42); margin-top: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+        .onboarding-stack-status-review_lab { font-size: 14px; color: rgba(255,255,255,0.78); margin: 0; line-height: 1.5; }
         .onboarding-stack-card { background: rgba(26,26,31,0.85); border: 1px solid rgba(255,255,255,0.06); border-radius: 14px; padding: 20px 22px; box-shadow: none; }
         .onboarding-stack-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
         .onboarding-stack-card-top strong { font-size: 18px; font-weight: 700; color: #fafafa; }
         .onboarding-stack-dose { display: block; font-size: 14px; color: rgba(255,255,255,0.6); margin-top: 4px; }
+        .onboarding-stack-lab-optional {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 18px;
+          height: 18px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 800;
+          color: rgba(255,255,255,0.45);
+          background: rgba(255,255,255,0.1);
+          margin-left: 6px;
+          vertical-align: middle;
+        }
         .onboarding-stack-price { font-size: 16px; font-weight: 700; color: var(--color-accent); }
         .onboarding-stack-disclaimer { font-size: 12px; color: var(--color-text-muted); font-style: italic; margin: 0 0 16px; }
         .onboarding-stack-why { font-size: 14px; color: rgba(255,255,255,0.7); margin: 0 0 12px; line-height: 1.5; }

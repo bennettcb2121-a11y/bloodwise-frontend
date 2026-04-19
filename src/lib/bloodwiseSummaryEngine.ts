@@ -3,6 +3,7 @@
  * key biomarker findings, and top priority actions for athletes and health-conscious users.
  */
 
+import { resolveActionPlanDbKey } from "@/src/lib/actionPlans"
 import type { PrioritySummary } from "@/src/lib/priorityEngine"
 
 export type { PrioritySummary }
@@ -51,11 +52,12 @@ export type BloodwiseSummary = {
   topPriorityActions: string[]
 }
 
-function scoreToLabel(score: number): string {
-  if (score >= 90) return "in strong shape"
-  if (score >= 75) return "generally solid with a few areas to tune"
-  if (score >= 60) return "mixed—some clear wins and some areas that need attention"
-  return "showing several areas that are worth addressing soon"
+/** Plain-language band for narrative copy (not the short UI label from scoreEngine). */
+function narrativeScoreBand(score: number): string {
+  if (score >= 90) return "strong overall"
+  if (score >= 75) return "mostly solid, with a few levers left to tune"
+  if (score >= 60) return "mixed—clear wins alongside a few priorities"
+  return "several markers worth attention soon"
 }
 
 /**
@@ -75,42 +77,50 @@ export function getBloodwiseSummary(input: BloodwiseSummaryInput): BloodwiseSumm
   const keyFindings: string[] = []
   const topPriorityActions: string[] = []
 
-  // —— Overall interpretation ——
-  const label = scoreToLabel(score)
+  // —— Overall interpretation (Clarion voice: calm, direct, one clear read) ——
+  const band = narrativeScoreBand(score)
   const total = statusCounts.optimal + statusCounts.borderline + statusCounts.flagged
   let overallInterpretation: string
 
   if (total === 0) {
     overallInterpretation =
-      "Your panel is in. Once we’ve interpreted your results, we’ll give you a clear picture of where you stand and what to do next."
+      "Add your lab values to generate a Clarion read: how your results sit against your targets, what to watch first, and what to discuss with your clinician."
   } else if (statusCounts.flagged > 0 && statusCounts.optimal === 0) {
-    overallInterpretation = `Right now your bloodwork is ${label}. Several markers are out of range or need attention. Focusing on the biggest levers first—recovery, nutrition, and any targeted support—will move the needle most.`
+    overallInterpretation = `Clarion reads this panel as ${band}: multiple markers sit outside your Clarion target band. Start with the priorities below—lifestyle first where it applies, then targeted support only where it fits your clinician’s plan.`
   } else if (statusCounts.optimal >= total - 1 && statusCounts.flagged === 0) {
-    overallInterpretation = `Overall your results look ${label}. Most markers are in a good range. ${statusCounts.borderline > 0 ? "A couple could be fine-tuned for performance and recovery." : "Keep doing what you’re doing and retest on schedule."}`
+    overallInterpretation = `Clarion reads this panel as ${band}. Most markers align with your targets.${statusCounts.borderline > 0 ? ` A few are borderline—small shifts in training load, sleep, or nutrition often help.` : " Keep habits steady and retest on the schedule that makes sense for you."}`
   } else {
-    overallInterpretation = `Your bloodwork is ${label}. You have ${statusCounts.optimal} marker${statusCounts.optimal === 1 ? "" : "s"} in a good range${statusCounts.borderline > 0 ? `, ${statusCounts.borderline} borderline` : ""}${statusCounts.flagged > 0 ? `, and ${statusCounts.flagged} that need attention` : ""}. The summary below highlights what matters most and what to do next.`
+    overallInterpretation = `Clarion reads this panel as ${band}: ${statusCounts.optimal} marker${statusCounts.optimal === 1 ? "" : "s"} on target${statusCounts.borderline > 0 ? `, ${statusCounts.borderline} borderline` : ""}${statusCounts.flagged > 0 ? `, ${statusCounts.flagged} needing attention` : ""}. The sections below stack-rank what matters for you.`
   }
 
   // —— Key findings ——
   if (prioritySummary.biggestDrag && prioritySummary.biggestDrag !== "No major flags") {
-    keyFindings.push(`Your biggest opportunity right now is ${prioritySummary.biggestDrag}—addressing it will likely have the largest impact on how you feel and perform.`)
+    keyFindings.push(
+      `Lead priority: ${prioritySummary.biggestDrag}. Clarion weights this marker highest for your score—small wins here usually echo across how you train and recover.`
+    )
   }
   if (prioritySummary.strongestMarker && prioritySummary.strongestMarker !== "No clear leader") {
-    keyFindings.push(`${prioritySummary.strongestMarker} is in a good place; use it as a baseline and keep it there while you work on other areas.`)
+    keyFindings.push(
+      `${prioritySummary.strongestMarker} looks strong relative to your Clarion target—keep it stable while you work the gaps below.`
+    )
   }
   if (topFocus.length > 0) {
-    const names = topFocus.map((f) => f.name || f.marker || "marker").slice(0, 3)
+    const names = topFocus
+      .map((f) => resolveActionPlanDbKey(String(f.name || f.marker || "marker").trim()))
+      .slice(0, 3)
     const list = names.length === 1 ? names[0] : names.length === 2 ? `${names[0]} and ${names[1]}` : `${names[0]}, ${names[1]}, and ${names[2]}`
     keyFindings.push(
-      `Markers that need the most attention: ${list}. These are where targeted changes (diet, activity, recovery, and clinician-guided care where appropriate) can make a real difference.`
+      `Next in line: ${list}. Pair food, sleep, and training levers with your clinician’s guidance before stacking new supplements.`
     )
   }
   if (statusCounts.optimal > 0 && keyFindings.length < 3) {
-    keyFindings.push(`${statusCounts.optimal} of your markers are in an optimal or solid range—that’s a good foundation to build on.`)
+    keyFindings.push(`${statusCounts.optimal} marker${statusCounts.optimal === 1 ? "" : "s"} already sit in Clarion’s target band—that’s your anchor.`)
   }
   if (detectedPatterns.length > 0 && keyFindings.length < 4) {
     const topPattern = detectedPatterns[0]
-    keyFindings.push(`We detected a "${topPattern.title}" pattern in your results. Addressing this pattern as a whole often works better than chasing one marker at a time.`)
+    keyFindings.push(
+      `Pattern note: “${topPattern.title}.” Clarion flags when multiple markers move together—often easier to fix as a cluster than one lab at a time.`
+    )
   }
 
   // —— Top priority actions ——
@@ -124,10 +134,12 @@ export function getBloodwiseSummary(input: BloodwiseSummaryInput): BloodwiseSumm
     })
   }
   if (topFocus.length > 0 && topPriorityActions.length < 3) {
-    topPriorityActions.push("Plan a retest in 8–12 weeks so you can see whether your changes are moving the needle.")
+    topPriorityActions.push("Book a retest window (often 8–12 weeks after changes) so you can see if your Clarion score moves with you.")
   }
   if (topPriorityActions.length < 2) {
-    topPriorityActions.push("Keep training, recovery, and nutrition consistent, and retest on the schedule we suggested for each marker.")
+    topPriorityActions.push(
+      "Keep recovery, nutrition, and training consistent between labs—Clarion is most useful when panels are comparable."
+    )
   }
 
   // Dedupe and cap actions

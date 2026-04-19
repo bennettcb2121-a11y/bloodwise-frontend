@@ -1,4 +1,5 @@
-import { FAQ_ITEMS, getSupportEmail, type FaqItem } from "@/src/lib/faqContent"
+import { FAQ_ITEMS, type FaqItem } from "@/src/lib/faqContent"
+import { getSupportEmail } from "@/src/lib/supportContact"
 
 const MIN_SCORE = 3
 

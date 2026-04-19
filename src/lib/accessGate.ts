@@ -19,6 +19,17 @@ export type ProfileLike = {
   plan_tier?: string | null
 } | null
 export type SubscriptionLike = { status?: string | null } | null
+
+/** Stripe statuses where the customer still has subscription access (invoice may be past due). */
+export function subscriptionStatusGrantsAccess(status: string | null | undefined): boolean {
+  const s = (status ?? "").toLowerCase()
+  return s === "active" || s === "trialing" || s === "past_due"
+}
+
+/** Active Clarion recurring subscription (Stripe row). */
+export function hasActiveStripeSubscription(subscription: SubscriptionLike): boolean {
+  return subscriptionStatusGrantsAccess(subscription?.status)
+}
 export type BloodworkLike = {
   score?: number | null
   selected_panel?: unknown
@@ -32,8 +43,10 @@ export function hasClarionAnalysisAccess(
 ): boolean {
   if (isDevPaywallBypass()) return true
   if (profile?.analysis_purchased_at) return true
-  const st = subscription?.status
-  if (st === "active" || st === "trialing") return true
+  if (subscriptionStatusGrantsAccess(subscription?.status)) return true
+  /** Stripe webhook sets `plan_tier` on profiles; `subscriptions` row can lag behind checkout redirect. */
+  const tier = (profile?.plan_tier ?? "").toLowerCase()
+  if (tier === "full" || tier === "lite") return true
   if (bloodwork) {
     if (bloodwork.score != null) return true
     const panel = bloodwork.selected_panel
@@ -59,8 +72,7 @@ export function hasLabPersonalizationAccess(profile: ProfileLike, bloodwork: Blo
 /** Active Stripe subscription is Clarion Lite (symptom/profile tier). */
 export function isClarionLitePlan(profile: ProfileLike, subscription: SubscriptionLike): boolean {
   if (isDevPaywallBypass()) return false
-  const st = subscription?.status
-  const subActive = st === "active" || st === "trialing"
+  const subActive = subscriptionStatusGrantsAccess(subscription?.status)
   return Boolean(subActive && profile?.plan_tier === "lite")
 }
 

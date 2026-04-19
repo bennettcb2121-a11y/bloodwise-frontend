@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { DashboardSkyMood } from "@/src/lib/dashboardSkyMood"
 
-/** Keep transitions short: long fades read as “the whole UI pulses,” especially behind transparent home shell. */
-export const SKY_CROSSFADE_MS = 2_200
+/** Short enough to avoid a long light/dark “pulse”; long fades fight CSS that keys off `data-sky`. */
+export const SKY_CROSSFADE_MS = 900
 
 type Layer = { mood: DashboardSkyMood; opacity: number }
 

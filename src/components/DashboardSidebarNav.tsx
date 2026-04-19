@@ -5,10 +5,10 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { ChevronDown } from "lucide-react"
 import {
-  DASHBOARD_HOME,
+  DASHBOARD_PRIMARY_LINKS,
   DASHBOARD_NAV_GROUPS,
   groupHasActiveChild,
-  homeLinkIsActive,
+  primarySidebarLinkIsActive,
   pathMatchesHref,
 } from "@/src/lib/dashboardNav"
 
@@ -35,19 +35,27 @@ export function DashboardSidebarNav({ onNavigate, idPrefix = "dash-nav" }: Props
     setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }))
   }
 
-  const homeActive = homeLinkIsActive(pathname)
-
   return (
     <nav className="dashboard-sidebar-nav" aria-label="Dashboard">
-      <Link
-        href={DASHBOARD_HOME.href}
-        className={`dashboard-sidebar-link dashboard-sidebar-link--home ${homeActive ? "dashboard-sidebar-link--active" : ""}`}
-        aria-current={homeActive ? "page" : undefined}
-        onClick={onNavigate}
-      >
-        <DASHBOARD_HOME.icon className="dashboard-sidebar-link-icon" size={20} strokeWidth={2} aria-hidden />
-        <span>{DASHBOARD_HOME.label}</span>
-      </Link>
+      <div className="dashboard-sidebar-primary" role="list">
+        {DASHBOARD_PRIMARY_LINKS.map((entry) => {
+          const active = primarySidebarLinkIsActive(pathname, entry.href)
+          const Icon = entry.icon
+          return (
+            <Link
+              key={entry.href}
+              href={entry.href}
+              className={`dashboard-sidebar-link dashboard-sidebar-link--home ${active ? "dashboard-sidebar-link--active" : ""}`}
+              aria-current={active ? "page" : undefined}
+              onClick={onNavigate}
+              role="listitem"
+            >
+              <Icon className="dashboard-sidebar-link-icon" size={20} strokeWidth={2} aria-hidden />
+              <span>{entry.label}</span>
+            </Link>
+          )
+        })}
+      </div>
 
       <div className="dashboard-sidebar-divider" aria-hidden />
 

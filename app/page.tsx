@@ -17,24 +17,31 @@ import {
   getAdaptiveRecommendedMarkers,
   getActivePanel,
   getEnteredBiomarkers,
+  hasAnyBiomarkerValue,
   hasEnoughLabs,
   type ProfileState,
 } from "@/src/lib/panelEngine"
-import { isDevPaywallBypass } from "@/src/lib/accessGate"
-import { legacyGoalSportToProfileType } from "@/src/lib/clarionProfiles"
-import { computeSavings } from "@/src/lib/savingsEngine"
 import {
-  getStatusTone,
-  buildTopFocus,
-  inferWhyItMatters,
-  inferNextStep,
-  getPrioritySummary,
-} from "@/src/lib/priorityEngine"
+  hasClarionAnalysisAccess,
+  isDevPaywallBypass,
+  subscriptionStatusGrantsAccess,
+  type BloodworkLike,
+} from "@/src/lib/accessGate"
+import {
+  legacyGoalSportToProfileType,
+  parseHealthGoalIds,
+  primaryProfileTypeFromHealthGoalsAndTraining,
+} from "@/src/lib/clarionProfiles"
+import { computeSavings } from "@/src/lib/savingsEngine"
+import { getOrderedFocusResults } from "@/src/lib/scoreBreakdown"
+import { buildPriorityContextFromProfile } from "@/src/lib/priorityRanking"
+import { getStatusTone, inferWhyItMatters, inferNextStep, getPrioritySummary } from "@/src/lib/priorityEngine"
 import { detectPatterns } from "@/src/lib/patternEngine"
 import { getRetestRecommendations } from "@/src/lib/retestEngine"
 import { getBloodwiseSummary } from "@/src/lib/bloodwiseSummaryEngine"
 import { OnboardingFlow } from "@/src/components/OnboardingFlow"
 import { clearReauthPrompt, shouldShowReauthPrompt } from "@/src/lib/reauthPrompt"
+import { analysisReportIntroStorageKey } from "@/src/lib/analysisReportIntro"
 
 type BiomarkerInputMap = Record<string, string | number>
 
@@ -84,8 +91,10 @@ function HomePageContent() {
     exerciseRegularly: "",
     alcohol: "",
     healthGoal: "",
+    trainingFocus: "",
     symptoms: "",
     dietPreference: "",
+    planTier: "",
   })
 
   const [inputs, setInputs] = useState<BiomarkerInputMap>(() => {
@@ -118,11 +127,21 @@ function HomePageContent() {
   const [retestWeeks, setRetestWeeks] = useState(8)
   const [analyzing, setAnalyzing] = useState(false)
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null)
+  /** Latest saved bloodwork — drives `hasClarionAnalysisAccess` legacy path when subscription/profile lags. */
+  const [bloodworkForAccess, setBloodworkForAccess] = useState<BloodworkLike>(null)
 
-  const hasPaidUnlock =
-    hasPaidAnalysis ||
-    subscription?.status === "active" ||
-    subscription?.status === "trialing"
+  const profileForAccess = useMemo(
+    () => ({
+      analysis_purchased_at: hasPaidAnalysis ? "1" : null,
+      plan_tier: profile.planTier ?? null,
+    }),
+    [hasPaidAnalysis, profile.planTier]
+  )
+
+  const hasPaidUnlock = useMemo(
+    () => hasClarionAnalysisAccess(profileForAccess, subscription, bloodworkForAccess),
+    [profileForAccess, subscription, bloodworkForAccess]
+  )
   const effectiveHasPaidAnalysis = isDevPaywallBypass() || useMockResults ? true : hasPaidUnlock
 
   const [homeReady, setHomeReady] = useState(false)
@@ -163,6 +182,7 @@ function HomePageContent() {
         ...(profile.sex.trim() ? { sex: profile.sex } : {}),
         ...(profile.sport.trim() ? { sport: profile.sport } : {}),
         ...(profile.goal.trim() ? { goal: profile.goal } : {}),
+        ...(profile.trainingFocus?.trim() ? { training_focus: profile.trainingFocus } : {}),
       }
 
       return analyzeBiomarkers(
@@ -197,7 +217,34 @@ function HomePageContent() {
     }
   }, [analysisResults])
 
-  const topFocus = useMemo(() => buildTopFocus(analysisResults), [analysisResults])
+  const priorityContext = useMemo(
+    () =>
+      buildPriorityContextFromProfile({
+        age: profile.age,
+        sex: profile.sex,
+        sport: profile.sport,
+        goal: profile.goal,
+        profile_type: profile.profileType?.trim() ? profile.profileType : null,
+        health_goals: profile.healthGoal?.trim() ? profile.healthGoal : null,
+        training_focus: profile.trainingFocus?.trim() ? profile.trainingFocus : null,
+        symptoms: profile.symptoms?.trim() ? profile.symptoms : null,
+      }),
+    [
+      profile.age,
+      profile.sex,
+      profile.sport,
+      profile.goal,
+      profile.profileType,
+      profile.healthGoal,
+      profile.trainingFocus,
+      profile.symptoms,
+    ]
+  )
+
+  const topFocus = useMemo(
+    () => getOrderedFocusResults(analysisResults as any, 3, priorityContext),
+    [analysisResults, priorityContext]
+  )
 
   const supplementRecs = useMemo(() => {
     try {
@@ -208,6 +255,11 @@ function HomePageContent() {
           diet_preference: profile.dietPreference?.trim() || null,
           supplement_form_preference: profile.supplementFormPreference ?? "any",
           improvement_preference: profile.improvementPreference ?? null,
+          sport: profile.sport?.trim() || null,
+          goal: profile.goal?.trim() || null,
+          profile_type: profile.profileType?.trim() || null,
+          health_goals: profile.healthGoal?.trim() || null,
+          activity_level: profile.activityLevel?.trim() || null,
         },
       }) || []
     } catch {
@@ -218,6 +270,11 @@ function HomePageContent() {
     profile.supplementFormPreference,
     profile.dietPreference,
     profile.improvementPreference,
+    profile.sport,
+    profile.goal,
+    profile.profileType,
+    profile.healthGoal,
+    profile.activityLevel,
     shoppingPreference,
   ])
 
@@ -278,6 +335,30 @@ function HomePageContent() {
 
   const userId = user?.id ?? null
 
+  /** When user reaches analysis/results, re-fetch profile + subscription so retake survey doesn’t miss paid access. */
+  useEffect(() => {
+    if (!userId || currentStep < 12) return
+    let cancelled = false
+    Promise.all([loadSavedState(userId), getSubscription(userId)])
+      .then(([{ profile: p, bloodwork: b }, sub]) => {
+        if (cancelled) return
+        setBloodworkForAccess(b ?? null)
+        if (p && (p as ProfileRow).analysis_purchased_at) setHasPaidAnalysis(true)
+        const subActive = subscriptionStatusGrantsAccess(sub?.status)
+        const tierLc = ((p as ProfileRow)?.plan_tier ?? "").toLowerCase()
+        if (subActive || tierLc === "full" || tierLc === "lite") setHasPaidAnalysis(true)
+        if (p) {
+          const pt = ((p as ProfileRow).plan_tier ?? "").trim()
+          setProfile((prev) => ({ ...prev, planTier: pt || undefined }))
+        }
+        setSubscription(sub)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [userId, currentStep])
+
   const isDueForRetest = useMemo(() => {
     if (!lastBloodworkAt || !retestWeeks) return false
     const last = new Date(lastBloodworkAt).getTime()
@@ -321,16 +402,27 @@ function HomePageContent() {
       else setCurrentStep(0)
       setAnalyzing(false)
     }
+    /** When we send the user to /dashboard, do not set homeReady — otherwise survey flashes before the client navigation completes. */
+    let suppressHomeReadyAfterDashboardRedirect = false
+
     Promise.all([loadSavedState(userId), getSubscription(userId)])
       .then(([{ profile: p, bloodwork: b }, subscription]) => {
+        setBloodworkForAccess(b ?? null)
         const row = p ? (p as { improvement_preference?: string; profile_type?: string; analysis_purchased_at?: string | null; results_flow_completed_at?: string | null }) : null
         const hasPaid = !!row?.analysis_purchased_at
         const hasCompletedResultsFlow = !!row?.results_flow_completed_at
         if (p) {
-          const profileType =
-            (row?.profile_type && row.profile_type.trim()) ||
-            (p.goal || p.sport ? legacyGoalSportToProfileType(p.goal ?? "", p.sport ?? "") : "")
           const rowProfile = p as ProfileRow
+          const healthGoalCsv = rowProfile.health_goals?.trim() ?? ""
+          const goalIds = parseHealthGoalIds(healthGoalCsv)
+          const tf = rowProfile.training_focus?.trim() ?? ""
+          let profileType = primaryProfileTypeFromHealthGoalsAndTraining(goalIds, tf)
+          if (goalIds.length === 0 && !tf) {
+            const legacy =
+              (row?.profile_type && row.profile_type.trim()) ||
+              (p.goal || p.sport ? legacyGoalSportToProfileType(p.goal ?? "", p.sport ?? "") : "")
+            if (legacy) profileType = legacy as typeof profileType
+          }
           setProfile({
             age: p.age ?? "",
             sex: p.sex ?? "",
@@ -341,11 +433,23 @@ function HomePageContent() {
             heightCm: rowProfile?.height_cm != null ? String(rowProfile.height_cm) : "",
             weightKg: rowProfile?.weight_kg != null ? String(rowProfile.weight_kg) : "",
             supplementFormPreference: (rowProfile?.supplement_form_preference === "no_pills" ? "no_pills" : "any") as "any" | "no_pills",
+            healthGoal: healthGoalCsv,
+            trainingFocus: tf,
             symptoms: (p as ProfileRow).symptoms ?? "",
             dietPreference: rowProfile?.diet_preference ?? "",
+            activityLevel: rowProfile?.activity_level ?? "",
+            sleepHours: rowProfile?.sleep_hours_band ?? "",
+            exerciseRegularly: rowProfile?.exercise_regularly ?? "",
+            alcohol: rowProfile?.alcohol_frequency ?? "",
+            planTier: (rowProfile?.plan_tier ?? "").trim() || undefined,
           })
+          const subActiveOnLoad = subscriptionStatusGrantsAccess(subscription?.status)
+          const tierLc = (rowProfile?.plan_tier ?? "").toLowerCase()
+          const tierUnlockOnLoad = tierLc === "full" || tierLc === "lite"
           // Don’t overwrite optimistic paid state when returning from checkout (webhook may lag behind redirect).
-          setHasPaidAnalysis(hasPaid || isPaymentReturn || isSubscriptionReturn)
+          setHasPaidAnalysis(
+            hasPaid || isPaymentReturn || isSubscriptionReturn || subActiveOnLoad || tierUnlockOnLoad
+          )
           setCurrentSupplementSpend(p.current_supplement_spend ?? "")
           setCurrentSupplements(p.current_supplements ?? "")
           setShoppingPreference(p.shopping_preference ?? "Best value")
@@ -363,6 +467,7 @@ function HomePageContent() {
               email: user.email,
               phone: p.phone ?? undefined,
               retest_weeks: p.retest_weeks ?? 8,
+              health_goals: rowProfile.health_goals ?? undefined,
             }).catch(() => {})
           }
         }
@@ -409,7 +514,7 @@ function HomePageContent() {
         // router.replace("/")'d and stripped the query before this promise resolves, which would wrongly fall through to setCurrentStep(0).
         if (isPaymentReturn || isSubscriptionReturn) return
 
-        const subActive = subscription?.status === "active" || subscription?.status === "trialing"
+        const subActive = subscriptionStatusGrantsAccess(subscription?.status)
         const hasBloodworkAccess = b && (b.score != null || (b.selected_panel?.length ?? 0) > 0)
         const hasAccess = hasPaid || subActive || !!hasBloodworkAccess
 
@@ -459,6 +564,7 @@ function HomePageContent() {
 
         // Logged-in user with access (paid, subscription, or saved bloodwork) → go straight to dashboard (app-first entry)
         if (hasAccess) {
+          suppressHomeReadyAfterDashboardRedirect = true
           router.replace("/dashboard")
           return
         }
@@ -474,7 +580,9 @@ function HomePageContent() {
         setAnalyzing(false)
       })
       .catch(() => {})
-      .finally(() => setHomeReady(true))
+      .finally(() => {
+        if (!suppressHomeReadyAfterDashboardRedirect) setHomeReady(true)
+      })
   // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run when ?step=labs / ?step=survey / ?reauth= so dashboard links work
   }, [userId, stepFromUrl, reauthFromUrl])
 
@@ -483,6 +591,7 @@ function HomePageContent() {
   useEffect(() => {
     if (!userId || searchParams.get("paid") !== "1") return
     loadSavedState(userId).then(({ profile: p, bloodwork: b }) => {
+      setBloodworkForAccess(b ?? null)
       setHasPaidAnalysis(true) // optimistic: they just came from checkout
       if (b?.biomarker_inputs && typeof b.biomarker_inputs === "object") {
         setInputs((prev) => ({ ...prev, ...b.biomarker_inputs }))
@@ -500,6 +609,7 @@ function HomePageContent() {
   useEffect(() => {
     if (!userId || searchParams.get("subscription") !== "success") return
     loadSavedState(userId).then(({ profile: p, bloodwork: b }) => {
+      setBloodworkForAccess(b ?? null)
       const row = p as { analysis_purchased_at?: string | null } | null
       if (row?.analysis_purchased_at && b?.biomarker_inputs && typeof b.biomarker_inputs === "object") {
         setInputs((prev) => ({ ...prev, ...b.biomarker_inputs }))
@@ -535,6 +645,7 @@ function HomePageContent() {
       setRetestWeeks(8)
       setHasPaidAnalysis(false)
       setSubscription(null)
+      setBloodworkForAccess(null)
     }
   }, resetDeps)
 
@@ -613,7 +724,14 @@ function HomePageContent() {
     profile.goal,
     profile.improvementPreference ?? "",
     profile.profileType ?? "",
+    profile.healthGoal ?? "",
+    profile.trainingFocus ?? "",
     profile.symptoms ?? "",
+    profile.dietPreference ?? "",
+    profile.activityLevel ?? "",
+    profile.sleepHours ?? "",
+    profile.exerciseRegularly ?? "",
+    profile.alcohol ?? "",
     profile.heightCm ?? "",
     profile.weightKg ?? "",
     profile.supplementFormPreference ?? "any",
@@ -628,9 +746,19 @@ function HomePageContent() {
       profile.sex.trim() !== "" ||
       profile.goal.trim() !== "" ||
       (profile.profileType ?? "").trim() !== "" ||
+      (profile.healthGoal ?? "").trim() !== "" ||
       (profile.improvementPreference ?? "").trim() !== "" ||
+      (profile.trainingFocus ?? "").trim() !== "" ||
+      (profile.symptoms ?? "").trim() !== "" ||
+      (profile.dietPreference ?? "").trim() !== "" ||
+      (profile.activityLevel ?? "").trim() !== "" ||
+      (profile.sleepHours ?? "").trim() !== "" ||
+      (profile.exerciseRegularly ?? "").trim() !== "" ||
+      (profile.alcohol ?? "").trim() !== "" ||
       (profile.heightCm ?? "").trim() !== "" ||
-      (profile.weightKg ?? "").trim() !== ""
+      (profile.weightKg ?? "").trim() !== "" ||
+      currentSupplementSpend.trim() !== "" ||
+      currentSupplements.trim() !== ""
     if (!hasProfileData) return
     saveProfileRef.current = setTimeout(() => {
       const heightVal = profile.heightCm?.trim() ? Number(profile.heightCm) : undefined
@@ -645,7 +773,14 @@ function HomePageContent() {
         shopping_preference: shoppingPreference,
         improvement_preference: profile.improvementPreference ?? "",
         profile_type: profile.profileType ?? "",
+        health_goals: profile.healthGoal?.trim() ? profile.healthGoal : undefined,
+        training_focus: profile.trainingFocus?.trim() ? profile.trainingFocus : undefined,
         symptoms: profile.symptoms?.trim() ? profile.symptoms : undefined,
+        diet_preference: profile.dietPreference?.trim() ? profile.dietPreference : undefined,
+        activity_level: profile.activityLevel?.trim() ? profile.activityLevel : undefined,
+        sleep_hours_band: profile.sleepHours?.trim() ? profile.sleepHours : undefined,
+        exercise_regularly: profile.exerciseRegularly?.trim() ? profile.exerciseRegularly : undefined,
+        alcohol_frequency: profile.alcohol?.trim() ? profile.alcohol : undefined,
         height_cm: Number.isFinite(heightVal) ? heightVal : undefined,
         weight_kg: Number.isFinite(weightVal) ? weightVal : undefined,
         supplement_form_preference: profile.supplementFormPreference === "no_pills" ? "no_pills" : "any",
@@ -658,9 +793,16 @@ function HomePageContent() {
 
   // Save bloodwork panel to Supabase when user reaches score step (11) or later
   const lastSavedStepRef = useRef(-1)
-  const bloodworkSaveDeps: [string | null, number] = [userId, currentStep]
+
+  /** Avoid stale step dedupe after logout → retake survey (same component instance) or account switch. */
+  useEffect(() => {
+    lastSavedStepRef.current = -1
+  }, [userId])
+
+  const bloodworkSaveDeps: [string | null, number, boolean] = [userId, currentStep, effectiveHasPaidAnalysis]
   useEffect(() => {
     if (!userId || currentStep < 11) return
+    if (!hasAnyBiomarkerValue(inputs)) return
     if (currentStep === lastSavedStepRef.current) return
     lastSavedStepRef.current = currentStep
     const keyFlagged = analysisResults.filter((r) => r.status !== "optimal").map((r) => r.name).filter((n): n is string => Boolean(n))
@@ -686,6 +828,7 @@ function HomePageContent() {
               recommendationType: rec.recommendationType ?? "Core",
               reason: rec.whyThisIsRecommended ?? rec.whyRecommended ?? "",
               marker: rec.marker ?? (Array.isArray(rec.duplicateMarkersMerged) ? rec.duplicateMarkersMerged[0] : undefined),
+              ...(rec.stackHint ? { stackHint: rec.stackHint } : {}),
             })),
             totalMonthlyCost: optimizedStack.totalMonthlyCost,
           }
@@ -697,7 +840,20 @@ function HomePageContent() {
         annualSavings,
         monthlySavings: optimizedSpend,
       },
-    }).catch(() => {})
+    })
+      .then(() => {
+        if (!userId || typeof window === "undefined") return
+        if (!effectiveHasPaidAnalysis) return
+        try {
+          const k = analysisReportIntroStorageKey(userId)
+          if (localStorage.getItem(k)) return
+          localStorage.setItem(k, "1")
+          router.push("/dashboard/analysis?intro=1")
+        } catch {
+          router.push("/dashboard/analysis?intro=1")
+        }
+      })
+      .catch(() => {})
   }, bloodworkSaveDeps)
 
   function handleProfileChange(field: keyof ProfileState, value: string) {
@@ -796,6 +952,7 @@ function HomePageContent() {
   const handleReauthRetakeSurvey = useCallback(() => {
     clearReauthPrompt()
     setShowReauthPrompt(false)
+    lastSavedStepRef.current = -1
     blockStep6UntilRef.current = Date.now() + 2500
     setCurrentStepRaw(0)
     setAnalyzing(false)
@@ -814,7 +971,10 @@ function HomePageContent() {
       exerciseRegularly: "",
       alcohol: "",
       healthGoal: "",
+      trainingFocus: "",
       symptoms: "",
+      dietPreference: "",
+      planTier: undefined,
     })
     setInputs((prev) => {
       const next: BiomarkerInputMap = {}
@@ -967,7 +1127,7 @@ function HomePageContent() {
       goToBloodTestStep={goToBloodTestStep}
       goToLabsStep={goToLabsStep}
       goToAnalysisStep={goToAnalysisStep}
-      hasActiveSubscription={subscription?.status === "active" || subscription?.status === "trialing"}
+      hasActiveSubscription={subscriptionStatusGrantsAccess(subscription?.status)}
       resultsView={searchParams.get("view")}
     />
     </>

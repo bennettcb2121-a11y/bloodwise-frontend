@@ -6,25 +6,37 @@ const REVEAL_DELAY_MS = 14
 
 type Props = {
   children: string
-  as?: "h1" | "h2" | "h3"
+  as?: "h1" | "h2" | "h3" | "p"
   className?: string
   /** `pop` — staggered letter pop-in (good for short greetings). `reveal` — classic character reveal (onboarding). */
   variant?: "pop" | "reveal"
+  /** Pop only: delay before the first character’s animation starts (ms). */
+  popStartDelayMs?: number
+  /** Pop only: ms between each character’s start (default 42). */
+  popCharStaggerMs?: number
 }
 
 /** Heading with optional pop-in (per letter) or typewriter-style reveal. */
-export function TypewriterHeading({ children, as: Tag = "h1", className = "", variant = "reveal" }: Props) {
+export function TypewriterHeading({
+  children,
+  as: Tag = "h1",
+  className = "",
+  variant = "reveal",
+  popStartDelayMs = 0,
+  popCharStaggerMs = 42,
+}: Props) {
   const text = String(children)
 
   if (variant === "pop") {
     const chars = Array.from(text)
+    const stagger = popCharStaggerMs
     return (
       <Tag className={`typewriter-heading ${className}`.trim()} aria-label={text}>
         {chars.map((char, i) => (
           <span
             key={`${i}-${char}`}
             className="typewriter-heading-char"
-            style={{ animationDelay: `${i * 42}ms` }}
+            style={{ animationDelay: `${popStartDelayMs + i * stagger}ms` }}
             aria-hidden
           >
             {char === " " ? "\u00A0" : char}

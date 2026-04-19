@@ -1,3 +1,5 @@
+import { resolveActionPlanDbKey } from "@/src/lib/actionPlans"
+import { findAnalysisResultForDriverMarker, type BiomarkerResultForScore } from "@/src/lib/scoreBreakdown"
 import { getTodaysTip } from "@/src/lib/dashboardTips"
 
 export type RetestCountdownArg = { type: "until" | "overdue"; weeks: number } | null
@@ -13,9 +15,11 @@ export function getContextualInsight(args: {
 }): string {
   const first = args.orderedDrivers[0]
   if (first?.markerName?.trim()) {
-    const name = first.markerName.trim()
-    const match = args.analysisResults.find(
-      (r) => (r.name ?? "").toLowerCase() === name.toLowerCase()
+    const driverName = first.markerName.trim()
+    const name = resolveActionPlanDbKey(driverName)
+    const match = findAnalysisResultForDriverMarker(
+      args.analysisResults as BiomarkerResultForScore[],
+      driverName
     )
     const val =
       match && typeof match.value === "number" && !Number.isNaN(match.value)

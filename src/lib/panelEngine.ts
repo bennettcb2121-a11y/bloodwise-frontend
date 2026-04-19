@@ -7,7 +7,11 @@ import {
   getRecommendedPanelForProfile,
   legacyGoalSportToProfileType,
   healthGoalToProfileType,
+  parseHealthGoalIds,
+  mergeRecommendedPanelsFromHealthGoalsAndTraining,
+  primaryProfileTypeFromHealthGoalsAndTraining,
   CORE_BIOMARKER_KEYS,
+  TRAINING_FOCUS_NONE_ID,
 } from "@/src/lib/clarionProfiles"
 import { CLARION_RECOMMENDED_PANEL_KEYS } from "@/src/lib/coreBiomarkerProtocols"
 import { getHealthContext } from "@/src/lib/healthContext"
@@ -35,12 +39,16 @@ export type ProfileState = {
   exerciseRegularly?: string
   /** Lifestyle: alcohol consumption (e.g. no, occasionally, regularly). */
   alcohol?: string
-  /** Main health goal from onboarding (maps to profileType via healthGoalToProfileType). */
+  /** Comma-separated health goal ids from onboarding (e.g. more_energy,improve_fitness). */
   healthGoal?: string
   /** Symptoms from onboarding (comma-separated or array for multi-select). */
   symptoms?: string
   /** Diet pattern (e.g. omnivore, vegetarian, vegan) — drives supplement form filters. */
   dietPreference?: string
+  /** Stripe-synced: none | lite | full — used so paid subscribers are not asked to pay again if subscription row lags. */
+  planTier?: string
+  /** Training / athlete focus (e.g. endurance_athlete) — refines ranges and panels with health goals. */
+  trainingFocus?: string
 }
 
 export function normalize(text: string): string {
@@ -83,11 +91,22 @@ function addProfileBasedMarkers(
   }
   const sex = normalize(profile.sex || "")
   const sport = normalize(profile.sport || "")
+  const tf = normalize(profile.trainingFocus || "")
   const goal = normalize(profile.goal || "")
   const ageNum = parseInt(profile.age || "0", 10)
 
   if (sex.includes("female")) add(["Ferritin", "Vitamin B12", "Serum iron", "TIBC"])
-  if (sport.includes("endurance") || goal.includes("performance")) add(["Ferritin", "Vitamin D", "Magnesium", "hs-CRP"])
+  if (
+    sport.includes("endurance") ||
+    goal.includes("performance") ||
+    tf.includes("endurance") ||
+    tf.includes("femaleathlete") ||
+    tf.includes("mixedsport") ||
+    tf.includes("strength") ||
+    tf.includes("highvolume")
+  ) {
+    add(["Ferritin", "Vitamin D", "Magnesium", "hs-CRP"])
+  }
   if (sport.includes("sedentary") || goal.includes("energy")) add(["Glucose", "HbA1c", "Fasting insulin", "Triglycerides", "HDL-C"])
   if (goal.includes("heart") || goal.includes("longevity")) add(["HbA1c", "hs-CRP", "LDL-C", "ApoB", "Lipoprotein(a)"])
   if (ageNum >= 50) add(["HbA1c", "Creatinine", "BUN", "Calcium", "Vitamin D", "Vitamin B12"])
@@ -121,12 +140,22 @@ export function getAdaptiveRecommendedMarkers(
 ): string[] {
   let base: string[] = []
 
+  const goalIds = parseHealthGoalIds(profile.healthGoal)
+  const tfRaw = (profile.trainingFocus ?? "").trim()
+  if (goalIds.length > 0) {
+    base = mergeRecommendedPanelsFromHealthGoalsAndTraining(goalIds, tfRaw, biomarkerKeys)
+  } else if (tfRaw && tfRaw !== TRAINING_FOCUS_NONE_ID) {
+    const pt = primaryProfileTypeFromHealthGoalsAndTraining([], tfRaw)
+    base = getRecommendedPanelForProfile(pt, biomarkerKeys)
+  }
+
   const profileType = (profile.profileType || "").trim()
-  if (profileType) {
+  if (base.length === 0 && profileType) {
     base = getRecommendedPanelForProfile(profileType, biomarkerKeys)
   }
   if (base.length === 0 && (profile.healthGoal || "").trim()) {
-    const typeFromGoal = healthGoalToProfileType(profile.healthGoal!.trim())
+    const firstId = profile.healthGoal!.trim().split(",")[0]?.trim() ?? ""
+    const typeFromGoal = healthGoalToProfileType(firstId)
     base = getRecommendedPanelForProfile(typeFromGoal, biomarkerKeys)
   }
   if (base.length === 0 && (profile.symptoms || "").trim()) {
@@ -351,6 +380,16 @@ export function getEnteredBiomarkers(
   })
 
   return bloodworkObject
+}
+
+/** True if any biomarker field has a parseable numeric value — used to avoid inserting empty bloodwork rows. */
+export function hasAnyBiomarkerValue(inputs: Record<string, string | number>): boolean {
+  for (const v of Object.values(inputs)) {
+    if (String(v ?? "").trim() === "") continue
+    const n = Number(v)
+    if (!Number.isNaN(n) && Number.isFinite(n)) return true
+  }
+  return false
 }
 
 export function hasEnoughLabs(

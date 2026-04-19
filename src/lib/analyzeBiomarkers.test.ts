@@ -16,4 +16,21 @@ describe("analyzeBiomarkers", () => {
     expect(f).toBeDefined()
     expect(f!.status).not.toBe("unknown")
   })
+
+  it("uses ADA-style HbA1c bands (prediabetes is suboptimal, diabetes is high)", () => {
+    const r = analyzeBiomarkers({ HbA1c: 5.5 }, {})
+    expect(r[0].status).toBe("optimal")
+    expect(analyzeBiomarkers({ HbA1c: 5.8 }, {})[0].status).toBe("suboptimal")
+    expect(analyzeBiomarkers({ HbA1c: 6.5 }, {})[0].status).toBe("high")
+  })
+
+  it("treats mid-range vitamin D (ng/mL) as optimal, not high", () => {
+    const r = analyzeBiomarkers({ "25-OH Vitamin D": 69 }, { sex: "male", sport: "general health" })
+    expect(r[0].status).toBe("optimal")
+  })
+
+  it("treats high-normal B12 (pg/mL) as optimal", () => {
+    const r = analyzeBiomarkers({ "Vitamin B12": 931 }, {})
+    expect(r[0].status).toBe("optimal")
+  })
 })

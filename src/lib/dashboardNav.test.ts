@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { pathMatchesHref, homeLinkIsActive, groupHasActiveChild } from "./dashboardNav"
+import { pathMatchesHref, homeLinkIsActive, primarySidebarLinkIsActive, groupHasActiveChild } from "./dashboardNav"
 import { DASHBOARD_NAV_GROUPS } from "./dashboardNav"
 
 describe("dashboardNav", () => {
@@ -27,9 +27,19 @@ describe("dashboardNav", () => {
     expect(homeLinkIsActive("/dashboard/plan")).toBe(false)
   })
 
-  it("groupHasActiveChild for data section", () => {
-    const data = DASHBOARD_NAV_GROUPS.find((g) => g.id === "data")!
-    expect(groupHasActiveChild("/dashboard/trends", data)).toBe(true)
-    expect(groupHasActiveChild("/settings", data)).toBe(false)
+  it("primarySidebarLinkIsActive for Home, Stack, Report", () => {
+    expect(primarySidebarLinkIsActive("/dashboard", "/dashboard")).toBe(true)
+    expect(primarySidebarLinkIsActive("/dashboard/plan", "/dashboard")).toBe(false)
+    expect(primarySidebarLinkIsActive("/dashboard/plan", "/dashboard/plan")).toBe(true)
+    expect(primarySidebarLinkIsActive("/dashboard", "/dashboard/plan")).toBe(false)
+    expect(primarySidebarLinkIsActive("/dashboard/analysis", "/dashboard/analysis")).toBe(true)
+    expect(primarySidebarLinkIsActive("/dashboard", "/dashboard/analysis")).toBe(false)
+  })
+
+  it("More group contains Biomarkers", () => {
+    const more = DASHBOARD_NAV_GROUPS.find((g) => g.id === "more")!
+    expect(more.children.some((c) => c.href === "/dashboard/biomarkers" && c.label === "Biomarkers")).toBe(true)
+    expect(groupHasActiveChild("/dashboard/biomarkers", more)).toBe(true)
+    expect(groupHasActiveChild("/settings", more)).toBe(true)
   })
 })

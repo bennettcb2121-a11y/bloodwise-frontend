@@ -22,7 +22,7 @@ describe("buildHabitLabCorrelationSeries", () => {
         {
           created_at: "2026-03-15T10:00:00.000Z",
           biomarker_inputs: { "Vitamin D": "42", Ferritin: "90" },
-        } as BloodworkSaveRow,
+        } as unknown as BloodworkSaveRow,
       ]
     )
     expect(rows.length).toBe(2)

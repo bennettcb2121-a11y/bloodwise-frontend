@@ -6,6 +6,34 @@ import { supabase } from "./supabase"
 import type { DailyMetrics } from "./dailyMetrics"
 import { clampDailyMetrics, emptyDailyMetrics } from "./dailyMetrics"
 
+/** PostgREST errors are plain objects; coercing avoids devtools / onUnhandledRejection showing "[object Object]". */
+function throwIfError(error: unknown): void {
+  if (!error) return
+  if (error instanceof Error) throw error
+  const o = error as { message?: string; code?: string; details?: string; hint?: string }
+  const msg = [o.message, o.code, o.details, o.hint].filter(Boolean).join(" — ") || JSON.stringify(error)
+  throw new Error(msg)
+}
+
+/** PGRST204: "Could not find the 'col_name' column of 'profiles' in the schema cache" */
+function missingColumnFromPostgrestMessage(msg: string): string | null {
+  const m = msg.match(/Could not find the '([^']+)' column/)
+  return m ? m[1] : null
+}
+
+/** Never strip these — they exist on every profiles row from the base schema. */
+const PROFILE_UPSERT_CORE_KEYS = new Set([
+  "user_id",
+  "age",
+  "sex",
+  "sport",
+  "goal",
+  "current_supplement_spend",
+  "current_supplements",
+  "shopping_preference",
+  "updated_at",
+])
+
 export type ProfileRow = {
   id?: string
   user_id: string
@@ -40,6 +68,18 @@ export type ProfileRow = {
   notify_reorder_days?: number | null
   /** Comma-separated symptom ids (e.g. fatigue,low_energy) for priority ranking. */
   symptoms?: string | null
+  /** Comma-separated onboarding health goal ids (e.g. more_energy,improve_fitness). */
+  health_goals?: string | null
+  /** Training / athlete focus (e.g. endurance_athlete, none) — refines ranges with health goals. */
+  training_focus?: string | null
+  /** Survey: activity tier (e.g. sedentary, light, moderate, very_active). */
+  activity_level?: string | null
+  /** Survey: typical nightly sleep band (e.g. under_6, 6_7, 7_8, 8_plus). */
+  sleep_hours_band?: string | null
+  /** Survey: exercises regularly (Yes / No). */
+  exercise_regularly?: string | null
+  /** Survey: alcohol frequency (e.g. no, occasionally, regularly). */
+  alcohol_frequency?: string | null
   /** Stripe subscription tier: none | lite | full (webhook-synced from price id). */
   plan_tier?: string | null
   updated_at?: string
@@ -63,6 +103,16 @@ export type SavedSupplementStackItem = {
   reason: string
   /** Biomarker this supplement supports (e.g. Ferritin, Vitamin D); used for affiliate/reorder lookup */
   marker?: string
+  /** UI badge: optional maintenance when labs are optimal but context still suggests monitoring */
+  stackHint?: "maintenance"
+  /** Stable id from profile JSON when this row came from "what you take today" */
+  stackEntryId?: string
+  /** Product link from profile editor (reorder / context) */
+  productUrl?: string
+  /** Lab fit hint from guided intake (profile-sourced rows). */
+  fitStatus?: "aligned" | "suboptimal" | "unknown"
+  /** User kept their product despite Clarion suggesting a different fit. */
+  userChoseKeepProduct?: boolean
 }
 
 /** Stack snapshot stored with each bloodwork save */
@@ -140,7 +190,7 @@ export async function getSubscription(userId: string): Promise<SubscriptionRow |
     .select("*")
     .eq("user_id", userId)
     .maybeSingle()
-  if (error) throw error
+  throwIfError(error)
   return data as SubscriptionRow | null
 }
 
@@ -151,7 +201,7 @@ export async function getProfile(userId: string): Promise<ProfileRow | null> {
     .select("*")
     .eq("user_id", userId)
     .maybeSingle()
-  if (error) throw error
+  throwIfError(error)
   return data as ProfileRow | null
 }
 
@@ -160,37 +210,49 @@ export async function upsertProfile(
   profile: Omit<ProfileRow, "user_id" | "updated_at">
 ): Promise<void> {
   if (!supabase) return
-  const { error } = await supabase.from("profiles").upsert(
-    {
-      user_id: userId,
-      age: profile.age ?? "",
-      sex: profile.sex ?? "",
-      sport: profile.sport ?? "",
-      goal: profile.goal ?? "",
-      current_supplement_spend: profile.current_supplement_spend ?? "",
-      current_supplements: profile.current_supplements ?? "",
-      shopping_preference: profile.shopping_preference ?? "Best value",
-      email: profile.email ?? undefined,
-      phone: profile.phone ?? undefined,
-      retest_weeks: profile.retest_weeks ?? undefined,
-      improvement_preference: profile.improvement_preference ?? "",
-      profile_type: profile.profile_type ?? undefined,
-      height_cm: profile.height_cm ?? undefined,
-      weight_kg: profile.weight_kg ?? undefined,
-      supplement_form_preference: profile.supplement_form_preference ?? "any",
-      diet_preference: profile.diet_preference ?? undefined,
-      streak_milestones: profile.streak_milestones ?? undefined,
-      daily_reminder: profile.daily_reminder ?? undefined,
-      score_goal: profile.score_goal ?? undefined,
-      notify_reorder_email: profile.notify_reorder_email ?? undefined,
-      notify_reorder_days: profile.notify_reorder_days ?? undefined,
-      symptoms: profile.symptoms ?? undefined,
-      plan_tier: profile.plan_tier ?? undefined,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id" }
-  )
-  if (error) throw error
+  const payload: Record<string, unknown> = {
+    user_id: userId,
+    age: profile.age ?? "",
+    sex: profile.sex ?? "",
+    sport: profile.sport ?? "",
+    goal: profile.goal ?? "",
+    current_supplement_spend: profile.current_supplement_spend ?? "",
+    current_supplements: profile.current_supplements ?? "",
+    shopping_preference: profile.shopping_preference ?? "Best value",
+    email: profile.email ?? undefined,
+    phone: profile.phone ?? undefined,
+    retest_weeks: profile.retest_weeks ?? undefined,
+    improvement_preference: profile.improvement_preference ?? "",
+    profile_type: profile.profile_type ?? undefined,
+    height_cm: profile.height_cm ?? undefined,
+    weight_kg: profile.weight_kg ?? undefined,
+    supplement_form_preference: profile.supplement_form_preference ?? "any",
+    diet_preference: profile.diet_preference ?? undefined,
+    streak_milestones: profile.streak_milestones ?? undefined,
+    daily_reminder: profile.daily_reminder ?? undefined,
+    score_goal: profile.score_goal ?? undefined,
+    notify_reorder_email: profile.notify_reorder_email ?? undefined,
+    notify_reorder_days: profile.notify_reorder_days ?? undefined,
+    symptoms: profile.symptoms ?? undefined,
+    health_goals: profile.health_goals ?? undefined,
+    training_focus: profile.training_focus ?? undefined,
+    plan_tier: profile.plan_tier ?? undefined,
+    activity_level: profile.activity_level ?? undefined,
+    sleep_hours_band: profile.sleep_hours_band ?? undefined,
+    exercise_regularly: profile.exercise_regularly ?? undefined,
+    alcohol_frequency: profile.alcohol_frequency ?? undefined,
+    updated_at: new Date().toISOString(),
+  }
+  let { error } = await supabase.from("profiles").upsert(payload, { onConflict: "user_id" })
+  for (let attempt = 0; attempt < 16 && error; attempt++) {
+    const msg = String((error as { message?: string }).message ?? "")
+    if (!/PGRST204|schema cache/i.test(msg)) break
+    const col = missingColumnFromPostgrestMessage(msg)
+    if (!col || !Object.prototype.hasOwnProperty.call(payload, col) || PROFILE_UPSERT_CORE_KEYS.has(col)) break
+    delete payload[col]
+    ;({ error } = await supabase.from("profiles").upsert(payload, { onConflict: "user_id" }))
+  }
+  throwIfError(error)
 }
 
 export async function getLatestBloodwork(
@@ -204,7 +266,7 @@ export async function getLatestBloodwork(
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle()
-  if (error) throw error
+  throwIfError(error)
   return data as BloodworkSaveRow | null
 }
 
@@ -220,7 +282,7 @@ export async function getBloodworkHistory(
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(limit)
-  if (error) throw error
+  throwIfError(error)
   return (data ?? []) as BloodworkSaveRow[]
 }
 
@@ -243,7 +305,28 @@ export async function saveBloodwork(
     created_at: now,
     updated_at: now,
   })
-  if (error) throw error
+  throwIfError(error)
+}
+
+/** Update latest bloodwork row’s stack (e.g. derive recommendations on dashboard when snapshot was empty). */
+export async function updateLatestBloodworkStackSnapshot(
+  userId: string,
+  stack_snapshot: BloodworkStackSnapshot | Record<string, unknown>,
+  savings_snapshot?: Record<string, unknown>
+): Promise<void> {
+  if (!supabase) return
+  const latest = await getLatestBloodwork(userId)
+  if (!latest?.id) return
+  const now = new Date().toISOString()
+  const { error } = await supabase
+    .from("bloodwork_saves")
+    .update({
+      stack_snapshot,
+      ...(savings_snapshot !== undefined ? { savings_snapshot } : {}),
+      updated_at: now,
+    })
+    .eq("id", latest.id)
+  throwIfError(error)
 }
 
 export async function loadSavedState(userId: string): Promise<SavedState> {
@@ -271,7 +354,7 @@ export async function getProtocolLogRow(
     .eq("user_id", userId)
     .eq("log_date", logDate)
     .maybeSingle()
-  if (error) throw error
+  throwIfError(error)
   const checks =
     data?.checks && typeof data.checks === "object" ? (data.checks as Record<string, boolean>) : {}
   const metrics = parseMetricsFromDb(data?.metrics)
@@ -305,7 +388,7 @@ export async function getProtocolLogHistory(
     .gte("log_date", startStr)
     .lte("log_date", endStr)
     .order("log_date", { ascending: false })
-  if (error) throw error
+  throwIfError(error)
   if (!Array.isArray(data)) return []
   return data.map((row) => ({
     log_date: row.log_date,
@@ -328,7 +411,7 @@ export async function getProtocolLogMetricsInRange(
     .gte("log_date", startDate)
     .lte("log_date", endDate)
     .order("log_date", { ascending: true })
-  if (error) throw error
+  throwIfError(error)
   if (!Array.isArray(data)) return []
   return data.map((row) => ({
     log_date: row.log_date,
@@ -348,7 +431,7 @@ export async function getProtocolPurchase(
     .eq("user_id", userId)
     .eq("protocol_slug", protocolSlug)
     .maybeSingle()
-  if (error) throw error
+  throwIfError(error)
   return data as { user_id: string; protocol_slug: string; purchased_at: string } | null
 }
 
@@ -365,7 +448,7 @@ export async function upsertProtocolLog(
     { user_id: userId, log_date: logDate, checks, metrics: metrics as Record<string, unknown>, updated_at: now },
     { onConflict: "user_id,log_date" }
   )
-  if (error) throw error
+  throwIfError(error)
 }
 
 /** Replace daily self-reported metrics for a date (preserves supplement checks). */
@@ -388,7 +471,7 @@ export async function upsertProtocolMetrics(
     },
     { onConflict: "user_id,log_date" }
   )
-  if (error) throw error
+  throwIfError(error)
 }
 
 /** Get all supplement inventory rows for a user. */
@@ -398,7 +481,7 @@ export async function getSupplementInventory(userId: string): Promise<Supplement
     .from("supplement_inventory")
     .select("*")
     .eq("user_id", userId)
-  if (error) throw error
+  throwIfError(error)
   return (data ?? []).map((row) => ({
     id: row.id,
     user_id: row.user_id,
@@ -429,5 +512,5 @@ export async function upsertSupplementInventory(
   const { error } = await supabase.from("supplement_inventory").upsert(payload, {
     onConflict: "user_id,supplement_name",
   })
-  if (error) throw error
+  throwIfError(error)
 }

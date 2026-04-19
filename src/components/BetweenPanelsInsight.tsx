@@ -44,7 +44,13 @@ export function BetweenPanelsInsight({ userId, bloodworkHistory, profile, sectio
   const profileForAnalysis = useMemo(
     () =>
       profile
-        ? { age: profile.age, sex: profile.sex, sport: profile.sport, diet_preference: profile.diet_preference }
+        ? {
+            age: profile.age,
+            sex: profile.sex,
+            sport: profile.sport,
+            diet_preference: profile.diet_preference,
+            training_focus: profile.training_focus?.trim() || undefined,
+          }
         : {},
     [profile?.age, profile?.sex, profile?.sport, profile?.diet_preference]
   )

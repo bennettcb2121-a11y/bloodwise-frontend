@@ -101,7 +101,8 @@ export function getDoThisFirst(input: DoThisFirstInput): DoThisFirstResult | nul
   if (hasStack && protocolTodayComplete !== true) {
     return {
       title: "Complete today's plan",
-      line: "Daily logging keeps your protocol aligned with your labs—small gaps compound over weeks.",
+      line:
+        "A quick log keeps your day aligned with your labs — small gaps add up, but you can close them anytime.",
       href: "/dashboard#protocol",
     }
   }

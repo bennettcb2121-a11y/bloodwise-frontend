@@ -2,10 +2,15 @@
  * Context-aware priority for flagged biomarkers: profile archetype, symptoms, sex/age, sport,
  * and panel position combine with lab severity so high-signal issues (e.g. iron for a fatigued runner)
  * rank above less relevant flags. Composable rules — extend SYMPTOM_MARKER_WEIGHTS and PROFILE_* as needed.
+ *
+ * **Ranking (see `computeDriverPriorityScore`)**: start from lab penalty × 1000 (deficient > low/high
+ * > suboptimal), then add boosts from symptom→marker weights, sport, sex/age, profile panel,
+ * iron synergy (fatigue + iron line), lipid synergy (multiple lipids + heart/metabolic goal), and goal text.
+ * Higher score = higher priority. Consumed by `getOrderedScoreDrivers` / `getOrderedFocusResults` only.
  */
 
 import { resolveActionPlanDbKey } from "./actionPlans"
-import { getProfilePanelBoost } from "./clarionProfiles"
+import { getProfilePanelBoost, healthGoalToProfileType, parseHealthGoalIds } from "./clarionProfiles"
 import { isLipidRelatedMarkerName } from "./lipidPanelContext"
 
 /** Single source for onboarding + settings (ids match SYMPTOM_MARKER_WEIGHTS keys). */
@@ -24,6 +29,8 @@ export type UserPriorityContext = {
   sport?: string
   /** Clarion profile_type (e.g. endurance_athlete, fatigue_low_energy) */
   profileType?: string | null
+  /** Comma-separated health goal ids — panel boost uses the best match across all selected goals. */
+  healthGoals?: string | null
   /** Comma-separated symptom ids from onboarding (e.g. fatigue,low_energy,sleep_issues) */
   symptoms?: string | null
   goal?: string
@@ -301,6 +308,7 @@ export function isPriorityContextEmpty(ctx?: UserPriorityContext | null): boolea
     (ctx.sex || "").trim() ||
     (ctx.sport || "").trim() ||
     (ctx.profileType || "").trim() ||
+    (ctx.healthGoals || "").trim() ||
     (ctx.symptoms || "").trim() ||
     (ctx.goal || "").trim()
   return !has
@@ -322,8 +330,14 @@ export function computeDriverPriorityScore(
   if (!ctx || isPriorityContextEmpty(ctx)) return base
 
   const symptoms = normalizeSymptomList(ctx.symptoms)
+  const goalIds = parseHealthGoalIds(ctx.healthGoals ?? undefined)
+  let profileBoost = getProfilePanelBoost(ctx.profileType, resolved, raw)
+  for (const gid of goalIds) {
+    const pt = healthGoalToProfileType(gid)
+    profileBoost = Math.max(profileBoost, getProfilePanelBoost(pt, resolved, raw))
+  }
   let boost =
-    getProfilePanelBoost(ctx.profileType, resolved, raw) +
+    profileBoost +
     symptomBoost(symptoms, resolved, raw) +
     sportBoost(ctx.sport, resolved, raw) +
     sexAgeBoost(ctx, resolved, raw) +
@@ -340,6 +354,9 @@ export function buildPriorityContextFromProfile(profile: {
   sport?: string
   goal?: string
   profile_type?: string | null
+  health_goals?: string | null
+  /** Performance training focus — aligns with profiles.training_focus */
+  training_focus?: string | null
   symptoms?: string | null
 } | null): UserPriorityContext | undefined {
   if (!profile) return undefined
@@ -349,6 +366,7 @@ export function buildPriorityContextFromProfile(profile: {
     sport: profile.sport,
     goal: profile.goal,
     profileType: profile.profile_type,
+    healthGoals: profile.health_goals,
     symptoms: profile.symptoms,
   }
 }

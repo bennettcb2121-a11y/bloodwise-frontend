@@ -4,7 +4,7 @@ import React, { Suspense, useCallback, useEffect, useLayoutEffect, useState } fr
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
-import { Home, FlaskConical, ListChecks, Activity, BookOpen, Menu, Trophy, Bookmark, Settings as SettingsIcon } from "lucide-react"
+import { Menu, Settings as SettingsIcon } from "lucide-react"
 import { AppSplashScreen } from "@/src/components/AppSplashScreen"
 import { AppLoadingScreen } from "@/src/components/AppLoadingScreen"
 import { ThemeToggle } from "@/src/components/ThemeToggle"
@@ -14,8 +14,10 @@ import { DashboardSidebarNav } from "@/src/components/DashboardSidebarNav"
 import { DashboardSkyAtmosphereProvider } from "@/src/contexts/DashboardSkyAtmosphereContext"
 import { DashboardSkyShell } from "@/src/components/DashboardSkyShell"
 import { DashboardLogFab } from "@/src/components/DashboardLogFab"
+import { DashboardActionsPreviewModal } from "@/src/components/DashboardActionsPreviewModal"
 import { getSubscription } from "@/src/lib/bloodwiseDb"
 import type { SubscriptionRow } from "@/src/lib/bloodwiseDb"
+import { subscriptionStatusGrantsAccess } from "@/src/lib/accessGate"
 import {
   BRAND_INTRO_LOCAL_KEY,
   BRAND_INTRO_SESSION_KEY,
@@ -28,13 +30,9 @@ import "./dashboard-premium.css"
 import "./dashboard-sky.css"
 
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Home", icon: Home },
-  { href: "/dashboard/biomarkers", label: "Biomarkers", icon: FlaskConical },
-  { href: "/dashboard/actions", label: "Actions", icon: ListChecks },
-  { href: "/guides", label: "Guides", icon: Bookmark },
-  { href: "/dashboard/challenges", label: "Challenges", icon: Trophy },
-  { href: "/dashboard/tracking", label: "Track", icon: Activity },
-  { href: "/dashboard/feed", label: "Learn", icon: BookOpen },
+  { href: "/dashboard", label: "Home" },
+  { href: "/dashboard/plan", label: "Stack" },
+  { href: "/dashboard/analysis", label: "Report" },
 ] as const
 
 const SPLASH_DURATION_MS = 650
@@ -69,6 +67,13 @@ function DashboardLayoutInner({
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null)
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  /** Minimal chrome for embedded routes (e.g. Actions preview iframe). */
+  const [embedMode, setEmbedMode] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    setEmbedMode(new URLSearchParams(window.location.search).get("embed") === "1")
+  }, [pathname])
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -81,6 +86,11 @@ function DashboardLayoutInner({
     if (authLoading || !user) return
     try {
       if (typeof window !== "undefined") {
+        if (new URLSearchParams(window.location.search).get("embed") === "1") {
+          setEmbedMode(true)
+          setPhase("ready")
+          return
+        }
         const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined
         if (nav?.type === "reload") {
           sessionStorage.removeItem(BRAND_INTRO_SESSION_KEY)
@@ -91,6 +101,7 @@ function DashboardLayoutInner({
     } catch {
       // ignore
     }
+    setEmbedMode(false)
     if (shouldSkipBrandIntro(forceBrandIntro)) {
       setPhase("ready")
     } else if (forceBrandIntro) {
@@ -104,9 +115,19 @@ function DashboardLayoutInner({
   // Only run phase timers when we're actually showing splash/loading (not the auth loading shell)
   useEffect(() => {
     if (authLoading || !user) return
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("embed") === "1") return
     if (phase !== "splash" && phase !== "loading") return
     if (phase === "splash") {
       const t = setTimeout(() => {
+        // Mark intro seen for this browser session as soon as the splash finishes so returning from
+        // /guides (or any non-dashboard route) remounts straight to `ready` instead of replaying splash + loading.
+        try {
+          if (typeof window !== "undefined") {
+            sessionStorage.setItem(BRAND_INTRO_SESSION_KEY, "1")
+          }
+        } catch {
+          // ignore
+        }
         setPhase("loading")
       }, SPLASH_DURATION_MS)
       return () => clearTimeout(t)
@@ -198,11 +219,11 @@ function DashboardLayoutInner({
     return <AppLoadingScreen />
   }
 
-  const hasActiveSubscription = subscription?.status === "active" || subscription?.status === "trialing"
+  const hasActiveSubscription = subscriptionStatusGrantsAccess(subscription?.status)
 
   return (
     <div
-      className="dashboard-app-shell dashboard-app-shell--clarion"
+      className={`dashboard-app-shell dashboard-app-shell--clarion${embedMode ? " dashboard-app-shell--embed" : ""}`}
       data-clarion-shell="dashboard-guided-v2"
       data-clarion-build={process.env.NEXT_PUBLIC_CLARION_BUILD_ID}
     >
@@ -250,21 +271,22 @@ function DashboardLayoutInner({
                 <ClarionLabsLogo variant="compact" />
               </Link>
             </div>
-            <div className="dashboard-top-nav-links" aria-label="Sections">
+            <ul className="dashboard-top-nav-links" aria-label="Sections">
               {NAV_ITEMS.map(({ href, label }) => {
                 const isActive = href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href)
                 return (
-                  <Link
-                    key={href}
-                    href={href}
-                    className={`dashboard-top-nav-link ${isActive ? "dashboard-top-nav-link--active" : ""}`}
-                    aria-current={isActive ? "page" : undefined}
-                  >
-                    {label}
-                  </Link>
+                  <li key={href} className="dashboard-top-nav-item">
+                    <Link
+                      href={href}
+                      className={`dashboard-top-nav-link ${isActive ? "dashboard-top-nav-link--active" : ""}`}
+                      aria-current={isActive ? "page" : undefined}
+                    >
+                      {label}
+                    </Link>
+                  </li>
                 )
               })}
-            </div>
+            </ul>
             <div className="dashboard-top-tabs-actions">
               <button type="button" className="dashboard-top-logout" onClick={() => void handleLogOut()}>
                 Log out
@@ -300,29 +322,17 @@ function DashboardLayoutInner({
               ) : (
                 <SubscribeButton className="dashboard-subscribe-btn dashboard-subscribe-btn--pill">Subscribe</SubscribeButton>
               )}
+              <Link href="/faq" className="dashboard-support-link" prefetch={false}>
+                Need help?
+              </Link>
             </div>
           </nav>
           <DashboardSkyShell>{children}</DashboardSkyShell>
         </div>
       </div>
 
-      <nav className="dashboard-bottom-nav" role="navigation" aria-label="Quick links">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-          const isActive = href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href)
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`dashboard-bottom-nav-item ${isActive ? "dashboard-bottom-nav-item--active" : ""}`}
-              aria-current={isActive ? "page" : undefined}
-            >
-              <Icon size={22} strokeWidth={2} aria-hidden />
-              <span>{label}</span>
-            </Link>
-          )
-        })}
-      </nav>
-      <DashboardLogFab />
+      {!embedMode ? <DashboardLogFab /> : null}
+      {phase === "ready" && !embedMode ? <DashboardActionsPreviewModal /> : null}
       </DashboardSkyAtmosphereProvider>
     </div>
   )

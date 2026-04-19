@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState, useMemo } from "react"
+import React, { useEffect, useState, useMemo, useCallback } from "react"
 import Link from "next/link"
 import { hasClarionAnalysisAccess, hasLabPersonalizationAccess } from "@/src/lib/accessGate"
 import { buildLiteSupplementSuggestions, LITE_DISCLAIMER } from "@/src/lib/symptomLiteSupplements"
@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { loadSavedState, getSubscription } from "@/src/lib/bloodwiseDb"
 import type { BloodworkSaveRow, ProfileRow, SavedSupplementStackItem, SubscriptionRow } from "@/src/lib/bloodwiseDb"
-import { getAffiliateProductForStackItem, getAmazonSearchUrl } from "@/src/lib/stackAffiliate"
+import { getStackItemReorderContext } from "@/src/lib/stackItemReorder"
 import { AFFILIATE_DISCLOSURE, MONTHLY_COST_DISCLAIMER } from "@/src/lib/affiliateProducts"
 import { analyzeBiomarkers } from "@/src/lib/analyzeBiomarkers"
 import { getRetestRecommendations } from "@/src/lib/retestEngine"
@@ -18,8 +18,34 @@ import { getSupplementDetail } from "@/src/lib/supplementProtocolDetail"
 import { Package, TrendingUp, BarChart2, CalendarCheck, Bookmark, DollarSign } from "lucide-react"
 import { SupplementInventoryTracker } from "@/src/components/SupplementInventoryTracker"
 import { CurrentSupplementsSheet } from "@/src/components/CurrentSupplementsSheet"
-import { CLARION_PROFILE_UPDATED_EVENT } from "@/src/lib/profileEvents"
+import { CLARION_PROFILE_UPDATED_EVENT, dispatchProfileUpdated } from "@/src/lib/profileEvents"
+import { deleteMergedStackItem, updateMergedStackItem } from "@/src/lib/stackMutations"
+import { StackItemActionsMenu } from "@/src/components/StackItemActionsMenu"
+import { StackItemEditModal } from "@/src/components/StackItemEditModal"
 import { notifications } from "@mantine/notifications"
+import {
+  stackItemStorageKey,
+  loadStackAcquisition,
+  saveStackAcquisition,
+  setStackItemAcquisition,
+  markAllAsHave,
+  migrateStackAcquisitionMap,
+  mergeInferredAcquisitionDefaults,
+  getEffectiveAcquisitionMode,
+  loadDismissedOrderPromoKeys,
+  dismissOrderPromoKey,
+  acquisitionModeIsInStack,
+  type StackAcquisitionMap,
+  type AcquisitionMode,
+} from "@/src/lib/stackAcquisition"
+import {
+  dedupeStackByStorageKey,
+  filterOrphanLifestyleRowsFromLabSnapshot,
+  mergeLabStackWithProfileStack,
+  sortedSupplementNamesKey,
+  stackItemsFromProfileCurrentSupplements,
+} from "@/src/lib/profileStackMerge"
+import { filterStackItemsByLabSafety, getStackItemBadgeKind } from "@/src/lib/stackLabSafety"
 import "../dashboard.css"
 
 export default function DashboardPlanPage() {
@@ -30,6 +56,7 @@ export default function DashboardPlanPage() {
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [supplementsSheetOpen, setSupplementsSheetOpen] = useState(false)
+  const [stackEditRow, setStackEditRow] = useState<SavedSupplementStackItem | null>(null)
 
   useEffect(() => {
     if (!user?.id) {
@@ -70,7 +97,18 @@ export default function DashboardPlanPage() {
     if (!hasAccess && profile !== null) router.replace("/paywall")
   }, [authLoading, user, loading, profile, hasAccess, router])
 
-  const profileForAnalysis = profile ? { age: profile.age, sex: profile.sex, sport: profile.sport } : {}
+  const profileForAnalysis = useMemo(
+    () =>
+      profile
+        ? {
+            age: profile.age,
+            sex: profile.sex,
+            sport: profile.sport,
+            training_focus: profile.training_focus?.trim() || undefined,
+          }
+        : {},
+    [profile?.age, profile?.sex, profile?.sport, profile?.training_focus]
+  )
   const analysisResults = useMemo(
     () =>
       bloodwork?.biomarker_inputs && Object.keys(bloodwork.biomarker_inputs).length > 0
@@ -97,6 +135,119 @@ export default function DashboardPlanPage() {
     () => (analysisResults.length > 0 ? getRoadmapPhase(analysisResults) : null),
     [analysisResults]
   )
+
+  const [acqMap, setAcqMap] = useState<StackAcquisitionMap>({})
+  const [dismissedPromo, setDismissedPromo] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (!user?.id) return
+    setDismissedPromo(loadDismissedOrderPromoKeys(user.id))
+  }, [user?.id])
+
+  const profileStackItems = useMemo(
+    () => stackItemsFromProfileCurrentSupplements(profile?.current_supplements),
+    [profile?.current_supplements]
+  )
+
+  /** Same pipeline as dashboard Today: strip snapshot junk, merge “what you take”, then lab-safety filter. */
+  const stackBeforeLabSafety = useMemo(() => {
+    const rawStack =
+      bloodwork?.stack_snapshot && "stack" in bloodwork.stack_snapshot && Array.isArray(bloodwork.stack_snapshot.stack)
+        ? (bloodwork.stack_snapshot.stack as SavedSupplementStackItem[])
+        : null
+    const base = filterOrphanLifestyleRowsFromLabSnapshot(rawStack?.filter((s) => s?.supplementName?.trim()) ?? [])
+    return dedupeStackByStorageKey(mergeLabStackWithProfileStack(base, profileStackItems))
+  }, [bloodwork?.stack_snapshot, profileStackItems])
+
+  const labFilteredStack = useMemo(
+    () => filterStackItemsByLabSafety(stackBeforeLabSafety, analysisResults),
+    [stackBeforeLabSafety, analysisResults]
+  )
+
+  const planAcqSignature = useMemo(
+    () => sortedSupplementNamesKey(labFilteredStack),
+    [labFilteredStack]
+  )
+
+  /** Re-run acquisition migration when saved product links / profile intake fields change (names alone aren’t enough). */
+  const planAcqProductSig = useMemo(
+    () =>
+      labFilteredStack
+        .map(
+          (s) =>
+            `${stackItemStorageKey(s)}:${s.productUrl ?? ""}:${s.stackEntryId ?? ""}:${s.userChoseKeepProduct ? "1" : ""}`
+        )
+        .join("|"),
+    [labFilteredStack]
+  )
+
+  useEffect(() => {
+    if (!user?.id) return
+    const raw = loadStackAcquisition(user.id)
+    if (labFilteredStack.length === 0) {
+      setAcqMap(raw)
+      return
+    }
+    const { map, changed } = migrateStackAcquisitionMap(raw, labFilteredStack)
+    const { map: merged, changed: changedInf } = mergeInferredAcquisitionDefaults(labFilteredStack, map)
+    if (changed || changedInf) saveStackAcquisition(user.id, merged)
+    setAcqMap(merged)
+  }, [user?.id, planAcqSignature, planAcqProductSig])
+
+  const stackWithKeys = useMemo(
+    () => labFilteredStack.map((item) => ({ item, key: stackItemStorageKey(item) })),
+    [labFilteredStack]
+  )
+
+  const { activeEntries, pendingEntries, orderPromoEntry } = useMemo(() => {
+    const active: typeof stackWithKeys = []
+    const pending: typeof stackWithKeys = []
+    for (const row of stackWithKeys) {
+      const mode = getEffectiveAcquisitionMode(row.item, row.key, acqMap)
+      if (acquisitionModeIsInStack(mode)) active.push(row)
+      else pending.push(row)
+    }
+    let promo: (typeof stackWithKeys)[0] | null = null
+    for (const row of pending) {
+      if (!dismissedPromo.has(row.key)) {
+        promo = row
+        break
+      }
+    }
+    return { activeEntries: active, pendingEntries: pending, orderPromoEntry: promo }
+  }, [stackWithKeys, acqMap, dismissedPromo])
+
+  const setAcq = useCallback(
+    (key: string, mode: AcquisitionMode) => {
+      if (!user?.id) return
+      const next = setStackItemAcquisition(user.id, key, { mode })
+      setAcqMap(next)
+    },
+    [user?.id]
+  )
+
+  const refreshAfterStackMutation = useCallback(async () => {
+    if (!user?.id) return
+    dispatchProfileUpdated()
+    const { profile: p, bloodwork: b } = await loadSavedState(user.id)
+    if (p) setProfile(p)
+    if (b) setBloodwork(b)
+  }, [user?.id])
+
+  const dismissPromo = useCallback(
+    (key: string) => {
+      if (!user?.id) return
+      dismissOrderPromoKey(user.id, key)
+      setDismissedPromo(loadDismissedOrderPromoKeys(user.id))
+    },
+    [user?.id]
+  )
+
+  const markAllPendingHave = useCallback(() => {
+    if (!user?.id || pendingEntries.length === 0) return
+    const keys = pendingEntries.map((p) => p.key)
+    setAcqMap(markAllAsHave(user.id, keys))
+  }, [user?.id, pendingEntries])
 
   const retestWeeks = profile?.retest_weeks ?? 8
   const lastBloodworkAt = bloodwork?.updated_at ?? bloodwork?.created_at ?? null
@@ -232,78 +383,268 @@ export default function DashboardPlanPage() {
           </p>
         </header>
 
-        {(() => {
-          const rawStack =
-            bloodwork?.stack_snapshot && "stack" in bloodwork.stack_snapshot && Array.isArray(bloodwork.stack_snapshot.stack)
-              ? (bloodwork.stack_snapshot.stack as SavedSupplementStackItem[])
-              : null
-          const valid = rawStack?.filter((s) => s?.supplementName?.trim()) ?? []
-          if (valid.length === 0) {
-            return (
-              <section id="stack" className="dashboard-section" aria-labelledby="dashboard-plan-stack-heading">
-                <h2 id="dashboard-plan-stack-heading" className="dashboard-section-title">
-                  <Package className="dashboard-section-title-icon" size={18} aria-hidden /> My supplements
-                </h2>
-                <div className="dashboard-card dashboard-stack-empty">
-                  <p className="dashboard-stack-empty-text">
-                    You don&apos;t have a supplement plan saved yet. Add your results and build your stack from the analysis.
-                  </p>
-                  <Link href="/dashboard/plan#stack" className="dashboard-stack-link">
-                    Build your stack →
-                  </Link>
-                </div>
-              </section>
-            )
-          }
-          const maxShow = 50
-          const show = valid.slice(0, maxShow)
-          const rest = valid.length - maxShow
-          return (
-            <section id="stack" className="dashboard-section" aria-labelledby="dashboard-plan-stack-heading">
-              <h2 id="dashboard-plan-stack-heading" className="dashboard-section-title">
-                <Package className="dashboard-section-title-icon" size={18} aria-hidden /> My supplements
-              </h2>
-              <div className="dashboard-stack-card dashboard-card">
-                <p className="dashboard-stack-intro">
-                  You&apos;re taking {valid.length} supplement{valid.length !== 1 ? "s" : ""} this month.
-                </p>
-                <ul className="dashboard-stack-list">
-                  {show.map((item, i) => {
-                    const affiliate = getAffiliateProductForStackItem(item)
-                    const reorderUrl = affiliate?.affiliateUrl ?? getAmazonSearchUrl(item.supplementName)
-                    const reorderLabel = affiliate ? "Reorder on Amazon" : "View on Amazon"
-                    const detail = getSupplementDetail(item.marker, item.supplementName)
+        {stackBeforeLabSafety.length === 0 ? (
+          <section id="stack" className="dashboard-section" aria-labelledby="dashboard-plan-stack-heading">
+            <h2 id="dashboard-plan-stack-heading" className="dashboard-section-title">
+              <Package className="dashboard-section-title-icon" size={18} aria-hidden /> My supplements
+            </h2>
+            <div className="dashboard-card dashboard-stack-empty">
+              <p className="dashboard-stack-empty-text">
+                You don&apos;t have a supplement plan saved yet. Add your results and build your stack from the analysis.
+              </p>
+              <Link href="/dashboard/plan#stack" className="dashboard-stack-link">
+                Build your stack →
+              </Link>
+            </div>
+          </section>
+        ) : labFilteredStack.length === 0 ? (
+          <section id="stack" className="dashboard-section" aria-labelledby="dashboard-plan-stack-heading">
+            <h2 id="dashboard-plan-stack-heading" className="dashboard-section-title">
+              <Package className="dashboard-section-title-icon" size={18} aria-hidden /> My supplements
+            </h2>
+            <div className="dashboard-card dashboard-stack-empty">
+              <p className="dashboard-stack-empty-text">
+                Your saved plan included supplements that don&apos;t match your current labs (for example, a level is already high).
+                Re-run the analysis flow to refresh recommendations.
+              </p>
+              <Link href="/" className="dashboard-stack-link">
+                Open analysis flow →
+              </Link>
+            </div>
+          </section>
+        ) : (
+          <section id="stack" className="dashboard-section" aria-labelledby="dashboard-plan-stack-heading">
+            <h2 id="dashboard-plan-stack-heading" className="dashboard-section-title">
+              <Package className="dashboard-section-title-icon" size={18} aria-hidden /> My supplements
+            </h2>
+            {stackBeforeLabSafety.length > labFilteredStack.length ? (
+              <p className="dashboard-stack-lab-filter-note" style={{ marginBottom: 12, fontSize: 13, color: "var(--color-text-muted)" }}>
+                Some items were removed because your current labs don&apos;t support adding more of those nutrients.
+              </p>
+            ) : null}
+
+            {orderPromoEntry ? (
+              <div className="dashboard-stack-order-promo">
+                <button
+                  type="button"
+                  className="dashboard-stack-order-promo__dismiss"
+                  aria-label="Dismiss order reminder"
+                  onClick={() => dismissPromo(orderPromoEntry.key)}
+                >
+                  ×
+                </button>
+                <p className="dashboard-stack-order-promo__title">Still need this</p>
+                <div className="dashboard-stack-order-promo__row">
+                  <span className="dashboard-stack-order-promo__name">{orderPromoEntry.item.supplementName}</span>
+                  {(() => {
+                    const ctx = getStackItemReorderContext(orderPromoEntry.item)
                     return (
-                      <li key={`${item.supplementName}-${i}`} className="dashboard-stack-row">
-                        {affiliate?.imageUrl && (
-                          <img src={affiliate.imageUrl} alt="" className="dashboard-stack-row-img" width={48} height={48} />
+                      <>
+                        <a href={ctx.primaryUrl} target="_blank" rel="noopener noreferrer" className="dashboard-stack-reorder-btn">
+                          {ctx.primaryLabel}
+                        </a>
+                        {ctx.secondaryUrl ? (
+                          <a
+                            href={ctx.secondaryUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="dashboard-stack-reorder-btn dashboard-stack-reorder-btn--secondary"
+                            style={{ fontSize: 12, padding: "6px 10px" }}
+                          >
+                            {ctx.secondaryLabel}
+                          </a>
+                        ) : null}
+                      </>
+                    )
+                  })()}
+                </div>
+                <p style={{ margin: "8px 0 0", fontSize: 12, color: "var(--color-text-muted)" }}>
+                  Tell us below when you have it or you&apos;ve ordered — then it moves into your active stack.
+                </p>
+              </div>
+            ) : null}
+
+            {pendingEntries.length > 0 ? (
+              <div className="dashboard-stack-confirm-block">
+                <p className="dashboard-stack-confirm-block__title">Confirm what you own</p>
+                <p style={{ margin: "0 0 12px", fontSize: 13, color: "var(--color-text-muted)" }}>
+                  We only add supplements to your active stack after you confirm you already have them or you&apos;ve ordered them.
+                </p>
+                <button type="button" className="dashboard-stack-acq-btn dashboard-stack-acq-btn--primary" onClick={markAllPendingHave}>
+                  I have all of these
+                </button>
+                <ul className="dashboard-stack-confirm-list dashboard-stack-confirm-list--pending" style={{ marginTop: 14 }}>
+                  {pendingEntries.map(({ item, key }) => {
+                    const ctx = getStackItemReorderContext(item)
+                    return (
+                      <li key={key} className="dashboard-stack-confirm-item">
+                        <span className="dashboard-stack-item-name">{item.supplementName}</span>
+                        <div className="dashboard-stack-confirm-actions">
+                          <button type="button" className="dashboard-stack-acq-btn" onClick={() => setAcq(key, "have")}>
+                            I have it
+                          </button>
+                          <button type="button" className="dashboard-stack-acq-btn" onClick={() => setAcq(key, "ordered")}>
+                            I ordered it
+                          </button>
+                          <button type="button" className="dashboard-stack-acq-btn" onClick={() => setAcq(key, "shipped")}>
+                            On the way
+                          </button>
+                          <a
+                            href={ctx.primaryUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="dashboard-stack-reorder-btn"
+                            style={{ fontSize: 12, padding: "6px 10px" }}
+                          >
+                            {ctx.primaryLabel}
+                          </a>
+                          {ctx.secondaryUrl ? (
+                            <a
+                              href={ctx.secondaryUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="dashboard-stack-reorder-btn dashboard-stack-reorder-btn--secondary"
+                              style={{ fontSize: 12, padding: "6px 10px" }}
+                            >
+                              {ctx.secondaryLabel}
+                            </a>
+                          ) : null}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            ) : null}
+
+            <div className="dashboard-stack-card dashboard-card">
+              <p className="dashboard-stack-intro">
+                {activeEntries.length === 0
+                  ? "Nothing in your active stack yet — confirm items above, or mark an order as arrived."
+                  : `Active stack: ${activeEntries.length} supplement${activeEntries.length !== 1 ? "s" : ""}.`}
+              </p>
+              <p className="dashboard-stack-acquisition-note" style={{ margin: "0 0 14px", fontSize: 13, lineHeight: 1.45, color: "var(--color-text-muted)" }}>
+                <strong style={{ color: "var(--color-text-secondary)" }}>How this differs from Home:</strong> this list focuses on supply. Supplements you&apos;ve marked as have it, ordered, or on the way appear here — and if you saved a product link or told us what you take in your profile, we count that as already on hand. On{" "}
+                <Link href="/dashboard#protocol">Home → Today</Link>, your full lab-based protocol shows for daily logging either way.
+              </p>
+              {activeEntries.length > 0 ? (
+                <ul className="dashboard-stack-list">
+                  {activeEntries.slice(0, 50).map(({ item, key }, i) => {
+                    const reorderCtx = getStackItemReorderContext(item)
+                    const detail = getSupplementDetail(item.marker, item.supplementName)
+                    const mode = getEffectiveAcquisitionMode(item, key, acqMap)
+                    const badgeKind = getStackItemBadgeKind(item, analysisResults)
+                    const isOrdered = mode === "ordered"
+                    const isShipped = mode === "shipped"
+                    return (
+                      <li
+                        key={`${key}-${i}`}
+                        className={`dashboard-stack-row${isOrdered ? " dashboard-stack-row--ordered" : ""}${isShipped ? " dashboard-stack-row--shipped" : ""}`}
+                      >
+                        {reorderCtx.imageUrl && (
+                          <img src={reorderCtx.imageUrl} alt="" className="dashboard-stack-row-img" width={48} height={48} />
                         )}
-                        {!affiliate?.imageUrl && (
+                        {!reorderCtx.imageUrl && (
                           <div className="dashboard-stack-row-img dashboard-stack-row-img-placeholder" aria-hidden />
                         )}
                         <div className="dashboard-stack-row-body">
                           <div className="dashboard-stack-row-main">
-                            <span className="dashboard-stack-item-name">{item.supplementName}</span>
+                            <span className="dashboard-stack-item-name">
+                              {item.supplementName}
+                              {badgeKind === "maintenance" ? (
+                                <span className="dashboard-stack-lab-optional" title="Maintenance context — labs in range; optional for your training profile">
+                                  !
+                                </span>
+                              ) : badgeKind === "optional_lab" ? (
+                                <span className="dashboard-stack-lab-optional" title="Labs look good — optional review">
+                                  !
+                                </span>
+                              ) : badgeKind === "user_product_review" ? (
+                                <span
+                                  className="dashboard-stack-lab-optional"
+                                  title="Clarion’s lab fit check suggested reviewing this product — you chose to keep logging what you use; discuss with your clinician."
+                                >
+                                  !
+                                </span>
+                              ) : null}
+                            </span>
                             {item.dose && <span className="dashboard-stack-item-dose">{item.dose}</span>}
-                            {item.monthlyCost > 0 && <span className="dashboard-stack-item-cost">${item.monthlyCost.toFixed(0)}/mo</span>}
+                            {item.monthlyCost > 0 && (
+                              <span className="dashboard-stack-item-cost">${item.monthlyCost.toFixed(0)}/mo</span>
+                            )}
                           </div>
+                          {isShipped ? (
+                            <p style={{ margin: "6px 0", fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)" }}>
+                              In transit — mark when it arrives
+                            </p>
+                          ) : isOrdered ? (
+                            <p style={{ margin: "6px 0", fontSize: 13, fontWeight: 600, color: "var(--color-text-secondary)" }}>
+                              Ordered — mark shipped or when it arrives
+                            </p>
+                          ) : null}
                           {detail && (detail.timing || detail.avoid) && (
                             <div className="dashboard-stack-detail">
                               {detail.timing && <span className="dashboard-stack-timing">{detail.timing}</span>}
                               {detail.avoid && <span className="dashboard-stack-avoid">Avoid: {detail.avoid}</span>}
                             </div>
                           )}
-                          <a href={reorderUrl} target="_blank" rel="noopener noreferrer" className="dashboard-stack-reorder-btn">
-                            {reorderLabel}
-                          </a>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                            <a href={reorderCtx.primaryUrl} target="_blank" rel="noopener noreferrer" className="dashboard-stack-reorder-btn">
+                              {reorderCtx.primaryLabel}
+                            </a>
+                            {reorderCtx.secondaryUrl ? (
+                              <a
+                                href={reorderCtx.secondaryUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="dashboard-stack-reorder-btn dashboard-stack-reorder-btn--secondary"
+                                style={{ fontSize: 12, padding: "6px 10px" }}
+                              >
+                                {reorderCtx.secondaryLabel}
+                              </a>
+                            ) : null}
+                            {isOrdered || isShipped ? (
+                              <>
+                                {isOrdered ? (
+                                  <button type="button" className="dashboard-stack-acq-btn" onClick={() => setAcq(key, "shipped")}>
+                                    Mark shipped
+                                  </button>
+                                ) : null}
+                                <button type="button" className="dashboard-stack-acq-btn dashboard-stack-acq-btn--primary" onClick={() => setAcq(key, "have")}>
+                                  Arrived — have it
+                                </button>
+                              </>
+                            ) : null}
+                          </div>
                         </div>
+                        <StackItemActionsMenu
+                          ariaLabel={`Actions for ${item.supplementName}`}
+                          onEdit={() => setStackEditRow(item)}
+                          onDelete={() => {
+                            if (!user?.id) return
+                            if (!window.confirm(`Remove “${item.supplementName}” from your stack?`)) return
+                            void (async () => {
+                              try {
+                                await deleteMergedStackItem(user.id, item, profile, bloodwork)
+                                await refreshAfterStackMutation()
+                                notifications.show({ title: "Removed", message: "Your stack was updated.", color: "green" })
+                              } catch {
+                                notifications.show({ title: "Couldn’t update", message: "Try again in a moment.", color: "red" })
+                              }
+                            })()
+                          }}
+                        />
                       </li>
                     )
                   })}
-                  {rest > 0 && <li className="dashboard-stack-more">+{rest} more</li>}
+                  {activeEntries.length > 50 ? <li className="dashboard-stack-more">+{activeEntries.length - 50} more</li> : null}
                 </ul>
+              ) : null}
+              {activeEntries.filter((e) => getEffectiveAcquisitionMode(e.item, e.key, acqMap) === "have").length > 0 ? (
                 <SupplementInventoryTracker
-                  stack={valid}
+                  stack={activeEntries
+                    .filter((e) => getEffectiveAcquisitionMode(e.item, e.key, acqMap) === "have")
+                    .map((e) => e.item)}
                   userId={user?.id ?? null}
                   notifyDays={profile?.notify_reorder_days ?? 7}
                   onLowSupply={(items) => {
@@ -323,15 +664,22 @@ export default function DashboardPlanPage() {
                     })
                   }}
                 />
-                <p className="dashboard-stack-disclosure">{AFFILIATE_DISCLOSURE}</p>
-                <p className="dashboard-stack-disclosure dashboard-stack-disclosure--secondary">{MONTHLY_COST_DISCLAIMER}</p>
-                <Link href="/" className="dashboard-stack-link">
-                  Open full analysis flow →
-                </Link>
+              ) : null}
+              <div className="dashboard-stack-ai-placeholder">
+                Photo &amp; barcode capture also lives on the home flow after analysis — open{" "}
+                <Link href="/" className="dashboard-savings-nudge-link">
+                  Clarion Labs
+                </Link>{" "}
+                to add supplements with AI, or use the button above to edit what you take.
               </div>
-            </section>
-          )
-        })()}
+              <p className="dashboard-stack-disclosure">{AFFILIATE_DISCLOSURE}</p>
+              <p className="dashboard-stack-disclosure dashboard-stack-disclosure--secondary">{MONTHLY_COST_DISCLAIMER}</p>
+              <Link href="/" className="dashboard-stack-link">
+                Open full analysis flow →
+              </Link>
+            </div>
+          </section>
+        )}
 
         {roadmap && analysisResults.length > 0 && (
           <section className="dashboard-section" aria-labelledby="dashboard-roadmap-heading">
@@ -554,6 +902,25 @@ export default function DashboardPlanPage() {
       {supplementsSheetOpen ? (
         <CurrentSupplementsSheet userId={user?.id} onClose={() => setSupplementsSheetOpen(false)} />
       ) : null}
+      <StackItemEditModal
+        open={stackEditRow != null}
+        title="Update supplement"
+        initialName={stackEditRow?.supplementName ?? ""}
+        initialDose={stackEditRow?.dose ?? ""}
+        initialUrl={stackEditRow?.productUrl ?? ""}
+        onClose={() => setStackEditRow(null)}
+        onSave={async (payload) => {
+          if (!user?.id || !stackEditRow) return
+          try {
+            await updateMergedStackItem(user.id, stackEditRow, payload, profile, bloodwork)
+            setStackEditRow(null)
+            await refreshAfterStackMutation()
+            notifications.show({ title: "Saved", message: "Supplement details updated.", color: "green" })
+          } catch {
+            notifications.show({ title: "Couldn’t save", message: "Try again in a moment.", color: "red" })
+          }
+        }}
+      />
     </>
   )
 }

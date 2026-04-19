@@ -206,7 +206,14 @@ export function SupplementCheckerSheet({ userId, onClose, onRequestSupplementsYo
           const { bloodwork, profile } = await loadSavedState(userId)
           const inputs = bloodwork?.biomarker_inputs
           if (inputs && typeof inputs === "object") {
-            const prof = profile ? { age: profile.age, sex: profile.sex, sport: profile.sport } : {}
+            const prof = profile
+              ? {
+                  age: profile.age,
+                  sex: profile.sex,
+                  sport: profile.sport,
+                  training_focus: profile.training_focus?.trim() || undefined,
+                }
+              : {}
             analysis = analyzeBiomarkers(inputs as Record<string, string | number>, prof)
           }
         }

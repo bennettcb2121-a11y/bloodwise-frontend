@@ -23,7 +23,8 @@ export function planTierFromSubscriptionStatus(
   status: string,
   priceId: string | undefined
 ): PlanTier {
-  if (status !== "active" && status !== "trialing") return "none"
+  const st = status.toLowerCase()
+  if (st !== "active" && st !== "trialing" && st !== "past_due") return "none"
   return resolvePlanTierFromPriceId(priceId)
 }
 
@@ -32,7 +33,7 @@ export function planTierFromSubscriptionStatus(
  */
 export function resolveTierFromStripeSubscription(sub: Stripe.Subscription): PlanTier {
   const st = sub.status
-  if (st !== "active" && st !== "trialing") return "none"
+  if (st !== "active" && st !== "trialing" && st !== "past_due") return "none"
   const metaType = sub.metadata?.type
   if (metaType === "lite") return "lite"
   if (metaType === "clarion_plus") return "full"

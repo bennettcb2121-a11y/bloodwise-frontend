@@ -78,10 +78,3 @@ export const FAQ_ITEMS: FaqItem[] = [
   },
 ]
 
-/** Public support email (override with NEXT_PUBLIC_SUPPORT_EMAIL) */
-export function getSupportEmail(): string {
-  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_SUPPORT_EMAIL) {
-    return process.env.NEXT_PUBLIC_SUPPORT_EMAIL
-  }
-  return "support@clarionlabs.com"
-}

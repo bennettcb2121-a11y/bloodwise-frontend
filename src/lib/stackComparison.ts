@@ -9,7 +9,9 @@ import {
   getSupplementDisplayName,
   recommendationKeyToPresetId,
   parseCurrentSupplementsList,
+  parseCurrentSupplementsEntries,
   getSupplementPreset,
+  resolveSupplementToPresetId,
 } from "./supplementMetadata"
 
 /** Preferred form hints for "upgrade recommended" (Clarion prefers these over others). */
@@ -161,4 +163,57 @@ export function getUnnecessaryCurrentSupplements(
     if (!recommendedPresetIds.has(id)) unnecessary.push(getSupplementDisplayName(item))
   }
   return unnecessary
+}
+
+/** Map preset id → biomarker key when lab "high" should trigger a review (don’t add more). */
+const PRESET_ID_TO_MARKER_FOR_HIGH_LAB: Record<string, string> = {
+  vitamin_d: "Vitamin D",
+  b12: "Vitamin B12",
+  iron: "Ferritin",
+  magnesium: "Magnesium",
+  folate: "Folate",
+}
+
+export type LabReviewStackItem = {
+  presetId: string
+  displayName: string
+  marker: string
+  statusMessage: string
+}
+
+/**
+ * Supplements the user already takes that align with a biomarker Clarion flags as high —
+ * show in stack with a review note (e.g. vitamin D high but user still lists D).
+ */
+export function getLabReviewItemsForCurrentSupplements(
+  currentSupplementsRaw: string,
+  analysis: { name?: string; status?: string }[]
+): LabReviewStackItem[] {
+  const highMarkers = new Set<string>()
+  for (const row of analysis) {
+    if (!row.name) continue
+    if ((row.status || "").toLowerCase() !== "high") continue
+    highMarkers.add(row.name)
+  }
+  if (highMarkers.size === 0) return []
+
+  const entries = parseCurrentSupplementsEntries(currentSupplementsRaw)
+  const out: LabReviewStackItem[] = []
+  const seenPreset = new Set<string>()
+
+  for (const e of entries) {
+    const presetId = e.id ?? resolveSupplementToPresetId(e.name) ?? ""
+    if (!presetId) continue
+    const marker = PRESET_ID_TO_MARKER_FOR_HIGH_LAB[presetId]
+    if (!marker || !highMarkers.has(marker)) continue
+    if (seenPreset.has(presetId)) continue
+    seenPreset.add(presetId)
+    out.push({
+      presetId,
+      displayName: e.name,
+      marker,
+      statusMessage: `Your ${marker} is above your current Clarion target. If you’re still taking this, review dose with your clinician—don’t add more unless advised.`,
+    })
+  }
+  return out
 }

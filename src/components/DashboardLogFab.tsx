@@ -10,7 +10,7 @@ import { CurrentSupplementsSheet } from "@/src/components/CurrentSupplementsShee
 
 /**
  * One-tap entry to logging: protocol, daily habits, supplements, barcode checker.
- * Fixed above bottom nav on mobile; bottom-left on desktop.
+ * Fixed bottom-right on mobile (above home indicator); bottom-left on desktop.
  */
 export function DashboardLogFab() {
   const pathname = usePathname()
@@ -77,7 +77,7 @@ export function DashboardLogFab() {
                 >
                   <Droplets size={20} strokeWidth={2} aria-hidden />
                   <span>
-                    <strong>Daily check-in</strong>
+                    <strong>Daily inputs</strong>
                     <small>Water, sun, sleep, activity</small>
                   </span>
                 </Link>

@@ -7,7 +7,7 @@ import type { NextRequest } from "next/server"
  */
 // NextRequest kept for future auth / routing; signature required by Next.js.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved for future use
-export function middleware(_request: NextRequest) {
+export function proxy(_request: NextRequest) {
   const res = NextResponse.next()
   res.headers.set("X-Frame-Options", "DENY")
   res.headers.set("X-Content-Type-Options", "nosniff")

@@ -18,7 +18,8 @@ export function clearBrandIntroSessionFlag(): void {
 
 /**
  * Skip brand splash + loading when this document session already finished the intro once.
- * - Does not use localStorage — reload always clears the skip (see layout `beforeunload` / `pagehide`).
+ * - Set when the splash phase ends (~650ms) so returning from `/guides` remounts dashboard without replaying splash+loading.
+ * - Still cleared on full document unload so a hard reload can replay the intro (see layout `beforeunload`).
  * - In-dashboard client navigation keeps the same layout mounted, so phase stays `ready` without storage.
  * - `?intro=1` forces replay (caller passes forceShow).
  */

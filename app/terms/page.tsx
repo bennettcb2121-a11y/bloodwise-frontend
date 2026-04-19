@@ -61,6 +61,8 @@ export default function TermsPage() {
         </p>
 
         <p className="terms-back">
+          <Link href="/legal/privacy">Privacy</Link>
+          {" · "}
           <Link href="/">← Back to home</Link>
         </p>
       </div>

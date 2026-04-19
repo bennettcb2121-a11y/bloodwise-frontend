@@ -1,16 +1,28 @@
 "use client"
 
-import React, { useEffect } from "react"
+import React, { Suspense, useEffect, useMemo } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { AuthUI } from "@/src/components/AuthUI"
 import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
 import { shouldShowReauthPrompt } from "@/src/lib/reauthPrompt"
+import { SupportAuthFooter } from "@/src/components/SupportContactHints"
 
-export default function LoginPage() {
+/** Only allow same-origin relative paths to prevent open redirects. */
+function safeNextParam(p: string | null): string | null {
+  if (!p) return null
+  if (!p.startsWith("/")) return null
+  if (p.startsWith("//")) return null
+  return p
+}
+
+function LoginPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuth()
+
+  const nextPath = useMemo(() => safeNextParam(searchParams.get("next")), [searchParams])
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -22,16 +34,16 @@ export default function LoginPage() {
       } catch {
         // ignore
       }
-      router.replace("/dashboard")
+      router.replace(nextPath ?? "/dashboard")
     }
-  }, [authLoading, user, router])
+  }, [authLoading, user, router, nextPath])
 
   if (authLoading || user) {
     return (
       <main className="login-page">
         <div className="login-page-container">
           <p className="login-page-loading">
-            {authLoading && !user ? "Checking session…" : "Taking you to your dashboard…"}
+            {authLoading && !user ? "Checking session…" : "Taking you where you were headed…"}
           </p>
         </div>
         <style jsx>{`
@@ -58,11 +70,12 @@ export default function LoginPage() {
         <h1 className="login-page-title">Sign in</h1>
         <p className="login-page-subtitle">Create an account or log in to save your results and access your dashboard. Sign in with Google for the fastest way in.</p>
         <div className="login-page-card">
-          <AuthUI />
+          <AuthUI next={nextPath} />
         </div>
         <p className="login-page-back">
           <Link href="/">← Back to home</Link>
         </p>
+        <SupportAuthFooter />
       </div>
       <style jsx>{`
         .login-page {
@@ -121,5 +134,19 @@ export default function LoginPage() {
         }
       `}</style>
     </main>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="login-page" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <p style={{ color: "var(--color-text-secondary)" }}>Loading…</p>
+        </main>
+      }
+    >
+      <LoginPageInner />
+    </Suspense>
   )
 }

@@ -8,7 +8,7 @@ import {
   getDaysUntilRunOut,
 } from "@/src/lib/bloodwiseDb"
 import type { SavedSupplementStackItem, SupplementInventoryRow } from "@/src/lib/bloodwiseDb"
-import { getAffiliateProductForStackItem, getAmazonSearchUrl } from "@/src/lib/stackAffiliate"
+import { getStackItemReorderContext } from "@/src/lib/stackItemReorder"
 import { Package, AlertTriangle } from "lucide-react"
 
 /** Parse dose string to suggest pills/capsules per day (e.g. "1 capsule daily" -> 1). */
@@ -85,9 +85,8 @@ export function SupplementInventoryTracker({
       const runOut = getRunOutDate(inv.opened_at, inv.pills_per_bottle, inv.dose_per_day)
       const daysLeft = getDaysUntilRunOut(runOut)
       if (daysLeft <= notifyDays && daysLeft > -30) {
-        const affiliate = getAffiliateProductForStackItem(item)
-        const url = affiliate?.affiliateUrl ?? getAmazonSearchUrl(item.supplementName)
-        out.push({ name: item.supplementName, daysLeft, reorderUrl: url })
+        const ctx = getStackItemReorderContext(item)
+        out.push({ name: item.supplementName, daysLeft, reorderUrl: ctx.primaryUrl })
       }
     })
     return out
@@ -106,7 +105,7 @@ export function SupplementInventoryTracker({
         <Package size={16} aria-hidden /> Track supply & reorder
       </h4>
       <p className="supplement-inventory-intro">
-        Set pills per bottle and how many you take daily — we&apos;ll tell you when to reorder and link you to our recommended options.
+        Set pills per bottle and how many you take daily — we&apos;ll nudge you when supply runs low. Reorder uses your saved product link when you have one; otherwise Clarion&apos;s suggested Amazon option.
       </p>
       <ul className="supplement-inventory-list" aria-label="Supplement supply">
         {validStack.map((item) => {
@@ -116,8 +115,7 @@ export function SupplementInventoryTracker({
             : null
           const daysLeft = runOut != null ? getDaysUntilRunOut(runOut) : null
           const isLow = daysLeft != null && daysLeft <= notifyDays && daysLeft > -30
-          const affiliate = getAffiliateProductForStackItem(item)
-          const reorderUrl = affiliate?.affiliateUrl ?? getAmazonSearchUrl(item.supplementName)
+          const reorderCtx = getStackItemReorderContext(item)
           const isEditing = editing === item.supplementName
 
           return (
@@ -149,9 +147,21 @@ export function SupplementInventoryTracker({
                     </div>
                   )}
                   <div className="supplement-inventory-actions">
-                    <a href={reorderUrl} target="_blank" rel="noopener noreferrer" className="supplement-inventory-reorder-btn">
-                      {isLow || (daysLeft != null && daysLeft <= 0) ? "Reorder on Amazon — don’t run out" : "Reorder on Amazon"}
+                    <a href={reorderCtx.primaryUrl} target="_blank" rel="noopener noreferrer" className="supplement-inventory-reorder-btn">
+                      {isLow || (daysLeft != null && daysLeft <= 0)
+                        ? `${reorderCtx.isUserLink ? "Open your product" : "Reorder"} — don’t run out`
+                        : reorderCtx.primaryLabel}
                     </a>
+                    {reorderCtx.secondaryUrl ? (
+                      <a
+                        href={reorderCtx.secondaryUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="supplement-inventory-reorder-btn supplement-inventory-reorder-btn--secondary"
+                      >
+                        {reorderCtx.secondaryLabel}
+                      </a>
+                    ) : null}
                     <button
                       type="button"
                       className="supplement-inventory-edit-btn"

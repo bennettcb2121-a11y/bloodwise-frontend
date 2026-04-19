@@ -29,6 +29,14 @@ export type ProfileAdaptiveInput = {
   diet_preference?: string | null
   supplement_form_preference?: string | null
   improvement_preference?: string | null
+  /** Sport / activity from onboarding (e.g. Endurance) — used for iron/B12 copy only. */
+  sport?: string | null
+  goal?: string | null
+  profile_type?: string | null
+  /** Comma-separated health goal ids (e.g. improve_fitness,more_energy). */
+  health_goals?: string | null
+  /** Lifestyle activity tier from onboarding (e.g. very_active). */
+  activity_level?: string | null
 }
 
 function servingsPerDayFromProduct(p: { servingsPerWeek?: number }): number {

@@ -29,7 +29,7 @@ export function vitaminDBandFromStatus(status?: string): VitaminDBand {
 
 /** General 25-OH Vitamin D (ng/mL) bands aligned with biomarkerDatabase.ranges.general. */
 export function vitaminDBandFromNgMl(valueNgMl: number): VitaminDBand {
-  if (valueNgMl >= 80) return "high"
+  if (valueNgMl >= 150) return "high"
   if (valueNgMl < 20) return "deficient"
   if (valueNgMl < 30) return "suboptimal"
   return "maintenance"
@@ -52,11 +52,15 @@ export function resolveVitaminDBand(status?: string, valueNgMl?: number): Vitami
 /**
  * Typical discussion-range target IU/day by band (education only).
  * Used to pick a product whose *effective* daily IU is close to this target.
+ *
+ * All values sit at or below the 4,000 IU/day (100 mcg) adult Tolerable Upper Intake Level
+ * (IOM 2010 / NIH Office of Dietary Supplements). Higher short-term "loading" doses are
+ * a clinician decision and are intentionally not automated here.
  */
 export function targetVitaminDIuPerDay(band: VitaminDBand): number {
   switch (band) {
     case "deficient":
-      return 4000
+      return 3000
     case "suboptimal":
       return 2000
     case "maintenance":
@@ -75,13 +79,24 @@ export function effectiveVitaminDIuPerDay(product: VitaminDProductLike): number 
   return product.amountPerUnit * (perWeek / 7)
 }
 
-const ID_EXCLUDE_ALWAYS = new Set(["vitd_now_50000_50"])
+/**
+ * Belt-and-suspenders deny-set for SKU ids that must never reach an automated recommendation,
+ * regardless of band or filter bug. Currently a no-op (the listed SKUs have been removed from
+ * the product catalog) but kept as a defensive guard against future catalog edits.
+ */
+const ID_EXCLUDE_ALWAYS = new Set(["vitd_now_50000_50", "vitd_now_10000_240"])
 
 /**
- * Remove inappropriate SKUs (mega-dose daily softgels) before ranking.
- * - Always drop 50,000 IU daily-style SKU from automated picks.
- * - Deficient: allow up to 10,000 IU/unit daily, or weekly repletion (e.g. 25k 1x/week).
- * - Suboptimal/maintenance: cap effective daily IU at 5,000.
+ * Remove inappropriate SKUs before ranking.
+ *
+ * Anchored on the 4,000 IU/day (100 mcg) adult Tolerable Upper Intake Level
+ * (IOM 2010 / NIH Office of Dietary Supplements):
+ *  - Always drop the 50,000 IU and 10,000 IU daily softgels from automated picks — those
+ *    are clinician-directed repletion doses, not consumer recommendations.
+ *  - Deficient: allow daily SKUs up to 4,000 IU/unit (at the UL) OR once/twice-weekly SKUs
+ *    whose averaged daily dose stays at or below 4,000 IU/day.
+ *  - Suboptimal / maintenance: cap effective daily IU at 2,000 to stay well under the UL.
+ *  - High: return none — do not supplement.
  */
 export function filterVitaminDCatalog(
   products: VitaminDProductLike[],
@@ -89,14 +104,16 @@ export function filterVitaminDCatalog(
 ): VitaminDProductLike[] {
   if (band === "high") return []
 
-  let list = products.filter((p) => !ID_EXCLUDE_ALWAYS.has(p.id))
+  const list = products.filter((p) => !ID_EXCLUDE_ALWAYS.has(p.id))
 
   if (band === "deficient") {
     return list.filter((p) => {
       if (p.activeUnit !== "IU") return false
       const daily = effectiveVitaminDIuPerDay(p)
-      if (p.amountPerUnit <= 10_000 && daily <= 10_000) return true
-      if ((p.servingsPerWeek ?? 7) <= 2 && p.amountPerUnit <= 30_000) return true
+      // Daily SKU capped at the 4,000 IU/day UL.
+      if ((p.servingsPerWeek ?? 7) >= 7 && p.amountPerUnit <= 4_000 && daily <= 4_000) return true
+      // Weekly / twice-weekly repletion SKU: averaged daily dose must stay ≤ UL, single capsule ≤ 30,000 IU.
+      if ((p.servingsPerWeek ?? 7) <= 2 && p.amountPerUnit <= 30_000 && daily <= 4_000) return true
       return false
     })
   }
@@ -104,7 +121,7 @@ export function filterVitaminDCatalog(
   return list.filter((p) => {
     if (p.activeUnit !== "IU") return false
     const daily = effectiveVitaminDIuPerDay(p)
-    return daily <= 5000 && p.amountPerUnit <= 5000
+    return daily <= 2000 && p.amountPerUnit <= 2000
   })
 }
 
@@ -132,12 +149,12 @@ export function pickVitaminDProductByTarget(
   return scored[0].p
 }
 
-/** User-facing title: avoid raw “50,000 IU” as the only headline. */
+/** User-facing title: avoid raw "50,000 IU" as the only headline and reference the adult UL. */
 export function vitaminDRecommendationDisplayName(
   product: VitaminDProductLike,
   targetIuPerDay: number
 ): string {
   const eff = Math.round(effectiveVitaminDIuPerDay(product))
   const target = Math.round(targetIuPerDay)
-  return `Vitamin D3 — ~${eff} IU/day (example: ${product.brand}; discuss ~${target} IU/day with your clinician)`
+  return `Vitamin D3 — ~${eff} IU/day (example: ${product.brand}; discuss ~${target} IU/day with your clinician — adult UL 4,000 IU/day)`
 }

@@ -1,10 +1,14 @@
 /**
  * Curated Amazon affiliate product recommendations for the Clarion Core Biomarker Set.
  * Product selection is based on form, dosage, brand trust, and practical fit for the biomarker pathway.
- * Replace AFFILIATE_TAG with your Amazon Associates tag (e.g. clarionlabs-20).
+ *
+ * **Associates tag:** Set `NEXT_PUBLIC_AMAZON_ASSOCIATES_TAG` (e.g. `yoursite-20`) in `.env` / Vercel
+ * so all generated Amazon links and tag rewrites use your store ID. Falls back to `clarionlabs-20` if unset.
  */
 
+import { resolveActionPlanDbKey } from "./biomarkerAliases"
 import { coreBiomarkerProtocols, getCoreProtocol, CLARION_CORE_BIOMARKERS } from "./coreBiomarkerProtocols"
+import { shouldSkipSupplementForHighMarker } from "./supplements"
 
 export type AffiliateOptionType = "cheapest" | "premium" | "overall_winner" | "best_value" | "diet" | "lifestyle_tool"
 
@@ -25,11 +29,50 @@ export type AffiliateProduct = {
   imageUrl?: string
 }
 
-/** Replace with your Amazon Associates tag (e.g. yourtag-20). Links use ?tag=YOURTAG-20 */
-export const AFFILIATE_TAG = "clarionlabs-20"
+const FALLBACK_AMAZON_ASSOCIATES_TAG = "clarionlabs-20"
+
+/**
+ * Amazon Associates tracking ID (e.g. `mystore-20`). Used for every `/dp/` and search link we build,
+ * and when rewriting user-saved Amazon URLs for reorder CTAs.
+ */
+export function getAmazonAssociatesTag(): string {
+  if (typeof process !== "undefined") {
+    const t = (process.env.NEXT_PUBLIC_AMAZON_ASSOCIATES_TAG ?? "").trim()
+    if (t) return t
+  }
+  return FALLBACK_AMAZON_ASSOCIATES_TAG
+}
+
+function isAmazonRetailHostname(hostname: string): boolean {
+  const h = hostname.toLowerCase()
+  if (h === "amazon.com" || h.endsWith(".amazon.com")) return true
+  const tlds = ["co.uk", "de", "fr", "ca", "in", "es", "it", "com.au", "co.jp", "com.mx", "nl", "se", "pl", "com.be", "com.tr"]
+  for (const t of tlds) {
+    if (h === `amazon.${t}` || h.endsWith(`.amazon.${t}`)) return true
+  }
+  return false
+}
+
+/**
+ * Ensures `tag` on Amazon retail URLs matches {@link getAmazonAssociatesTag} (sets or replaces).
+ * Non-Amazon URLs and short links (`amzn.to`, etc.) are returned unchanged.
+ */
+export function applyAmazonAssociatesTag(url: string): string {
+  const trimmed = url.trim()
+  if (!trimmed || !/^https?:\/\//i.test(trimmed)) return trimmed
+  let u: URL
+  try {
+    u = new URL(trimmed)
+  } catch {
+    return trimmed
+  }
+  if (!isAmazonRetailHostname(u.hostname)) return trimmed
+  u.searchParams.set("tag", getAmazonAssociatesTag())
+  return u.toString()
+}
 
 const baseUrl = (asin: string) =>
-  `https://www.amazon.com/dp/${asin}?tag=${AFFILIATE_TAG}`
+  `https://www.amazon.com/dp/${encodeURIComponent(asin)}?tag=${encodeURIComponent(getAmazonAssociatesTag())}`
 
 const imageUrlFromAsin = (asin: string) =>
   `https://m.media-amazon.com/images/P/${asin}._SL160_.jpg`
@@ -115,16 +158,28 @@ function buildAffiliateProductsFromCore(): Record<string, AffiliateProduct[]> {
 export const affiliateProductsByBiomarker: Record<string, AffiliateProduct[]> =
   buildAffiliateProductsFromCore()
 
+export type AffiliateProductsOptions = {
+  /** When the lab is high, omit “take more” supplement SKUs for repletion nutrients (D, B12, iron, etc.). */
+  status?: string
+}
+
 /** Get affiliate product options for a biomarker. optionTypes filter (cheapest, premium, overall_winner, lifestyle_tool). */
 export function getAffiliateProductsForBiomarker(
   biomarker: string,
-  optionTypes?: AffiliateOptionType[]
+  optionTypes?: AffiliateOptionType[],
+  opts?: AffiliateProductsOptions
 ): AffiliateProduct[] {
-  const protocol = getCoreProtocol(biomarker)
   const list =
     affiliateProductsByBiomarker[biomarker] ??
     affiliateProductsByBiomarker[biomarker.trim()] ??
     []
+  const status = (opts?.status ?? "").toLowerCase()
+  const dbKey = resolveActionPlanDbKey(biomarker.trim())
+  if (status === "high" && shouldSkipSupplementForHighMarker(dbKey, "high")) {
+    const tools = list.filter((p) => p.category === "lifestyle_tool")
+    if (!optionTypes?.length) return tools
+    return tools.filter((p) => optionTypes.includes(p.optionType))
+  }
   if (!optionTypes?.length) return list
   return list.filter((p) => optionTypes.includes(p.optionType))
 }

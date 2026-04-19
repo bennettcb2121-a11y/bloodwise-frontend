@@ -10,6 +10,7 @@ import { ThemeIntroPopup } from "@/src/components/ThemeIntroPopup";
 import { ClarionAssistant } from "@/src/components/ClarionAssistant";
 import { SupportAssistant } from "@/src/components/SupportAssistant";
 import Link from "next/link";
+import { getSupportMailtoHref } from "@/src/lib/supportContact";
 import { Analytics } from "@vercel/analytics/next";
 import { themeScript } from "./theme-script";
 import type { Viewport } from "next";
@@ -69,7 +70,11 @@ export default function RootLayout({
                 <p className="clarion-footer-disclaimer">Clarion is for education and decision support only. Not a substitute for professional medical advice.</p>
                 <Link href="/faq">FAQ</Link>
                 {" · "}
+                <a href={getSupportMailtoHref()}>Support</a>
+                {" · "}
                 <Link href="/terms">Terms &amp; Disclaimer</Link>
+                {" · "}
+                <Link href="/legal/privacy">Privacy</Link>
               </footer>
             </AuthProvider>
           </MantineThemeWrapper>

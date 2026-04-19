@@ -32,7 +32,21 @@ export type SupplementProduct = {
   servingsPerWeek?: number
   notes?: string
   assumptions?: string[]
+  /** Safety cautions surfaced with the product (overdose, bleeding, etc.). */
   caution?: string[]
+  /**
+   * Short pregnancy/lactation note rendered with the recommendation.
+   * Conservative default: "Discuss with your clinician if pregnant, trying to conceive, or breastfeeding."
+   */
+  pregnancyCaveat?: string
+  /** Nutrient/drug interactions the user should know about (plain English). */
+  interactions?: string[]
+  /**
+   * True when the SKU's label dose meets or exceeds an adult Tolerable Upper Intake Level
+   * (NIH Office of Dietary Supplements / IOM Food & Nutrition Board). Used to gate defaults
+   * and surface "clinician-directed only" messaging in the UI.
+   */
+  exceedsAdultUL?: boolean
   url?: string
   /** Ranking hints for adaptive engine (budget vs quality vs diet). */
   adaptive?: SupplementAdaptiveMeta
@@ -84,6 +98,8 @@ export type SupplementRecommendation = {
   formNote?: string
   /** Why this SKU was chosen for this user (budget/diet/shopping intent). */
   adaptiveRationale?: string
+  /** Optional stack UI: maintenance when labs are “fine” but training context suggests monitoring. */
+  stackHint?: "maintenance"
 }
 
 /** True for gummy, powder, liquid, drink (case-insensitive). */
@@ -91,6 +107,16 @@ function isNonPillForm(form: string): boolean {
   const f = (form || "").toLowerCase()
   return f.includes("gummy") || f.includes("powder") || f.includes("liquid") || f.includes("drink")
 }
+
+/**
+ * Shared caveats reused across SKUs for consistency. Wording is conservative and aligns
+ * with NIH ODS Health Professional fact sheets, IOM DRI upper-intake summaries, and
+ * standard OTC label warnings. This is education/decision-support, not medical advice.
+ */
+const PREGNANCY_GENERIC =
+  "If pregnant, trying to conceive, or breastfeeding, do not start this supplement without talking to your clinician."
+const PREGNANCY_HIGHER_SUPERVISION =
+  "Doses above standard prenatal amounts should only be taken under clinician supervision during pregnancy or lactation."
 
 const supplementDatabase: Record<string, SupplementProduct[]> = {
   Ferritin: [
@@ -104,11 +130,21 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       amountPerUnit: 65,
       activeUnit: "mg",
       costPerUnitActive: 0.000365,
-      notes: "Best cost per mg in the iron subset.",
+      notes:
+        "Widely available OTC ferrous sulfate equivalent; 65 mg of elemental iron per tablet. Lowest cost per mg in the curated set.",
       caution: [
-        "Iron should only be recommended when appropriate to the biomarker context.",
-        "Iron overdose is dangerous, especially for children.",
+        "65 mg elemental iron per tablet is above the 45 mg/day adult Tolerable Upper Intake Level (NIH ODS / IOM). Only appropriate when a clinician has confirmed iron deficiency.",
+        "Iron overdose can be fatal, especially in children — keep out of reach and store in the original child-resistant packaging.",
+        "Emerging evidence (Stoffel 2017; Moretti 2015) suggests alternate-day dosing may absorb as well or better than daily dosing and is usually better tolerated.",
       ],
+      interactions: [
+        "Take apart from calcium, dairy, coffee/tea, antacids, and high-dose zinc — all reduce iron absorption.",
+        "Separate by ≥4 hours from levothyroxine, fluoroquinolone and tetracycline antibiotics, bisphosphonates, and carbidopa/levodopa.",
+        "Proton-pump inhibitors (e.g. omeprazole) and H2 blockers can reduce iron absorption.",
+      ],
+      pregnancyCaveat:
+        "Iron needs rise in pregnancy (RDA 27 mg/day). Do not exceed what your prenatal + clinician advises; 65 mg tablets are a repletion dose, not a prenatal dose.",
+      exceedsAdultUL: true,
       adaptive: { qualityTier: 1, priceTier: "budget", veganFriendly: true },
     },
     {
@@ -121,34 +157,46 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       amountPerUnit: 65,
       activeUnit: "mg",
       costPerUnitActive: 0.000603,
-      notes: "Serving instructions not fully captured in source dataset.",
+      notes:
+        "Standard OTC ferrous sulfate 325 mg tablet (65 mg elemental iron). USP-verified brand.",
+      caution: [
+        "65 mg elemental iron per tablet is above the 45 mg/day adult Tolerable Upper Intake Level (NIH ODS / IOM). Only appropriate when a clinician has confirmed iron deficiency.",
+        "Iron overdose can be fatal, especially in children — keep out of reach.",
+      ],
+      interactions: [
+        "Take apart from calcium, dairy, coffee/tea, antacids, and high-dose zinc.",
+        "Separate by ≥4 hours from levothyroxine, fluoroquinolone and tetracycline antibiotics, bisphosphonates, and carbidopa/levodopa.",
+        "Proton-pump inhibitors and H2 blockers can reduce absorption.",
+      ],
+      pregnancyCaveat:
+        "Iron needs rise in pregnancy (RDA 27 mg/day). Do not exceed what your prenatal + clinician advises; 65 mg tablets are a repletion dose, not a prenatal dose.",
+      exceedsAdultUL: true,
       adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
     },
+  ],
+
+  /** Standalone vitamin C for absorption pairing when iron is recommended (not in biomarker analysis loop). */
+  VitaminC: [
     {
-      id: "iron_cypress_150_100",
-      brand: "Cypress Pharmaceutical",
-      productName: "Poly Iron 150 mg Strength, 100 count",
-      form: "Capsule",
-      price: 18.84,
-      unitsPerBottle: 100,
-      amountPerUnit: 150,
-      activeUnit: "mg",
-      costPerUnitActive: 0.001256,
-      notes: "Highest potency per capsule in the iron subset.",
-      adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
-    },
-    {
-      id: "iron_vitamatic_104_120",
-      brand: "Vitamatic",
-      productName: "Ferrous Fumarate 104 mg elemental iron, 120 tablets",
+      id: "vitc_nm_500_100",
+      brand: "Nature Made",
+      productName: "Vitamin C 500 mg, 100 tablets",
       form: "Tablet",
-      price: 16.99,
-      unitsPerBottle: 120,
-      amountPerUnit: 104,
+      price: 8.99,
+      unitsPerBottle: 100,
+      amountPerUnit: 500,
       activeUnit: "mg",
-      costPerUnitActive: 0.00136,
-      notes: "Includes vitamin C.",
-      assumptions: ["Cost derived from listing dose and count."],
+      costPerUnitActive: 8.99 / (500 * 100),
+      notes:
+        "Paired with iron to support non-heme iron absorption; a glass of orange juice or citrus with the meal works similarly.",
+      caution: [
+        "Adult UL for vitamin C is 2,000 mg/day (NIH ODS). Doses well above this can cause GI upset and increase kidney-stone risk in susceptible people.",
+        "People with hereditary hemochromatosis or iron-overload disorders should not take vitamin C with iron without clinician guidance — it increases iron absorption.",
+      ],
+      interactions: [
+        "High-dose vitamin C can interfere with some chemotherapy, blood glucose and stool occult-blood tests.",
+      ],
+      pregnancyCaveat: PREGNANCY_GENERIC,
       adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
     },
   ],
@@ -165,45 +213,20 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       activeUnit: "IU",
       costPerUnitActive: 9.99 / (2000 * 60),
       costPer1000IU: 0.08325,
-      notes: "Gummy form for those who prefer not to take pills.",
-      adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
-    },
-    {
-      id: "vitd_now_50000_50",
-      brand: "NOW Foods",
-      productName: "Vitamin D-3 50,000 IU, 50 softgels",
-      form: "Softgel",
-      price: 13.95,
-      unitsPerBottle: 50,
-      amountPerUnit: 50000,
-      activeUnit: "IU",
-      costPerUnitActive: 13.95 / (50000 * 50),
-      costPer1000IU: 0.00558,
-      notes: "Ultra-high dose; verify intended dosing frequency.",
+      notes: "2,000 IU (50 mcg) per gummy — within the 4,000 IU/day adult UL.",
       caution: [
-        "High-potency vitamin D can exceed common maintenance dosing.",
-        "Use dosing frequency that matches the user’s actual dose target.",
+        "Gummies contain added sugar; not suitable as a repletion dose if your clinician has recommended higher short-term doses.",
       ],
-      adaptive: { qualityTier: 2, priceTier: "mid", animalGelatin: true },
-    },
-    {
-      id: "vitd_now_10000_240",
-      brand: "NOW Foods",
-      productName: "Vitamin D-3 10,000 IU, 240 softgels",
-      form: "Softgel",
-      price: 15.73,
-      unitsPerBottle: 240,
-      amountPerUnit: 10000,
-      activeUnit: "IU",
-      costPerUnitActive: 15.73 / (10000 * 240),
-      costPer1000IU: 0.00655,
-      notes: "High-dose daily softgel; verify personal dosing.",
-      adaptive: { qualityTier: 2, priceTier: "mid", animalGelatin: true },
+      interactions: [
+        "Vitamin D can increase calcium absorption; caution with thiazide diuretics, calcium supplements, and in people with a history of hypercalcemia or kidney stones.",
+      ],
+      pregnancyCaveat: PREGNANCY_GENERIC,
+      adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
     },
     {
       id: "vitd_celebrate_25000_90",
       brand: "Celebrate Vitamins",
-      productName: "Vitamin D3 25,000 IU, 90 capsules",
+      productName: "Vitamin D3 25,000 IU, 90 capsules (once-weekly)",
       form: "Capsule",
       price: 21.99,
       unitsPerBottle: 90,
@@ -212,7 +235,17 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       costPerUnitActive: 21.99 / (25000 * 90),
       costPer1000IU: 0.00977,
       servingsPerWeek: 1,
-      notes: "Product page notes 1 capsule once per week.",
+      notes:
+        "Labeled 1 capsule once weekly (~3,571 IU/day averaged), intended for short-term repletion under clinician care.",
+      caution: [
+        "DO NOT take daily. A single 25,000 IU capsule is over 6× the 4,000 IU/day adult UL on a daily basis.",
+        "Use only for clinician-directed repletion when 25-hydroxy vitamin D is deficient; retest in 8–12 weeks.",
+      ],
+      interactions: [
+        "Can raise serum calcium; caution with thiazide diuretics, calcium supplements, digoxin, and in people with sarcoidosis, granulomatous disease, or kidney stones.",
+      ],
+      pregnancyCaveat: PREGNANCY_HIGHER_SUPERVISION,
+      exceedsAdultUL: true,
       adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
     },
   ],
@@ -221,40 +254,27 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
     {
       id: "mag_sv_400_250",
       brand: "Spring Valley",
-      productName: "Magnesium 400 mg, 250 tablets",
+      productName: "Magnesium Oxide 400 mg, 250 tablets",
       form: "Tablet",
       price: 10.88,
       unitsPerBottle: 250,
       amountPerUnit: 400,
       activeUnit: "mg",
       costPerUnitActive: 0.000109,
-      notes: "Cheapest magnesium per mg in the priced set.",
+      notes:
+        "400 mg label dose is just above the 350 mg/day UL for supplemental magnesium (NIH ODS). Magnesium oxide has relatively low bioavailability, so consider splitting the tablet or choosing a lower-potency glycinate/citrate product if available.",
+      caution: [
+        "Adult UL for supplemental magnesium is 350 mg/day (NIH ODS). This product is slightly above the UL.",
+        "Taking more than the UL from supplements can cause diarrhea, cramping, and nausea; higher overdoses are a medical emergency.",
+        "People with kidney disease or on dialysis should not take magnesium supplements without clinician guidance.",
+      ],
+      interactions: [
+        "Separate by ≥2 hours from tetracycline, fluoroquinolone, and bisphosphonate medications.",
+        "Can interact with some blood-pressure medications and muscle relaxants.",
+      ],
+      pregnancyCaveat: PREGNANCY_GENERIC,
+      exceedsAdultUL: true,
       adaptive: { qualityTier: 1, priceTier: "budget", veganFriendly: true },
-    },
-    {
-      id: "mag_nb_500_200",
-      brand: "Nature's Bounty",
-      productName: "Magnesium Oxide 500 mg, 200 tablets",
-      form: "Tablet",
-      price: 11.89,
-      unitsPerBottle: 200,
-      amountPerUnit: 500,
-      activeUnit: "mg",
-      costPerUnitActive: 0.000119,
-      notes: "Very high potency per tablet.",
-      adaptive: { qualityTier: 1, priceTier: "budget", veganFriendly: true },
-    },
-    {
-      id: "mag_le_500_100",
-      brand: "Life Extension",
-      productName: "Magnesium Caps 500 mg, 100 capsules",
-      form: "Capsule",
-      price: 9.0,
-      unitsPerBottle: 100,
-      amountPerUnit: 500,
-      activeUnit: "mg",
-      costPerUnitActive: 0.00018,
-      notes: "Serving size 1 capsule, 500 mg.",
     },
   ],
 
@@ -269,7 +289,15 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       amountPerUnit: 5000,
       activeUnit: "mcg",
       costPerUnitActive: 0.0133 / 1000,
-      notes: "Best value B12 in this subset.",
+      notes:
+        "No UL established for vitamin B12 (NIH ODS). The RDA is 2.4 mcg/day; high-dose sublinguals are widely used when oral absorption is reduced.",
+      caution: [
+        "If you have a history of leukocytosis, polycythemia vera, or are under investigation for blood-cell abnormalities, discuss B12 supplementation with your clinician before starting.",
+      ],
+      interactions: [
+        "Metformin, proton-pump inhibitors, and H2 blockers reduce B12 absorption — supplementation is often appropriate but should be monitored.",
+      ],
+      pregnancyCaveat: PREGNANCY_GENERIC,
       adaptive: { qualityTier: 1, priceTier: "budget", veganFriendly: true },
     },
     {
@@ -282,7 +310,14 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       amountPerUnit: 10000,
       activeUnit: "mcg",
       costPerUnitActive: 0.0167 / 1000,
-      notes: "Highest potency per lozenge in the subset.",
+      notes: "Methylcobalamin form; no UL established for B12.",
+      caution: [
+        "High-dose B12 can briefly turn urine bright yellow — harmless but a good sign the dose is absorbing.",
+      ],
+      interactions: [
+        "Metformin, PPIs, and H2 blockers reduce B12 absorption.",
+      ],
+      pregnancyCaveat: PREGNANCY_GENERIC,
       adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
     },
     {
@@ -295,7 +330,11 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       amountPerUnit: 10000,
       activeUnit: "mcg",
       costPerUnitActive: 0.0317 / 1000,
-      notes: "Serving size 1 lozenge.",
+      notes: "Methylcobalamin lozenge; no UL established for B12.",
+      interactions: [
+        "Metformin, PPIs, and H2 blockers reduce B12 absorption.",
+      ],
+      pregnancyCaveat: PREGNANCY_GENERIC,
       adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
     },
   ],
@@ -311,9 +350,18 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       amountPerUnit: 1250,
       activeUnit: "mg",
       costPerUnitActive: 0.000306,
-      notes: "Omega-3 breakdown (EPA/DHA) not fully captured.",
+      notes:
+        "Within FDA GRAS guidance of ≤3 g/day combined EPA+DHA for adults. EPA/DHA split is not captured in the source dataset.",
       assumptions: ["Cost per mg assumes 1,250 mg per softgel."],
-      caution: ["Omega-3 can interact with medications and may affect bleeding risk."],
+      caution: [
+        "Fish oil can slightly prolong bleeding time — stop 7–10 days before planned surgery unless advised otherwise.",
+        "Some users report fishy reflux; taking with food or freezing the softgels can help.",
+      ],
+      interactions: [
+        "Can increase bleeding risk with anticoagulants (warfarin, DOACs), antiplatelets (aspirin, clopidogrel), and high-dose vitamin E.",
+      ],
+      pregnancyCaveat:
+        "Generally considered safe in pregnancy when sourced from low-mercury fish oil; confirm your product is third-party tested and discuss dose with your clinician.",
       adaptive: { qualityTier: 3, priceTier: "premium", animalGelatin: true },
     },
     {
@@ -326,38 +374,48 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       amountPerUnit: 1500,
       activeUnit: "mg",
       costPerUnitActive: 0.0000432,
-      notes: "Very cheap per mg, but listing may reflect per serving not per capsule.",
+      notes:
+        "Label 1,500 mg likely reflects turmeric root powder + curcuminoid extract per serving. EFSA ADI for curcumin is ~3 mg/kg body-weight/day.",
       assumptions: ["Assumes 1,500 mg per capsule; verify label before hard claims in UI."],
+      caution: [
+        "Post-marketing reports (Italy, Australia, US 2019–2024) link high-dose curcumin to rare but serious liver injury, especially with piperine-enhanced formulations. Stop and contact a clinician if you notice dark urine, jaundice, or right-upper-quadrant pain.",
+        "Can cause GI upset at higher doses.",
+      ],
+      interactions: [
+        "May increase bleeding risk with anticoagulants and antiplatelets.",
+        "Piperine (black pepper extract) increases absorption of many medications — discuss with your clinician or pharmacist.",
+        "Can lower blood glucose; monitor if you take diabetes medications.",
+      ],
+      pregnancyCaveat:
+        "Culinary amounts are fine, but concentrated curcumin supplements are not recommended in pregnancy or breastfeeding due to limited safety data.",
       adaptive: { qualityTier: 1, priceTier: "budget", veganFriendly: true },
     },
     {
       id: "mag_sv_400_250_crp",
       brand: "Spring Valley",
-      productName: "Magnesium 400 mg, 250 tablets",
+      productName: "Magnesium Oxide 400 mg, 250 tablets",
       form: "Tablet",
       price: 10.88,
       unitsPerBottle: 250,
       amountPerUnit: 400,
       activeUnit: "mg",
       costPerUnitActive: 0.000109,
-      notes: "Included because magnesium is commonly studied for inflammatory markers.",
+      notes:
+        "Included because magnesium status is sometimes observationally linked to inflammatory markers. 400 mg label dose is just above the 350 mg/day supplemental UL (NIH ODS).",
+      caution: [
+        "Adult UL for supplemental magnesium is 350 mg/day (NIH ODS). This product is slightly above the UL.",
+        "People with kidney disease or on dialysis should not take magnesium supplements without clinician guidance.",
+      ],
+      interactions: [
+        "Separate by ≥2 hours from tetracycline, fluoroquinolone, and bisphosphonate medications.",
+      ],
+      pregnancyCaveat: PREGNANCY_GENERIC,
+      exceedsAdultUL: true,
       adaptive: { qualityTier: 1, priceTier: "budget", veganFriendly: true },
     },
   ],
 
   Testosterone: [
-    {
-      id: "zinc_bronson_50_360",
-      brand: "Bronson",
-      productName: "Zinc 50 mg, 360 tablets",
-      form: "Tablet",
-      price: 14.99,
-      unitsPerBottle: 360,
-      amountPerUnit: 50,
-      activeUnit: "mg",
-      costPerUnitActive: 0.000833,
-      adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
-    },
     {
       id: "ash_flora_300_120",
       brand: "Flora Health",
@@ -368,7 +426,21 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       amountPerUnit: 300,
       activeUnit: "mg",
       costPerUnitActive: 0.000741,
-      notes: "KSM-66 extract.",
+      notes:
+        "KSM-66 is a standardized root extract typically studied at 300–600 mg/day for 8–12 weeks. Not a hormone; evidence for testosterone effects is limited and mixed.",
+      caution: [
+        "Post-marketing signals (Iceland 2020; UK MHRA/FSA 2023–2024; multiple case reports) link ashwagandha to rare but serious liver injury and thyrotoxicosis. Stop and contact a clinician if you notice jaundice, dark urine, tremor, or unexplained weight loss.",
+        "Can lower blood pressure and blood glucose; can cause sedation.",
+        "Avoid with autoimmune thyroid disease or hyperthyroidism without clinician guidance.",
+      ],
+      interactions: [
+        "Thyroid hormone: ashwagandha can raise T3/T4 — people on levothyroxine should only use it under clinician supervision.",
+        "Immunosuppressants: may reduce effectiveness.",
+        "Sedatives, benzodiazepines, alcohol: additive sedation.",
+        "Antidiabetic and antihypertensive medications: may potentiate effects.",
+      ],
+      pregnancyCaveat:
+        "Do not use during pregnancy, while trying to conceive, or while breastfeeding. Multiple regulatory bodies (Merck Manual, Danish/Swedish/Finnish food safety authorities) advise avoidance; evidence is mixed and we stay conservative here.",
       adaptive: { qualityTier: 3, priceTier: "premium", veganFriendly: true },
     },
     {
@@ -381,7 +453,16 @@ const supplementDatabase: Record<string, SupplementProduct[]> = {
       amountPerUnit: 3,
       activeUnit: "mg",
       costPerUnitActive: 0.0155,
-      notes: "Trials often use ~6 mg/day, which may imply 2 capsules/day.",
+      notes:
+        "3 mg/capsule. Trials exploring hormonal effects have used ~6 mg/day (2 capsules). Well below the 20 mg/day adult UL (NIH ODS).",
+      caution: [
+        "Evidence for testosterone or sex-hormone effects is preliminary; do not rely on boron as a hormone therapy.",
+      ],
+      interactions: [
+        "May interact with hormone therapies; discuss with a clinician if you take estrogen, testosterone, or thyroid medications.",
+      ],
+      pregnancyCaveat:
+        "Supplemental boron is not recommended in pregnancy or breastfeeding; dietary boron is fine.",
       adaptive: { qualityTier: 2, priceTier: "mid", veganFriendly: true },
     },
   ],
@@ -433,6 +514,54 @@ function shouldRecommendIronForFerritin(status?: string): boolean {
   if (!status) return false
   const s = status.toLowerCase()
   return s === "deficient" || s === "suboptimal"
+}
+
+/** Do not recommend *more* of a vitamin/mineral when the lab is already above target (safety). */
+export function shouldSkipSupplementForHighMarker(matchedKey: string, status?: string): boolean {
+  const s = (status || "").toLowerCase()
+  if (s !== "high") return false
+  // Oral repletion not appropriate when level is high — clinician should advise (same rule as vitamin D).
+  return (
+    matchedKey === "Vitamin B12" ||
+    matchedKey === "Magnesium" ||
+    matchedKey === "Folate" ||
+    matchedKey === "Vitamin D" ||
+    matchedKey === "Ferritin"
+  )
+}
+
+function isEnduranceAthleteProfile(profile?: ProfileAdaptiveInput | null): boolean {
+  if (!profile) return false
+  const s = (profile.sport ?? "").toLowerCase()
+  const pt = (profile.profile_type ?? "").toLowerCase()
+  const hg = (profile.health_goals ?? "").toLowerCase()
+  const al = (profile.activity_level ?? "").toLowerCase()
+  if (
+    s.includes("endurance") ||
+    s.includes("run") ||
+    s.includes("cycl") ||
+    s.includes("triathlon") ||
+    s.includes("tri ") ||
+    s.includes("swim") ||
+    s.includes("row")
+  ) {
+    return true
+  }
+  if (
+    pt.includes("endurance") ||
+    pt.includes("mixed_sport") ||
+    pt.includes("female_athlete") ||
+    pt.includes("high_volume")
+  ) {
+    return true
+  }
+  if (
+    al.includes("very_active") &&
+    (hg.includes("improve_fitness") || hg.includes("more_energy") || hg.includes("improve_recovery"))
+  ) {
+    return true
+  }
+  return false
 }
 
 /** True if Magnesium is its own flagged marker (avoid duplicating magnesium in CRP picks). */
@@ -535,35 +664,35 @@ function getWhyRecommendedShort(
   const s = (status || "").toLowerCase()
 
   if (m.includes("ferritin")) {
-    if (recType === "Core") return "Low iron stores; supplementation is evidence-based to support repletion."
-    if (recType === "Conditional") return "Borderline ferritin; consider supplementation with retest to confirm need."
-    return "Ferritin in context; use only if deficient or suboptimal."
+    if (recType === "Core") return "Ferritin is low; under clinician guidance, iron supplementation is commonly used to help support iron stores."
+    if (recType === "Conditional") return "Ferritin is borderline; your clinician may consider a trial of iron with a follow-up test."
+    return "Ferritin in context; consider iron only if your clinician confirms deficiency or sub-optimal stores."
   }
   if (m.includes("vitamind") || m.includes("vitd")) {
-    if (recType === "Core") return "Deficient vitamin D; supplementation supports bone health, immunity, and recovery."
-    if (recType === "Conditional") return "Suboptimal vitamin D; supplementation can help reach optimal range."
-    return "Vitamin D in context; dose depends on current level and goals."
+    if (recType === "Core") return "Vitamin D is low; supplementation is commonly used to help support normal vitamin D status, which is associated with bone, immune, and recovery health."
+    if (recType === "Conditional") return "Vitamin D is below typical optimal ranges; supplementation may help support normal status."
+    return "Vitamin D in context; dose depends on your current level and goals."
   }
   if (m.includes("magnesium")) {
-    if (recType === "Core") return "Low magnesium; supplementation can support muscle function and recovery."
-    if (recType === "Conditional") return "Borderline magnesium; consider supplementation with diet and lifestyle."
-    return "Magnesium in context; useful for muscle and nervous system support."
+    if (recType === "Core") return "Magnesium is low; supplementation may help support normal magnesium status, which is associated with muscle and nervous-system function."
+    if (recType === "Conditional") return "Magnesium is borderline; consider diet first and discuss supplementation with your clinician."
+    return "Magnesium in context; associated with muscle and nervous-system support when dietary intake is low."
   }
   if (m.includes("b12") || m.includes("cobalamin")) {
-    if (recType === "Core") return "B12 deficiency; supplementation supports red blood cells and energy metabolism."
-    if (recType === "Conditional") return "Suboptimal B12; supplementation may help; consider absorption context."
-    return "B12 in context; useful when intake or absorption is limited."
+    if (recType === "Core") return "B12 is low; supplementation may help support normal B12 status, which is associated with red blood cell and energy metabolism."
+    if (recType === "Conditional") return "B12 is borderline; supplementation may help, and absorption (e.g. metformin, PPIs, pernicious anemia) is worth discussing with your clinician."
+    return "B12 in context; may be useful when dietary intake or absorption is limited."
   }
   if (m.includes("crp")) {
     if (s === "high") {
-      return "Elevated CRP can reflect acute illness, hard training, or chronic inflammation—interpret with symptoms and context; supplements don’t replace finding the cause."
+      return "Elevated CRP can reflect acute illness, heavy training, or chronic inflammation — interpret with symptoms and context. Supplements do not replace finding the cause."
     }
     return "CRP reflects inflammation; support is context-dependent (stress, recovery, diet)."
   }
   if (m.includes("testosterone")) {
-    return "Testosterone support is context-dependent; discuss with a clinician before supplementing."
+    return "Testosterone support is context-dependent; discuss with a clinician before using any supplement in this category."
   }
-  return "Recommended based on your results and profile."
+  return "Flagged for discussion based on your results and profile."
 }
 
 function getExpectedBenefit(
@@ -574,35 +703,35 @@ function getExpectedBenefit(
   const m = normalize(marker)
   const s = (status || "").toLowerCase()
   if (m.includes("ferritin")) {
-    if (recType === "Core") return "Can support repletion of iron stores and improve energy, endurance capacity, and recovery from fatigue."
-    if (recType === "Conditional") return "May help raise ferritin toward optimal range and support energy and recovery; retest to confirm response."
-    return "Only appropriate when ferritin is low; can support iron stores and oxygen delivery when deficient or suboptimal."
+    if (recType === "Core") return "When clinician-directed for confirmed iron deficiency, iron supplementation may help support normal iron stores and is associated with normal energy, endurance, and recovery."
+    if (recType === "Conditional") return "May help support ferritin toward typical optimal ranges; retest to confirm the response."
+    return "Only appropriate when ferritin is low; may help support iron stores and normal oxygen-carrying capacity when deficient or sub-optimal."
   }
   if (m.includes("vitamind") || m.includes("vitd")) {
-    if (recType === "Core") return "Can raise vitamin D levels and support bone health, immunity, recovery, and training adaptation."
-    if (recType === "Conditional") return "May help reach optimal vitamin D range and support recovery and immune function."
-    return "Supports vitamin D status when low; benefits include bone health, immunity, and recovery."
+    if (recType === "Core") return "May help raise vitamin D levels and is associated with bone, immune, and recovery health."
+    if (recType === "Conditional") return "May help reach typical optimal vitamin D ranges and support immune and recovery function."
+    return "Associated with supporting vitamin D status; related to bone, immune, and recovery health."
   }
   if (m.includes("magnesium")) {
-    if (recType === "Core") return "Can help restore magnesium status and support muscle function, sleep quality, and recovery."
-    if (recType === "Conditional") return "May support muscle and nervous system function and recovery when intake is insufficient."
-    return "Supports muscle function, relaxation, and recovery when dietary magnesium is low."
+    if (recType === "Core") return "May help support normal magnesium status; associated with muscle function, sleep, and recovery."
+    if (recType === "Conditional") return "May help support muscle and nervous-system function and recovery when dietary intake is insufficient."
+    return "Associated with muscle function, relaxation, and recovery when dietary magnesium is low."
   }
   if (m.includes("b12") || m.includes("cobalamin")) {
-    if (recType === "Core") return "Can correct B12 deficiency and support red blood cell production, energy metabolism, and neurological function."
-    if (recType === "Conditional") return "May help raise B12 and support energy and red blood cell health; consider absorption if levels stay low."
-    return "Supports B12 status when intake or absorption is limited; benefits include energy and red blood cell support."
+    if (recType === "Core") return "May help support normal B12 status, which is associated with red blood cell production, energy metabolism, and neurological function."
+    if (recType === "Conditional") return "May help support B12 status; if levels stay low, ask your clinician about absorption (metformin, PPIs, autoimmune causes)."
+    return "Associated with supporting B12 status when dietary intake or absorption is limited."
   }
   if (m.includes("crp")) {
     if (s === "high") {
-      return "Omega-3s and related supports are sometimes used alongside lifestyle change; benefits vary and acute causes (e.g. infection) need different action—discuss with your clinician."
+      return "Omega-3 and similar supports are sometimes used alongside lifestyle change; benefits vary and acute causes (e.g. infection) need different action — discuss with your clinician."
     }
-    return "Anti-inflammatory and recovery support are context-dependent; benefits may include supporting a healthy inflammatory response and recovery."
+    return "Anti-inflammatory and recovery support are context-dependent; may help support a healthy inflammatory response and recovery."
   }
   if (m.includes("testosterone")) {
-    return "Testosterone support is context-dependent; discuss with a clinician; benefits are not established for all users."
+    return "Evidence for hormonal effects from OTC supplements is mixed; discuss any supplement in this category with a clinician before use."
   }
-  return "May support the related biomarker and overall health when used appropriately to your context."
+  return "May help support the related biomarker and overall health when used appropriately to your context."
 }
 
 function getDosingGuidance(
@@ -612,29 +741,29 @@ function getDosingGuidance(
 ): string {
   const m = normalize(marker)
   if (m.includes("ferritin")) {
-    if (recType === "Core") return "Dose and form (e.g. ferrous sulfate vs bisglycinate) should match severity and tolerance. Typical repletion: elemental iron per day as advised by a clinician or protocol; take apart from calcium and caffeine. Retest in 8–10 weeks."
-    if (recType === "Conditional") return "Consider a moderate dose of elemental iron (e.g. as per product or clinician guidance), with food if needed for tolerance. Retest in 8–10 weeks to avoid over-correction."
-    return "Only dose when ferritin is deficient or suboptimal; follow a structured protocol and retest."
+    if (recType === "Core") return "Dose and form (e.g. ferrous sulfate vs ferrous bisglycinate) should match severity and tolerance and be clinician-directed. Recent evidence (Stoffel 2017; Moretti 2015) suggests alternate-day dosing absorbs as well or better than daily dosing and is usually better tolerated. Take apart from calcium, dairy, coffee/tea, and separate ≥4 hours from levothyroxine and tetracycline/fluoroquinolone antibiotics. Retest in 8–10 weeks."
+    if (recType === "Conditional") return "If your clinician agrees, a moderate elemental-iron dose (often 30–60 mg on alternate days) with food is a typical starting point. Retest in 8–10 weeks to avoid over-correction."
+    return "Only dose when ferritin is deficient or sub-optimal; follow a clinician-directed protocol and retest."
   }
   if (m.includes("vitamind") || m.includes("vitd")) {
-    if (recType === "Core") return "Higher-dose repletion may be used short-term (e.g. as per clinician or protocol); then switch to maintenance (often 1,000–2,000 IU daily). Retest in 8–12 weeks."
-    if (recType === "Conditional") return "Common maintenance range 1,000–2,000 IU daily; dose depends on current level and goals. Retest in 8–12 weeks."
-    return "Dose depends on current blood level; often 1,000–2,000 IU daily for maintenance. Retest to guide adjustment."
+    if (recType === "Core") return "The adult Tolerable Upper Intake Level is 4,000 IU (100 mcg)/day (IOM 2010 / NIH ODS). Short-term higher-dose repletion is a clinician decision; consumer maintenance is typically 1,000–2,000 IU/day. Retest in 8–12 weeks."
+    if (recType === "Conditional") return "Typical maintenance range is 1,000–2,000 IU/day (well under the 4,000 IU/day UL). Retest in 8–12 weeks."
+    return "Dose depends on your current blood level; 1,000–2,000 IU/day is typical for maintenance, and the adult UL is 4,000 IU/day."
   }
   if (m.includes("magnesium")) {
-    return "Often 200–400 mg elemental magnesium daily (e.g. glycinate or citrate), with food. Split doses if needed. Retest in 6–8 weeks if tracking status."
+    return "Typical range is 200–350 mg/day of elemental magnesium (e.g. glycinate or citrate), with food. The adult UL for supplemental magnesium is 350 mg/day (NIH ODS); higher amounts should be clinician-directed. Split doses if needed. Retest in 6–8 weeks if tracking status."
   }
   if (m.includes("b12") || m.includes("cobalamin")) {
-    if (recType === "Core") return "Repletion may use higher doses or sublingual/other forms; maintenance often 1,000 mcg daily or several times per week. Retest in 8–12 weeks."
-    return "Typical maintenance 500–1,000 mcg daily or several times per week; form (cyanocobalamin vs methylcobalamin) can depend on preference and absorption. Retest to confirm."
+    if (recType === "Core") return "B12 has no established UL. Repletion may use higher-dose sublingual or injectable forms; maintenance is typically 500–1,000 mcg/day or several times per week. Retest in 8–12 weeks."
+    return "Typical maintenance is 500–1,000 mcg/day or several times per week. Form (cyanocobalamin vs methylcobalamin) can depend on preference and absorption."
   }
   if (m.includes("crp")) {
-    return "No single supplement replaces addressing root causes (recovery, stress, diet). Omega-3s, etc., are context-dependent; discuss with a clinician."
+    return "No supplement replaces addressing root causes (sleep, stress, training load, diet, underlying inflammation). Omega-3 and similar supports are context-dependent and should be discussed with your clinician, especially if you take anticoagulants."
   }
   if (m.includes("testosterone")) {
-    return "Do not self-dose testosterone or SARMs. Any support (e.g. adaptogens) should be discussed with a clinician."
+    return "Do not self-dose testosterone, pro-hormones, or SARMs. Any adaptogen or micronutrient support in this category should be discussed with a clinician, especially if you take thyroid, antidepressant, sedative, or blood-pressure medications."
   }
-  return "Follow product label or clinician guidance; retest on the schedule suggested for this marker."
+  return "Follow the product label and your clinician's guidance; retest on the schedule suggested for this marker."
 }
 
 function pickBestOverall(leaderboard: SupplementLeaderboardEntry[]): SupplementLeaderboardEntry {
@@ -647,20 +776,20 @@ function pickBestOverall(leaderboard: SupplementLeaderboardEntry[]): SupplementL
 function inferDoseText(marker: string, vitaminDBand?: VitaminDBand) {
   switch (marker) {
     case "Ferritin":
-      return "Context-dependent iron protocol"
+      return "Clinician-directed iron protocol (alternate-day dosing often preferred)"
     case "Vitamin D": {
       const t = vitaminDBand ? targetVitaminDIuPerDay(vitaminDBand) : 2000
-      if (vitaminDBand === "high") return "Elevated level — do not supplement unless your clinician advises"
-      return `Typical discussion range ~${t} IU/day with food; confirm with your clinician`
+      if (vitaminDBand === "high") return "Level is already elevated — do not supplement unless your clinician advises"
+      return `Typical discussion range ~${t} IU/day with food (adult UL 4,000 IU/day); confirm with your clinician`
     }
     case "Magnesium":
-      return "Typically daily"
+      return "200–350 mg/day elemental, with food (adult supplemental UL 350 mg/day)"
     case "Vitamin B12":
-      return "Typically daily or several times weekly depending on context"
+      return "500–1,000 mcg/day or several times weekly; no established UL"
     case "CRP":
-      return "Context-dependent anti-inflammatory support"
+      return "Context-dependent; address root causes first"
     case "Testosterone":
-      return "Context-dependent support only"
+      return "Context-dependent; clinician conversation before any OTC support"
     default:
       return "1 serving daily"
   }
@@ -707,8 +836,8 @@ export function supplementRecommendations(
     /** High testosterone: do not suggest zinc/adaptogens as “fixes”—see your clinician. */
     if (matchedKey === "Testosterone" && (status || "").toLowerCase() === "high") continue
 
-    /** High vitamin D: do not recommend oral D3 here — clinician should advise. */
-    if (matchedKey === "Vitamin D" && (status || "").toLowerCase() === "high") continue
+    /** High vitamin D / B12 / magnesium / folate: never recommend oral “more” here — clinician should advise. */
+    if (shouldSkipSupplementForHighMarker(matchedKey, status)) continue
 
     let optionsList = supplementDatabase[matchedKey]
     if (!Array.isArray(optionsList) || optionsList.length === 0) continue
@@ -766,9 +895,21 @@ export function supplementRecommendations(
     const hadToUsePill = preferNoPills && !isNonPillForm(bestOverall.form)
 
     const recommendationType = getRecommendationType(matchedKey, status)
-    const whyRecommended = getWhyRecommendedShort(matchedKey, status, recommendationType)
-    const expectedBenefit = getExpectedBenefit(matchedKey, status, recommendationType)
-    const dosingGuidance = getDosingGuidance(matchedKey, status, recommendationType)
+    let whyRecommended = getWhyRecommendedShort(matchedKey, status, recommendationType)
+    let expectedBenefit = getExpectedBenefit(matchedKey, status, recommendationType)
+    let dosingGuidance = getDosingGuidance(matchedKey, status, recommendationType)
+    if (
+      matchedKey === "Ferritin" &&
+      (status || "").toLowerCase() === "suboptimal" &&
+      isEnduranceAthleteProfile(options.profile)
+    ) {
+      whyRecommended =
+        "Iron stores are slightly below your endurance performance target—a common pattern in heavy training. If you already take iron, continue your clinician’s plan and retest in 8–12 weeks."
+      expectedBenefit =
+        "Maintaining iron supports oxygen delivery and endurance; small gaps often respond to consistent intake and meal timing around training."
+      dosingGuidance =
+        "Do not add more iron on your own if your clinician hasn’t advised it. Retest ferritin in 8–12 weeks."
+    }
     const estimatedMonthlyCost = estimateMonthlyCost(bestOverall)
     const monthlyCostBreakdown = getMonthlyCostBreakdown(bestOverall)
     const adaptiveRationale = adaptiveCtxMerged
@@ -801,7 +942,139 @@ export function supplementRecommendations(
     usedMarkers.add(matchedKey)
   }
 
-  return recommendations
+  const withMaintenance = appendMaintenanceFerritinForEndurance(recommendations, analysis, options)
+  return appendAbsorptionPairingRecommendations(withMaintenance)
+}
+
+/**
+ * When ferritin is in-range but the profile is high-volume endurance, suggest optional iron as
+ * maintenance/monitoring context (not repletion). Keeps the stack useful when all other markers are optimal.
+ */
+function appendMaintenanceFerritinForEndurance(
+  recommendations: SupplementRecommendation[],
+  analysis: AnalysisItem[],
+  options: SupplementRecommendationsOptions
+): SupplementRecommendation[] {
+  if (recommendationHasIron(recommendations)) return recommendations
+  const ferritinRow = analysis.find((a) => resolveMarkerKey(a.name || a.marker) === "Ferritin")
+  if (!ferritinRow) return recommendations
+  if ((ferritinRow.status || "").toLowerCase() !== "optimal") return recommendations
+  const v = typeof ferritinRow.value === "number" ? ferritinRow.value : NaN
+  if (!Number.isFinite(v) || v < 30 || v > 110) return recommendations
+  if (!isEnduranceAthleteProfile(options.profile ?? null)) return recommendations
+
+  const optionsList = supplementDatabase.Ferritin
+  if (!Array.isArray(optionsList) || optionsList.length === 0) return recommendations
+
+  const preferNoPills = options.supplementFormPreference === "no_pills"
+  let list = optionsList
+  if (preferNoPills) {
+    const nonPill = list.filter((o) => isNonPillForm(o.form))
+    if (nonPill.length > 0) list = nonPill
+  }
+
+  const leaderboard = buildLeaderboard(list)
+  const bestOverall = pickBestOverall(leaderboard)
+  const bestValue = leaderboard[0]
+  const highestPotency = [...leaderboard].sort((a, b) => a.rankByPotency - b.rankByPotency)[0]
+  const hadToUsePill = preferNoPills && !isNonPillForm(bestOverall.form)
+  const estimatedMonthlyCost = estimateMonthlyCost(bestOverall)
+  const monthlyCostBreakdown = getMonthlyCostBreakdown(bestOverall)
+
+  const maintenance: SupplementRecommendation = {
+    name: bestOverall.productName,
+    brand: bestOverall.brand,
+    marker: "Ferritin",
+    supplementKey: "ferritin",
+    dose: "Maintenance context — discuss with your clinician before starting or changing iron.",
+    status: "optimal",
+    recommendationType: "Context-dependent",
+    whyRecommended:
+      "Your ferritin is in range, but endurance training can still draw down iron stores over time. Some athletes keep a conservative maintenance plan with labs — not a repletion dose.",
+    whyThisIsRecommended:
+      "Clarion flags this as optional maintenance for high-volume endurance profiles when ferritin is mid-range optimal — prioritize food first, then retest on your schedule.",
+    expectedBenefit:
+      "Supporting iron status may help oxygen delivery and recovery when training load is high; only continue if it fits your clinician’s plan.",
+    dosingGuidance:
+      "Do not add iron without medical guidance if you are not deficient. If you already take iron, keep your existing plan and retest ferritin as advised.",
+    bestValue,
+    highestPotency,
+    bestOverall,
+    leaderboard,
+    estimatedMonthlyCost,
+    monthlyCostBreakdown,
+    formNote: hadToUsePill ? "Pill form; gummy or powder options may be available in stores." : undefined,
+    stackHint: "maintenance",
+  }
+
+  return [...recommendations, maintenance]
+}
+
+function recommendationHasIron(recs: SupplementRecommendation[]): boolean {
+  return recs.some((r) => {
+    const m = normalize(r.marker)
+    return m === "ferritin" || r.supplementKey.includes("iron")
+  })
+}
+
+function ironProductAlreadyIncludesVitaminC(recs: SupplementRecommendation[]): boolean {
+  return recs.some((r) => {
+    const pn = (r.bestOverall?.productName ?? "").toLowerCase()
+    const notes = (r.bestOverall?.notes ?? "").toLowerCase()
+    return r.bestOverall?.id === "iron_vitamatic_104_120" || pn.includes("vitamin c") || notes.includes("vitamin c")
+  })
+}
+
+function recommendationHasVitaminC(recs: SupplementRecommendation[]): boolean {
+  return recs.some((r) => {
+    const m = normalize(r.marker)
+    if (m.includes("vitaminc") || m === "vitaminc") return true
+    const n = r.name.toLowerCase()
+    return n.includes("vitamin c") || n.includes("ascorbic")
+  })
+}
+
+/**
+ * When iron is recommended, add vitamin C if missing (supports non-heme iron absorption).
+ * Idempotent — safe to run on already-built recommendation lists.
+ */
+export function appendAbsorptionPairingRecommendations(recs: SupplementRecommendation[]): SupplementRecommendation[] {
+  if (!recs.length) return recs
+  if (!recommendationHasIron(recs) || recommendationHasVitaminC(recs) || ironProductAlreadyIncludesVitaminC(recs)) {
+    return recs
+  }
+  const optionsList = supplementDatabase.VitaminC
+  if (!Array.isArray(optionsList) || optionsList.length === 0) return recs
+
+  const leaderboard = buildLeaderboard(optionsList)
+  const bestOverall = pickBestOverall(leaderboard)
+  const bestValue = leaderboard[0]
+  const highestPotency = [...leaderboard].sort((a, b) => b.rankByPotency - a.rankByPotency)[0]
+  const estimatedMonthlyCost = estimateMonthlyCost(bestOverall)
+  const monthlyCostBreakdown = getMonthlyCostBreakdown(bestOverall)
+
+  const pairing: SupplementRecommendation = {
+    name: bestOverall.productName,
+    brand: bestOverall.brand,
+    marker: "Vitamin C",
+    supplementKey: "vitamin_c",
+    dose: "Typical pairing: 250–500 mg with iron, or vitamin C–rich food with the same meal.",
+    status: undefined,
+    recommendationType: "Core",
+    whyRecommended: "Vitamin C can improve absorption of non-heme iron when taken together.",
+    whyThisIsRecommended:
+      "Clarion adds this when iron is on your plan so timing and pairing stay simple.",
+    expectedBenefit: "May help you get more from your iron supplement when co-taken as directed.",
+    dosingGuidance: "Take with iron or within the same meal window unless your clinician advises otherwise.",
+    bestValue,
+    highestPotency,
+    bestOverall,
+    leaderboard,
+    estimatedMonthlyCost,
+    monthlyCostBreakdown,
+  }
+
+  return [...recs, pairing]
 }
 
 export {

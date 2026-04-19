@@ -4,14 +4,18 @@ import React, { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
-import { loadSavedState } from "@/src/lib/bloodwiseDb"
-import { isDevPaywallBypass } from "@/src/lib/accessGate"
+import type { ProfileRow } from "@/src/lib/bloodwiseDb"
+import { getSubscription, loadSavedState } from "@/src/lib/bloodwiseDb"
 import {
-  getAnalysisPriceDisplayDollars,
-  getLitePriceDisplayDollars,
-  getSubscriptionPriceDisplayDollars,
-} from "@/src/lib/analysisPricing"
+  hasActiveStripeSubscription,
+  hasClarionAnalysisAccess,
+  isDevPaywallBypass,
+} from "@/src/lib/accessGate"
+import { getLitePriceDisplayDollars } from "@/src/lib/analysisPricing"
 import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
+import { SupportContactHint } from "@/src/components/SupportContactHints"
+import { PricingTiers } from "@/src/components/PricingTiers"
+import { ComplianceFooter } from "@/src/components/ComplianceFooter"
 
 export default function PaywallPage() {
   const router = useRouter()
@@ -24,6 +28,15 @@ export default function PaywallPage() {
   const [redeemLoading, setRedeemLoading] = useState(false)
   const [redeemError, setRedeemError] = useState<string | null>(null)
   const [redeemSuccess, setRedeemSuccess] = useState(false)
+  /** loading = checking access; subscribed = recurring Clarion access; paywall = needs purchase */
+  const [accessView, setAccessView] = useState<"loading" | "subscribed" | "paywall" | "redirect">("loading")
+  /** Optional ?showLite=1 query param surfaces the legacy Clarion Lite compare/CTA for testing. */
+  const [showLite, setShowLite] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    setShowLite(new URLSearchParams(window.location.search).get("showLite") === "1")
+  }, [])
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -31,8 +44,6 @@ export default function PaywallPage() {
     }
   }, [authLoading, user, router])
 
-  const analysisPrice = getAnalysisPriceDisplayDollars()
-  const subscriptionPrice = getSubscriptionPriceDisplayDollars()
   const litePrice = getLitePriceDisplayDollars()
 
   // In dev: only skip paywall when NEXT_PUBLIC_DEV_SKIP_PAYWALL=1 (unless ?noRedirect=1 forces paywall for testing).
@@ -46,10 +57,24 @@ export default function PaywallPage() {
       return
     }
     if (!user?.id) return
-    loadSavedState(user.id).then(({ profile: p }) => {
-      const row = p as { analysis_purchased_at?: string | null } | null
-      if (row?.analysis_purchased_at) router.replace("/")
-    }).catch(() => {})
+    setAccessView("loading")
+    Promise.all([loadSavedState(user.id), getSubscription(user.id)])
+      .then(([{ profile: p, bloodwork: b }, sub]) => {
+        if (!hasClarionAnalysisAccess(p, sub, b)) {
+          setAccessView("paywall")
+          return
+        }
+        const subRow = sub
+        const tier = ((p as ProfileRow | null)?.plan_tier ?? "").toLowerCase()
+        const tierSynced = tier === "full" || tier === "lite"
+        if (hasActiveStripeSubscription(subRow) || tierSynced) {
+          setAccessView("subscribed")
+          return
+        }
+        setAccessView("redirect")
+        router.replace("/dashboard")
+      })
+      .catch(() => setAccessView("paywall"))
   }, [user?.id, router])
 
   async function handleLiteCheckout() {
@@ -80,12 +105,16 @@ export default function PaywallPage() {
     }
   }
 
-  async function handleUnlock() {
+  async function handleUnlock(tier: "analysis" | "monthly" = "analysis") {
     setError(null)
     setLiteError(null)
     setCheckoutLoading(true)
     try {
-      const res = await fetch("/api/create-analysis-checkout", { method: "POST" })
+      const res = await fetch("/api/create-analysis-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier }),
+      })
       const text = await res.text()
       let data: {
         url?: string
@@ -153,109 +182,103 @@ export default function PaywallPage() {
     )
   }
 
+  if (accessView === "loading" || accessView === "redirect") {
+    return (
+      <main className="paywall-shell clarion-loading-wrap" role="status" aria-live="polite" aria-label="Loading">
+        <div className="paywall-container" style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <span className="clarion-loading-dot" aria-hidden />
+            <span className="clarion-loading-dot" aria-hidden />
+            <span className="clarion-loading-dot" aria-hidden />
+          </div>
+          <p className="paywall-loading">{accessView === "redirect" ? "Taking you to your dashboard…" : "Loading…"}</p>
+        </div>
+        <style jsx>{paywallStyles}</style>
+      </main>
+    )
+  }
+
+  if (accessView === "subscribed") {
+    return (
+      <main className="paywall-shell">
+        <div className="paywall-container">
+          <ClarionLabsLogo variant="page" href="/dashboard" linkClassName="paywall-logo-root" />
+          <p className="paywall-tagline">The bloodwork coach that explains your numbers and your next steps.</p>
+          <h1 className="paywall-title">You&apos;re already subscribed</h1>
+          <p className="paywall-subtitle paywall-subtitle--subscribed">
+            Your Clarion subscription is active. You already have full access—you don&apos;t need to pay again.
+          </p>
+          <Link href="/dashboard" className="paywall-cta paywall-cta--subscribed">
+            Go to dashboard
+          </Link>
+          <p className="paywall-back" style={{ marginTop: 24 }}>
+            <Link href="/settings">Manage billing in Settings</Link>
+          </p>
+        </div>
+        <style jsx>{paywallStyles}</style>
+      </main>
+    )
+  }
+
   return (
     <main className="paywall-shell">
-      <div className="paywall-container">
+      <div className="paywall-container paywall-container--wide">
         <ClarionLabsLogo variant="page" href="/dashboard" linkClassName="paywall-logo-root" />
         <p className="paywall-tagline">The bloodwork coach that explains your numbers and your next steps.</p>
-        <h1 className="paywall-title">Unlock Your Full Health Plan</h1>
+        <h1 className="paywall-title">Pick the level that fits you</h1>
         <p className="paywall-subtitle">
-          {`$${analysisPrice} one-time analysis, then Clarion+ at $${subscriptionPrice} every 2 months (your first 2 months of Clarion+ are included with signup). With an active subscription, new bloodwork has no extra analysis fee.`}
+          Start free with the Clarion survey. Add a one-time analysis when you have labs. Go monthly when you want Clarion to run your stack.
         </p>
         <p className="paywall-differentiator">We don&apos;t sell labs—we help you use the ones you have.</p>
-        <div className="paywall-how-different">
-          <span className="paywall-how-different-label">Includes</span>
-          <ul>
-            <li>Full biomarker analysis</li>
-            <li>Personalized supplement protocol</li>
-            <li>Evidence-based lifestyle recommendations</li>
-            <li>Ongoing biomarker tracking</li>
-          </ul>
-        </div>
 
-        <div className="paywall-compare-wrap">
-          <p className="paywall-compare-title">Choose your path</p>
-          <table className="paywall-compare" aria-label="Clarion Lite vs Full Clarion">
-            <thead>
-              <tr>
-                <th scope="col" className="paywall-compare-corner" />
-                <th scope="col">Clarion Lite</th>
-                <th scope="col">Full Clarion</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <th scope="row">Dashboard &amp; habits</th>
-                <td>Yes</td>
-                <td>Yes</td>
-              </tr>
-              <tr>
-                <th scope="row">Symptom / profile topics</th>
-                <td>Yes</td>
-                <td>Yes</td>
-              </tr>
-              <tr>
-                <th scope="row">Panel score &amp; biomarker trends</th>
-                <td>—</td>
-                <td>Yes</td>
-              </tr>
-              <tr>
-                <th scope="row">Lab-matched stack &amp; dosing context</th>
-                <td>—</td>
-                <td>Yes</td>
-              </tr>
-            </tbody>
-          </table>
-          <p className="paywall-lite-footnote" role="note">
-            Clarion Lite is education and habit support based on how you feel and your goals—not a substitute for labs or
-            medical care. It does not interpret your bloodwork.
-          </p>
-          <div className="paywall-lite-row">
-            <div className="paywall-lite-price">
-              <span className="paywall-lite-amount">${litePrice}</span>
-              <span className="paywall-lite-period">/ month</span>
-            </div>
-            <button
-              type="button"
-              className="paywall-lite-cta"
-              onClick={handleLiteCheckout}
-              disabled={liteCheckoutLoading}
-            >
-              {liteCheckoutLoading ? "Taking you to checkout…" : "Subscribe to Clarion Lite"}
-            </button>
-          </div>
-          {liteError && <p className="paywall-error paywall-error--lite">{liteError}</p>}
-        </div>
+        <PricingTiers
+          variant="paywall"
+          onTier1Click={() => router.push("/?step=survey")}
+          onTier2Click={() => handleUnlock("analysis")}
+          onTier3Click={() => handleUnlock("monthly")}
+          tier2Loading={checkoutLoading}
+          tier3Loading={checkoutLoading}
+        />
 
-        <p className="paywall-full-label">Full analysis + Clarion+</p>
-        <div className="paywall-card">
-          <div className="paywall-price">
-            <span className="paywall-amount">${analysisPrice}</span>
-            <span className="paywall-period">one-time analysis fee</span>
-            <span className="paywall-subline">
-              {`Then Clarion+ $${subscriptionPrice} / 2 months — first 2 months included. Cancel anytime.`}
-            </span>
-          </div>
-          <ul className="paywall-features">
-            <li>Know which biomarkers to focus on first</li>
-            <li>A clear 30-day plan (supplements, diet, lifestyle)</li>
-            <li>Ask Clarion — ask questions in plain English about your results</li>
-            <li>Savings and supplement recommendations</li>
-            <li>Your dashboard to track protocol and trends</li>
-            <li>Retest reminders so you stay on top</li>
-            <li>Subscribers: add new labs without paying the analysis fee again</li>
-          </ul>
-          <button
-            type="button"
-            className="paywall-cta"
-            onClick={handleUnlock}
-            disabled={checkoutLoading}
-          >
-            {checkoutLoading ? "Taking you to checkout…" : "Unlock My Health Plan"}
-          </button>
-        </div>
-        {error && <p className="paywall-error">{error}</p>}
+        {error && (
+          <>
+            <p className="paywall-error">{error}</p>
+            <SupportContactHint />
+          </>
+        )}
         <p className="paywall-stripe-hint">At Stripe checkout you can also enter a promotion code if you have one.</p>
+
+        {showLite && (
+          <div className="paywall-compare-wrap" aria-label="Clarion Lite (legacy)">
+            <p className="paywall-compare-title">Clarion Lite — symptom-only plan</p>
+            <p className="paywall-lite-footnote" role="note">
+              Clarion Lite is education and habit support based on how you feel and your goals—not a substitute for labs or
+              medical care. It does not interpret your bloodwork.
+            </p>
+            <div className="paywall-lite-row">
+              <div className="paywall-lite-price">
+                <span className="paywall-lite-amount">${litePrice}</span>
+                <span className="paywall-lite-period">/ month</span>
+              </div>
+              <button
+                type="button"
+                className="paywall-lite-cta"
+                onClick={handleLiteCheckout}
+                disabled={liteCheckoutLoading}
+              >
+                {liteCheckoutLoading ? "Taking you to checkout…" : "Subscribe to Clarion Lite"}
+              </button>
+            </div>
+            {liteError && (
+              <>
+                <p className="paywall-error paywall-error--lite">{liteError}</p>
+                <SupportContactHint />
+              </>
+            )}
+          </div>
+        )}
+        <ComplianceFooter variant="footer" />
+
         <div className="paywall-code-wrap">
           <p className="paywall-code-label">Have a free Clarion unlock code?</p>
           <form onSubmit={handleRedeemCode} className="paywall-code-form">
@@ -276,7 +299,12 @@ export default function PaywallPage() {
               {redeemLoading ? "Redeeming…" : "Redeem"}
             </button>
           </form>
-          {redeemError && <p className="paywall-error">{redeemError}</p>}
+          {redeemError && (
+            <>
+              <p className="paywall-error">{redeemError}</p>
+              <SupportContactHint />
+            </>
+          )}
           {redeemSuccess && (
             <p className="paywall-success">
               Code applied. <Link href="/dashboard" className="paywall-go-now">Go to dashboard now</Link> or we’ll take you there in a few seconds.
@@ -316,6 +344,9 @@ const paywallStyles = `
     max-width: 520px;
     width: 100%;
     text-align: center;
+  }
+  .paywall-container--wide {
+    max-width: 1040px;
   }
   .paywall-compare-wrap {
     margin-bottom: 28px;
@@ -475,6 +506,11 @@ const paywallStyles = `
     color: var(--color-text-secondary);
     margin: 0 0 28px;
     line-height: 1.5;
+  }
+  .paywall-subtitle--subscribed {
+    max-width: 440px;
+    margin-left: auto;
+    margin-right: auto;
   }
   .paywall-card {
     background: var(--clarion-card-bg);

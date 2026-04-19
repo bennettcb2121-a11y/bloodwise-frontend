@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import * as Sentry from "@sentry/nextjs"
 import { getClientIp, supportChatRateLimiter } from "@/src/lib/apiRateLimit"
 import { matchSupportFaq, staticSupportFallback } from "@/src/lib/supportFaq"
+import { getOpenAiApiKey } from "@/src/lib/openaiEnv"
+
+export const runtime = "nodejs"
 
 const SYSTEM_PROMPT_SUPPORT = `You are Clarion Labs' customer support helper. You answer only about:
 - Account, login, and navigation in the Clarion web app
@@ -42,7 +45,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    const apiKey = process.env.OPENAI_API_KEY
+    const apiKey = getOpenAiApiKey()
     if (!apiKey) {
       return NextResponse.json({
         reply: staticSupportFallback(),

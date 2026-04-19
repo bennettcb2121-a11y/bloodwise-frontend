@@ -2,6 +2,7 @@
  * Priority and focus: status tone, top-focus list, why-it-matters and next-step copy.
  */
 
+import { resolveActionPlanDbKey } from "@/src/lib/actionPlans"
 import { getLipidPanelCoachingNote } from "@/src/lib/lipidPanelContext"
 
 function compactMarkerKey(marker: string): string {
@@ -79,6 +80,10 @@ export function getStatusToneFriendly(status?: string): StatusTone {
   return base
 }
 
+/**
+ * @deprecated Prefer {@link getOrderedFocusResults} from `scoreBreakdown` so “top focus” matches
+ * score drivers and panel copy (same severity + profile/symptom ordering).
+ */
 export function buildTopFocus<T extends AnalysisItem>(analysis: T[]): T[] {
   return analysis
     .filter((item) => {
@@ -333,8 +338,11 @@ export function getPrioritySummary(
   analysisResults: AnalysisItem[],
   topFocus: AnalysisItem[]
 ): PrioritySummary {
+  const rawFirst = topFocus[0]?.name || topFocus[0]?.marker
   const biggestDrag =
-    topFocus[0]?.name || topFocus[0]?.marker || "No major flags"
+    rawFirst && String(rawFirst).trim()
+      ? resolveActionPlanDbKey(String(rawFirst).trim())
+      : "No major flags"
   const strongestMarker =
     analysisResults.find(
       (item) => (item.status || "").toLowerCase() === "optimal"

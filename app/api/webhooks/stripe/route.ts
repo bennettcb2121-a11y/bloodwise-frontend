@@ -4,6 +4,36 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { isDuplicateKeyError } from "@/src/lib/stripeWebhookIdempotency"
 import { CLARION_SUBSCRIPTION_TRIAL_DAYS } from "@/src/lib/analysisPricing"
 import { syncProfilePlanTierForStripeSubscription } from "@/src/lib/planTier"
+import { sendAnalysisReportEmail } from "@/src/lib/analysisReportEmail"
+
+async function sendAnalysisReportEmailAfterCheckout(
+  supabase: SupabaseClient,
+  session: Stripe.Checkout.Session,
+  userId: string
+) {
+  let to =
+    (typeof session.customer_email === "string" && session.customer_email.trim()) ||
+    (session.customer_details &&
+    typeof session.customer_details.email === "string" &&
+    session.customer_details.email.trim()) ||
+    ""
+  if (!to) {
+    try {
+      const { data, error } = await supabase.auth.admin.getUserById(userId)
+      if (!error && data.user?.email) to = data.user.email.trim()
+    } catch {
+      // ignore
+    }
+  }
+  if (!to) {
+    console.warn("Stripe analysis checkout: no email address for analysis report welcome")
+    return
+  }
+  const result = await sendAnalysisReportEmail({ to })
+  if (!result.ok) {
+    console.error("sendAnalysisReportEmail after analysis checkout:", result.error)
+  }
+}
 
 async function processStripeEvent(event: Stripe.Event, stripe: Stripe, supabase: SupabaseClient) {
   switch (event.type) {
@@ -44,6 +74,11 @@ async function processStripeEvent(event: Stripe.Event, stripe: Stripe, supabase:
           },
           { onConflict: "user_id" }
         )
+        try {
+          await sendAnalysisReportEmailAfterCheckout(supabase, session, userId)
+        } catch (e) {
+          console.error("Stripe: analysis report welcome email failed:", e)
+        }
         const customerIdStr = typeof session.customer === "string" ? session.customer : null
         const subscriptionPriceId =
           process.env.STRIPE_SUBSCRIPTION_PRICE_ID?.trim() || process.env.STRIPE_PRICE_ID?.trim()
@@ -51,11 +86,13 @@ async function processStripeEvent(event: Stripe.Event, stripe: Stripe, supabase:
           try {
             const { data: existing } = await supabase.from("subscriptions").select("user_id").eq("user_id", userId).maybeSingle()
             if (!existing) {
+              const sourceTier =
+                session.metadata?.source_tier === "monthly" ? "monthly" : "analysis"
               const sub = await stripe.subscriptions.create({
                 customer: customerIdStr,
                 items: [{ price: subscriptionPriceId }],
                 trial_period_days: CLARION_SUBSCRIPTION_TRIAL_DAYS,
-                metadata: { user_id: userId, type: "clarion_plus" },
+                metadata: { user_id: userId, type: "clarion_plus", source_tier: sourceTier },
               })
               const subWithPeriod = sub as Stripe.Subscription & { current_period_end?: number }
               const periodEnd =

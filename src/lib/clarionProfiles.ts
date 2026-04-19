@@ -484,12 +484,153 @@ export const HEALTH_GOAL_OPTIONS: { id: string; label: string; profileType: Prof
   { id: "general_health", label: "General health", profileType: "general_health_adult" },
 ]
 
+/** Sentinel: user is not using performance-training context (ranges fall back to sport text + goals). */
+export const TRAINING_FOCUS_NONE_ID = "none"
+
+/**
+ * Training / athlete focus — separate from health goals. Drives adaptive biomarker ranges (via classification),
+ * supplement tone, and merges into recommended panels together with goals.
+ */
+export const TRAINING_FOCUS_OPTIONS: {
+  id: string
+  label: string
+  description: string
+  profileType: ProfileTypeId
+}[] = [
+  {
+    id: TRAINING_FOCUS_NONE_ID,
+    label: "Not performance-focused",
+    description: "General wellness or lifestyle—no sport-specific targets",
+    profileType: "general_health_adult",
+  },
+  {
+    id: "endurance_athlete",
+    label: "Endurance athlete",
+    description: "Running, cycling, triathlon—iron, oxygen transport, recovery",
+    profileType: "endurance_athlete",
+  },
+  {
+    id: "strength_hypertrophy_athlete",
+    label: "Strength / hypertrophy",
+    description: "Lifting, power—vitamin D, magnesium, recovery context",
+    profileType: "strength_hypertrophy_athlete",
+  },
+  {
+    id: "mixed_sport_athlete",
+    label: "Mixed / field sport",
+    description: "Team sports, hybrid training—balanced performance panel",
+    profileType: "mixed_sport_athlete",
+  },
+  {
+    id: "female_athlete",
+    label: "Female athlete",
+    description: "Menstrual cycle, iron, energy—RED-S–aware context",
+    profileType: "female_athlete",
+  },
+  {
+    id: "high_volume_adolescent",
+    label: "High-volume adolescent",
+    description: "Growth + heavy training load",
+    profileType: "high_volume_adolescent",
+  },
+]
+
+export function trainingFocusToProfileType(id: string | undefined | null): ProfileTypeId | null {
+  const t = (id ?? "").trim()
+  if (!t || t === TRAINING_FOCUS_NONE_ID) return null
+  const opt = TRAINING_FOCUS_OPTIONS.find((o) => o.id === t)
+  if (!opt || opt.id === TRAINING_FOCUS_NONE_ID) return null
+  return opt.profileType
+}
+
 /**
  * Map onboarding health goal id to profile type for panel recommendation.
  */
 export function healthGoalToProfileType(healthGoalId: string): ProfileTypeId {
   const opt = HEALTH_GOAL_OPTIONS.find((o) => o.id === healthGoalId)
   return opt?.profileType ?? "general_health_adult"
+}
+
+/** Comma-separated health goal ids from onboarding (e.g. more_energy,improve_fitness). */
+export function parseHealthGoalIds(healthGoalCsv: string | undefined | null): string[] {
+  if (!healthGoalCsv?.trim()) return []
+  const known = new Set(HEALTH_GOAL_OPTIONS.map((o) => o.id))
+  return healthGoalCsv
+    .split(",")
+    .map((s) => s.trim())
+    .filter((id): id is string => Boolean(id) && known.has(id))
+}
+
+/**
+ * Primary stored `profile_type`: performance training focus wins when set; otherwise first health goal.
+ */
+export function primaryProfileTypeFromHealthGoalsAndTraining(
+  goalIds: string[],
+  trainingFocusId: string | undefined | null
+): ProfileTypeId {
+  const fromTraining = trainingFocusToProfileType(trainingFocusId)
+  if (fromTraining) return fromTraining
+  if (goalIds.length === 0) return "general_health_adult"
+  return healthGoalToProfileType(goalIds[0])
+}
+
+/** First selected goal maps to profile_type for legacy single-type fields; default general health. */
+export function primaryProfileTypeFromHealthGoalIds(goalIds: string[]): ProfileTypeId {
+  return primaryProfileTypeFromHealthGoalsAndTraining(goalIds, undefined)
+}
+
+/**
+ * Union of recommended panels for each goal, preserving first-seen order (deduped).
+ * Used when the user selects multiple health goals so biomarkers cover every focus area together.
+ */
+export function mergeRecommendedPanelsFromHealthGoals(goalIds: string[], allKeys: string[]): string[] {
+  if (goalIds.length === 0) return []
+  const merged: string[] = []
+  const seen = new Set<string>()
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/\s+/g, "")
+      .replace(/_/g, "")
+  for (const id of goalIds) {
+    const pt = healthGoalToProfileType(id)
+    const panel = getRecommendedPanelForProfile(pt, allKeys)
+    for (const k of panel) {
+      const n = norm(k)
+      if (!seen.has(n)) {
+        seen.add(n)
+        merged.push(k)
+      }
+    }
+  }
+  return merged
+}
+
+/** Merges training-focus panel first, then health-goal panels (deduped). */
+export function mergeRecommendedPanelsFromHealthGoalsAndTraining(
+  goalIds: string[],
+  trainingFocusId: string | undefined | null,
+  allKeys: string[]
+): string[] {
+  const norm = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/\s+/g, "")
+      .replace(/_/g, "")
+  const fromGoals = mergeRecommendedPanelsFromHealthGoals(goalIds, allKeys)
+  const pt = trainingFocusToProfileType(trainingFocusId)
+  if (!pt) return fromGoals
+  const fromTraining = getRecommendedPanelForProfile(pt, allKeys)
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const k of [...fromTraining, ...fromGoals]) {
+    const n = norm(k)
+    if (!seen.has(n)) {
+      seen.add(n)
+      out.push(k)
+    }
+  }
+  return out
 }
 
 /**

@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
-import { FAQ_ITEMS, getSupportEmail } from "@/src/lib/faqContent"
+import { FAQ_ITEMS } from "@/src/lib/faqContent"
+import { getSupportEmail, getSupportMailtoHref } from "@/src/lib/supportContact"
 
 export const metadata = {
   title: "FAQ & Help | Clarion Labs",
@@ -47,7 +48,7 @@ export default function FaqPage() {
           </h2>
           <p className="terms-body">
             For billing, access, or bugs we can’t resolve in the Help chat, reach us at{" "}
-            <a href={`mailto:${supportEmail}`} className="faq-inline-link">
+            <a href={getSupportMailtoHref()} className="faq-inline-link">
               {supportEmail}
             </a>
             .
@@ -60,6 +61,8 @@ export default function FaqPage() {
           <Link href="/">← Back to home</Link>
           {" · "}
           <Link href="/terms">Terms &amp; Disclaimer</Link>
+          {" · "}
+          <Link href="/legal/privacy">Privacy</Link>
         </p>
       </div>
     </main>

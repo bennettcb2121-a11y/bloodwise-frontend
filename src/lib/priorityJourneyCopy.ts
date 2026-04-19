@@ -20,15 +20,23 @@ function norm(s: string): string {
   return s.toLowerCase().replace(/\s+/g, " ").trim()
 }
 
-/** e.g. “Boosting Vitamin D”, “Optimizing Ferritin” */
-export function getProgressHeadlineForMarker(markerName: string, displayLabel: string): string {
+/** e.g. “Boosting Vitamin D”, “Optimizing Ferritin” — when status is high for repletion nutrients, never implies “build more”. */
+export function getProgressHeadlineForMarker(markerName: string, displayLabel: string, status?: string): string {
+  const s = (status ?? "").toLowerCase()
   const m = norm(markerName)
   const d = norm(displayLabel)
   if (m.includes("vitamin d") || m.includes("25-oh") || d.includes("vitamin d")) {
+    if (s === "high") return "Elevated Vitamin D — review; don’t add more"
     return "Boosting Vitamin D"
   }
-  if (m.includes("ferritin") || d.includes("ferritin")) return "Optimizing Iron"
-  if (m.includes("b12") || d.includes("b12")) return "Building B12"
+  if (m.includes("ferritin") || d.includes("ferritin")) {
+    if (s === "high") return "Elevated ferritin — avoid extra iron"
+    return "Optimizing Iron"
+  }
+  if (m.includes("b12") || d.includes("b12")) {
+    if (s === "high") return "Elevated B12 — clinician review first"
+    return "Building B12"
+  }
   if (m.includes("iron") || d.includes("serum iron")) return "Optimizing Iron"
   if (m.includes("magnesium")) return "Optimizing Magnesium"
   if (m.includes("folate") || m.includes("folic")) return "Supporting Folate"
@@ -40,11 +48,21 @@ export function getProgressHeadlineForMarker(markerName: string, displayLabel: s
 }
 
 /** Short supportive line under the headline */
-export function getLifestyleTaglineForMarker(markerName: string): string {
+export function getLifestyleTaglineForMarker(markerName: string, status?: string): string {
+  const s = (status ?? "").toLowerCase()
   const m = norm(markerName)
-  if (m.includes("vitamin d") || m.includes("25-oh")) return "More sunlight, better recovery"
-  if (m.includes("ferritin") || m.includes("iron")) return "Stronger oxygen delivery, steadier energy"
-  if (m.includes("b12")) return "Sharper focus, resilient nerves"
+  if (m.includes("vitamin d") || m.includes("25-oh")) {
+    if (s === "high") return "Pause extra D; list sources; retest with your clinician"
+    return "More sunlight, better recovery"
+  }
+  if (m.includes("ferritin") || m.includes("iron")) {
+    if (s === "high") return "Iron stores are up — no repletion stacks without guidance"
+    return "Stronger oxygen delivery, steadier energy"
+  }
+  if (m.includes("b12")) {
+    if (s === "high") return "High serum B12 is a review item, not a cue for more pills"
+    return "Sharper focus, resilient nerves"
+  }
   if (m.includes("magnesium")) return "Sleep and stress support"
   if (m.includes("crp")) return "Less noise, faster bounce-back"
   return "Small shifts, compounding gains"
@@ -68,9 +86,23 @@ export type MarkerVisualKind =
   | "hormone"
   | "default"
 
-export function getPositiveStatusTeaser(statusLower: string): string {
+export function getPositiveStatusTeaser(statusLower: string, markerName?: string): string {
+  const m = norm(markerName ?? "")
   if (statusLower === "deficient") return "We’ll bring this toward your target—one step at a time."
-  if (statusLower === "high") return "We’ll guide this closer to your ideal range."
+  if (statusLower === "high") {
+    if (
+      m.includes("vitamin d") ||
+      m.includes("25-oh") ||
+      m.includes("b12") ||
+      m.includes("cobalamin") ||
+      m.includes("ferritin") ||
+      m.includes("magnesium") ||
+      m.includes("folate")
+    ) {
+      return "Above target — we’ll emphasize review and safety, not adding more of this nutrient."
+    }
+    return "Outside your ideal band — we’ll focus on smart next steps with your clinician’s context."
+  }
   return "Room to optimize vs your targets."
 }
 

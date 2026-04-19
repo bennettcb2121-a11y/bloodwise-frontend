@@ -3,7 +3,7 @@
  * data so missing guards show up as thrown errors or failed assertions.
  */
 import { describe, expect, it } from "vitest"
-import { hasClarionAnalysisAccess, hasLabPersonalizationAccess } from "@/src/lib/accessGate"
+import { hasClarionAnalysisAccess, hasLabPersonalizationAccess, subscriptionStatusGrantsAccess } from "@/src/lib/accessGate"
 import { buildLiteSupplementSuggestions } from "@/src/lib/symptomLiteSupplements"
 import { resolveTierFromStripeSubscription } from "@/src/lib/planTier"
 import type Stripe from "stripe"
@@ -56,6 +56,19 @@ describe("access gate — null / empty data", () => {
   it("allows subscription trialing", () => {
     expect(hasClarionAnalysisAccess(null, { status: "trialing" }, null)).toBe(true)
   })
+
+  it("allows subscription past_due (still entitled until canceled)", () => {
+    expect(hasClarionAnalysisAccess(null, { status: "past_due" }, null)).toBe(true)
+    expect(subscriptionStatusGrantsAccess("past_due")).toBe(true)
+  })
+
+  it("allows plan_tier full when subscriptions row has not synced yet", () => {
+    expect(hasClarionAnalysisAccess({ plan_tier: "full" }, null, null)).toBe(true)
+  })
+
+  it("allows plan_tier lite when subscriptions row has not synced yet", () => {
+    expect(hasClarionAnalysisAccess({ plan_tier: "lite" }, null, null)).toBe(true)
+  })
 })
 
 describe("lab personalization access", () => {
@@ -90,6 +103,15 @@ describe("plan tier from Stripe subscription", () => {
     }
     expect(resolveTierFromStripeSubscription(sub as unknown as Stripe.Subscription)).toBe("full")
   })
+
+  it("keeps tier when subscription is past_due", () => {
+    const sub = {
+      status: "past_due" as const,
+      metadata: { type: "lite" },
+      items: { data: [{ price: { id: "price_dynamic_inline" } }] },
+    }
+    expect(resolveTierFromStripeSubscription(sub as unknown as Stripe.Subscription)).toBe("lite")
+  })
 })
 
 describe("Clarion Lite supplement suggestions", () => {
@@ -109,7 +131,7 @@ describe("Clarion Lite supplement suggestions", () => {
 describe("sky mood — edge inputs", () => {
   it("returns a valid mood for empty protocol state", () => {
     const m = getDashboardSkyMood(minimalSkyInput())
-    expect(["night", "storm", "drizzle", "sunrise", "clear", "perfect", "calm"]).toContain(m)
+    expect(["night", "storm", "drizzle", "sunrise", "sunset", "clear", "perfect", "calm"]).toContain(m)
   })
 
   it("handles NaN-like ratios via zero denominators", () => {

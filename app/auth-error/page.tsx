@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react"
 import Link from "next/link"
+import { SupportContactHint } from "@/src/components/SupportContactHints"
 
 const DEFAULT_MESSAGE = "Something went wrong signing you in."
 
@@ -34,6 +35,7 @@ export default function AuthErrorPage() {
           In Supabase → Authentication → URL Configuration: add <strong>http://localhost:3000/auth/callback</strong> to Redirect URLs (use http, not https), then click <strong>Save changes</strong> at the top of that section.
         </p>
       )}
+      <SupportContactHint />
       <Link href="/login">Try again</Link>
       <span className="auth-error-page-sep"> · </span>
       <Link href="/">Back to home</Link>
@@ -81,6 +83,12 @@ export default function AuthErrorPage() {
           word-break: break-word;
         }
         .auth-error-page-sep { color: var(--color-text-muted); margin: 0 4px; }
+        .auth-error-page .clarion-support-hint {
+          text-align: center;
+          margin-top: 0;
+          margin-bottom: 20px;
+          max-width: 360px;
+        }
       `}</style>
     </main>
   )

@@ -1,9 +1,17 @@
 /**
  * Health score breakdown by category, score drivers (limiters), and improvement forecast.
  * Uses same penalty logic as calculateScore.ts.
+ *
+ * **Single source for “what should we focus on first?”** — `getOrderedScoreDrivers` (and
+ * `getOrderedFocusResults`, which maps drivers back to full analysis rows). Ordering uses
+ * `computeDriverPriorityScore` in `priorityRanking.ts`: lab severity (penalty × 1000) plus
+ * optional boosts from profile, symptoms, sport, goals, iron synergy, and lipid-panel synergy.
+ * Dashboard hero, panel chips, Clarion summary, and “Focus:” lines should all use these — not
+ * raw analysis array order.
  */
 
 import { calculateScore } from "./calculateScore"
+import { resolveActionPlanDbKey } from "./actionPlans"
 import {
   computeDriverPriorityScore,
   isPriorityContextEmpty,
@@ -190,6 +198,51 @@ export function getOrderedScoreDrivers(
     limiters.sort((a, b) => penaltyForStatus(b.status) - penaltyForStatus(a.status))
   }
   return limiters.slice(0, maxItems)
+}
+
+/**
+ * Map a driver label back to the analysis row (handles aliases like 25-OH Vitamin D ↔ Vitamin D for scoring keys).
+ */
+export function findAnalysisResultForDriverMarker(
+  report: BiomarkerResultForScore[],
+  markerName: string
+): BiomarkerResultForScore | undefined {
+  const needle = markerName.trim()
+  if (!needle) return undefined
+  const nLow = needle.toLowerCase()
+  const exact = report.find((r) => (r.name ?? "").toLowerCase() === nLow)
+  if (exact) return exact
+  const resolvedNeedle = resolveActionPlanDbKey(needle)
+  for (const r of report) {
+    const name = r.name?.trim()
+    if (!name) continue
+    if (resolveActionPlanDbKey(name) === resolvedNeedle) return r
+  }
+  if (resolvedNeedle === "Vitamin D") {
+    return report.find(
+      (r) =>
+        (r.name ?? "").toLowerCase().includes("vitamin d") || (r.name ?? "").toLowerCase().includes("25-oh")
+    )
+  }
+  return undefined
+}
+
+/**
+ * Flagged markers in the same order as {@link getOrderedScoreDrivers} (lab severity + profile/symptom context).
+ * Use this anywhere copy says “top priority” or “biggest opportunity” so it matches panel score + hero focus.
+ */
+export function getOrderedFocusResults(
+  report: BiomarkerResultForScore[] = [],
+  maxItems: number = 3,
+  priorityContext?: UserPriorityContext | null
+): BiomarkerResultForScore[] {
+  const drivers = getOrderedScoreDrivers(report, maxItems, priorityContext)
+  const out: BiomarkerResultForScore[] = []
+  for (const d of drivers) {
+    const r = findAnalysisResultForDriverMarker(report, d.markerName)
+    if (r) out.push(r)
+  }
+  return out
 }
 
 /** Estimate score if one marker were moved to optimal (re-run score with that marker forced optimal). */

@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server"
 import * as Sentry from "@sentry/nextjs"
 import { chatRateLimiter, getClientIp } from "@/src/lib/apiRateLimit"
 import { createClient } from "@/src/lib/supabase/server"
+import { getOpenAiApiKey } from "@/src/lib/openaiEnv"
+
+export const runtime = "nodejs"
+
+const MAX_SNAPSHOT_CHARS = 12_000
+const MAX_HISTORY_MESSAGES = 24
 
 const SYSTEM_PROMPT = `You are Clarion's health education assistant. You help users understand their biomarkers and general wellness in plain language. You must:
 - Give clear, general education only. You never diagnose, prescribe, or replace a clinician.
@@ -10,6 +16,22 @@ const SYSTEM_PROMPT = `You are Clarion's health education assistant. You help us
 - If the user shares biomarker values or results, use them only to explain what they might mean in general terms and what follow-up (e.g. retesting, talking to a doctor) could look like.
 - Keep answers concise and actionable. Use simple language.
 - You may end with a brief reminder that this chat is not a substitute for professional medical advice when appropriate.`
+
+type ChatTurn = { role: "user" | "assistant"; content: string }
+
+function sanitizeConversationHistory(raw: unknown): ChatTurn[] {
+  if (!Array.isArray(raw)) return []
+  const out: ChatTurn[] = []
+  for (const item of raw.slice(-MAX_HISTORY_MESSAGES)) {
+    if (!item || typeof item !== "object") continue
+    const role = (item as { role?: string }).role
+    const content = (item as { content?: string }).content
+    if (role !== "user" && role !== "assistant") continue
+    if (typeof content !== "string" || !content.trim()) continue
+    out.push({ role, content: content.trim().slice(0, MAX_SNAPSHOT_CHARS) })
+  }
+  return out
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -26,6 +48,14 @@ export async function POST(req: NextRequest) {
     if (!message) {
       return NextResponse.json({ error: "Message is required" }, { status: 400 })
     }
+
+    const biomarkerSnapshotRaw = typeof body?.biomarkerSnapshot === "string" ? body.biomarkerSnapshot.trim() : ""
+    const biomarkerSnapshot =
+      biomarkerSnapshotRaw.length > MAX_SNAPSHOT_CHARS
+        ? `${biomarkerSnapshotRaw.slice(0, MAX_SNAPSHOT_CHARS)}\n…`
+        : biomarkerSnapshotRaw
+
+    const conversationHistory = sanitizeConversationHistory(body?.conversationHistory)
 
     const supabase = await createClient()
     const {
@@ -48,7 +78,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const apiKey = process.env.OPENAI_API_KEY
+    const snapshotBlock = biomarkerSnapshot
+      ? `\n\nBiomarker snapshot for this conversation (education only; values are user-provided):\n${biomarkerSnapshot}`
+      : ""
+
+    const apiKey = getOpenAiApiKey()
     if (!apiKey) {
       return NextResponse.json(
         { error: "Assistant is not configured. Please add OPENAI_API_KEY to enable." },
@@ -56,13 +90,24 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const systemContent =
+      SYSTEM_PROMPT +
+      (context ? `\n\nRelevant context (use only for education): ${context}` : "") +
+      snapshotBlock
+
+    const openAiMessages: { role: string; content: string }[] = [{ role: "system", content: systemContent }]
+    for (const turn of conversationHistory) {
+      openAiMessages.push({ role: turn.role, content: turn.content })
+    }
+    openAiMessages.push({ role: "user", content: message })
+
+    const maxTokens =
+      biomarkerSnapshot || conversationHistory.length > 0 ? 900 : 500
+
     const payload = {
       model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT + (context ? `\n\nRelevant context (use only for education): ${context}` : "") },
-        { role: "user", content: message },
-      ],
-      max_tokens: 500,
+      messages: openAiMessages,
+      max_tokens: maxTokens,
     }
 
     const res = await fetch("https://api.openai.com/v1/chat/completions", {

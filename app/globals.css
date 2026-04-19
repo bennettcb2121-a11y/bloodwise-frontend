@@ -20,7 +20,8 @@
   --color-accent-border: rgba(31, 111, 91, 0.35);
   --color-accent-contrast: #fff;
   --color-success: #2A8C72;
-  --color-warning: #d4a84b;
+  /* Softer gold — meaning only, not decoration */
+  --color-warning: #c4a060;
   --color-error: #c75c5c;
   /* Biomarker trend chart lines — distinct hues (dark theme) */
   --chart-ferritin: #2dd4bf;
@@ -30,21 +31,34 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.15);
   --ring-focus: 0 0 0 3px rgba(31, 111, 91, 0.35);
-  /* Card surfaces (dark) — do not duplicate in the shared legacy block below or light mode breaks */
-  --clarion-card-bg: rgba(255, 255, 255, 0.04);
-  --clarion-card-border: rgba(255, 255, 255, 0.06);
+  /* Dashboard surface tiers — L1 quiet / L2 default panels / L3 rare highlight */
+  --dashboard-surface-l1-bg: rgba(255, 255, 255, 0.018);
+  --dashboard-surface-l1-border: rgba(255, 255, 255, 0.04);
+  --dashboard-surface-l2-bg: rgba(255, 255, 255, 0.042);
+  --dashboard-surface-l2-border: rgba(255, 255, 255, 0.055);
+  --dashboard-surface-l3-bg: color-mix(in srgb, var(--color-accent) 10%, rgba(255, 255, 255, 0.038));
+  --dashboard-surface-l3-border: color-mix(in srgb, var(--color-accent) 20%, rgba(255, 255, 255, 0.06));
+  /* Card surfaces (dark) — align with L2 */
+  --clarion-card-bg: var(--dashboard-surface-l2-bg);
+  --clarion-card-border: var(--dashboard-surface-l2-border);
   --clarion-card-hover-bg: rgba(255, 255, 255, 0.06);
   --clarion-card-selected-bg: rgba(31, 111, 91, 0.14);
   --clarion-card-selected-border: rgba(31, 111, 91, 0.35);
+  /* Biomarkers list: range strip (low / target / high) — never use “success green” for the high end */
+  --biomarker-range-track: rgba(255, 255, 255, 0.1);
+  --biomarker-range-low-bg: color-mix(in srgb, var(--color-error) 58%, var(--color-bg));
+  --biomarker-range-optimal-bg: color-mix(in srgb, var(--color-accent) 78%, var(--color-bg));
+  --biomarker-range-high-bg: color-mix(in srgb, var(--color-warning) 62%, var(--color-bg));
 }
 
 [data-theme="light"] {
-  --color-bg: #F6F7F5;
-  --color-bg-muted: #eeedeb;
-  --color-surface: #FFFFFF;
-  --color-surface-elevated: #FFFFFF;
-  --color-border: rgba(0, 0, 0, 0.06);
-  --color-border-strong: rgba(0, 0, 0, 0.12);
+  /* Warm paper — less flat gray, pairs with forest accent */
+  --color-bg: #f0f3f0;
+  --color-bg-muted: #e3e8e4;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #f7f9f7;
+  --color-border: rgba(15, 22, 20, 0.08);
+  --color-border-strong: rgba(15, 22, 20, 0.14);
   --color-text-primary: #1a1a1a;
   --color-text-secondary: rgba(0, 0, 0, 0.65);
   --color-text-muted: rgba(0, 0, 0, 0.45);
@@ -54,7 +68,7 @@
   --color-accent-border: rgba(31, 111, 91, 0.4);
   --color-accent-contrast: #fff;
   --color-success: #1F6F5B;
-  --color-warning: #b45309;
+  --color-warning: #9a6b2e;
   --color-error: #b91c1c;
   --chart-ferritin: #0f766e;
   --chart-vitaminD: #b45309;
@@ -63,11 +77,21 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
   --ring-focus: 0 0 0 3px rgba(31, 111, 91, 0.35);
-  --clarion-card-bg: #FFFFFF;
-  --clarion-card-border: rgba(0, 0, 0, 0.06);
+  --dashboard-surface-l1-bg: rgba(31, 111, 91, 0.04);
+  --dashboard-surface-l1-border: rgba(15, 22, 20, 0.07);
+  --dashboard-surface-l2-bg: #ffffff;
+  --dashboard-surface-l2-border: rgba(15, 22, 20, 0.09);
+  --dashboard-surface-l3-bg: color-mix(in srgb, var(--color-accent) 8%, #fafcfb);
+  --dashboard-surface-l3-border: color-mix(in srgb, var(--color-accent) 22%, rgba(15, 22, 20, 0.1));
+  --clarion-card-bg: var(--dashboard-surface-l2-bg);
+  --clarion-card-border: var(--dashboard-surface-l2-border);
   --clarion-card-hover-bg: rgba(0, 0, 0, 0.03);
   --clarion-card-selected-bg: rgba(31, 111, 91, 0.14);
   --clarion-card-selected-border: rgba(31, 111, 91, 0.4);
+  --biomarker-range-track: rgba(0, 0, 0, 0.07);
+  --biomarker-range-low-bg: color-mix(in srgb, var(--color-error) 40%, #ffffff);
+  --biomarker-range-optimal-bg: color-mix(in srgb, var(--color-accent) 52%, #ffffff);
+  --biomarker-range-high-bg: color-mix(in srgb, var(--color-warning) 48%, #ffffff);
 }
 
 /* Legacy aliases (all UI can keep using --clarion-* or switch to --color-*) */
@@ -110,14 +134,39 @@
   --font-heading: var(--font-baskerville), Georgia, "Times New Roman", serif;
   --font-body: var(--font-source-sans), system-ui, -apple-system, sans-serif;
 
-  /* Dashboard type scale — scan-first, premium clarity */
-  --dashboard-font-display: clamp(34px, 7vw, 48px);
-  --dashboard-font-section: clamp(17px, 2.6vw, 20px);
-  --dashboard-font-body: 16px;
-  --dashboard-font-sm: 15px;
-  --dashboard-font-meta: 13px;
+  /* Spacing scale — 8 / 12 / 16 / 24 / 32 / 48 */
+  --dashboard-space-micro: 8px;
+  --dashboard-space-tight: 12px;
+  --dashboard-space-standard: 16px;
+  --dashboard-space-inner: 24px;
+  --dashboard-space-section: 32px;
+  --dashboard-space-major: 48px;
+  --dashboard-section-gap: var(--dashboard-space-section);
+  --dashboard-block-gap: var(--dashboard-space-standard);
+  --dashboard-major-gap: var(--dashboard-space-major);
   --dashboard-space: 8px;
   --dashboard-motion: 0.2s;
+
+  /* Typography — four levels (hero / section / primary / secondary) */
+  --dashboard-type-hero: clamp(34px, 6.2vw, 44px);
+  --dashboard-type-hero-line: 1.12;
+  --dashboard-type-section: clamp(17px, 2.2vw, 20px);
+  --dashboard-type-section-line: 1.28;
+  --dashboard-type-primary: 16px;
+  --dashboard-type-primary-line: 1.45;
+  --dashboard-type-secondary: 13px;
+  --dashboard-type-secondary-line: 1.45;
+  /* Legacy aliases */
+  --dashboard-font-display: var(--dashboard-type-hero);
+  --dashboard-font-section: var(--dashboard-type-section);
+  --dashboard-font-body: var(--dashboard-type-primary);
+  --dashboard-font-sm: 15px;
+  --dashboard-font-meta: var(--dashboard-type-secondary);
+
+  /* Semantic accents — one hue family; use sparingly */
+  --dashboard-semantic-link: var(--color-accent);
+  --dashboard-semantic-positive: color-mix(in srgb, var(--color-success) 82%, var(--color-text-muted));
+  --dashboard-semantic-attention: color-mix(in srgb, var(--color-warning) 75%, var(--color-text-muted));
 }
 
 @theme inline {
@@ -143,6 +192,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Light: subtle vertical depth (dashboard sky still reads as atmosphere; marketing pages feel less flat) */
+[data-theme="light"] body {
+  background: linear-gradient(180deg, #f5f7f4 0%, var(--color-bg) 38%, #e8ece8 100%);
+  background-attachment: fixed;
+}
+
 /* Editorial typography — Libre Baskerville for headings only */
 .clarion-heading,
 .onboarding-headline {
@@ -166,6 +221,13 @@ body {
   line-height: 1.6;
   max-width: 560px;
   color: rgba(255, 255, 255, 0.75);
+}
+/* Biological step — breathing room: headline → subtext (inline onboarding headline uses mb 24px; override here) */
+.onboarding-screen--biological .onboarding-headline {
+  margin-bottom: 2.5rem;
+}
+.onboarding-screen--biological .onboarding-subtext {
+  margin-bottom: 1.75rem;
 }
 [data-theme="light"] .clarion-subtext,
 [data-theme="light"] .onboarding-subtext {
@@ -220,6 +282,16 @@ body {
   position: fixed;
   inset: 0;
   background: radial-gradient(circle at 50% 30%, rgba(31, 111, 91, 0.12), transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+[data-theme="light"] .onboarding-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% -10%, rgba(31, 111, 91, 0.07), transparent 52%),
+    radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.5), transparent 45%);
   pointer-events: none;
   z-index: 0;
 }
@@ -405,6 +477,7 @@ button.onboarding-supplement-chip.selected {
 button.onboarding-answer-pill {
   cursor: pointer !important;
   pointer-events: auto !important;
+  border-radius: 9999px !important;
   background: transparent !important;
   border-color: transparent !important;
   box-shadow: none !important;
@@ -415,9 +488,15 @@ button.onboarding-answer-pill:hover {
   border-color: rgba(255, 255, 255, 0.18) !important;
 }
 button.onboarding-answer-pill.selected {
-  background: var(--clarion-card-selected-bg) !important;
-  border: 1px solid var(--clarion-card-selected-border) !important;
-  box-shadow: var(--clarion-card-selected-shadow) !important;
+  /* Clarion: soft forest wash + layered glow (box-shadow only — filter breaks motion.button hit targets) */
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent) !important;
+  border: none !important;
+  outline: none !important;
+  border-radius: 9999px !important;
+  box-shadow:
+    0 2px 10px rgba(31, 111, 91, 0.18),
+    0 6px 28px rgba(31, 111, 91, 0.22),
+    0 0 44px rgba(42, 140, 114, 0.14) !important;
   color: var(--color-text-primary) !important;
 }
 [data-theme="light"] button.onboarding-answer-pill:hover {
@@ -425,8 +504,28 @@ button.onboarding-answer-pill.selected {
   border-color: rgba(0, 0, 0, 0.12) !important;
 }
 [data-theme="light"] button.onboarding-answer-pill.selected {
-  background: var(--clarion-card-selected-bg) !important;
-  border: 1px solid var(--clarion-card-selected-border) !important;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent) !important;
+  border: none !important;
+  outline: none !important;
+  border-radius: 9999px !important;
+  box-shadow:
+    0 3px 14px rgba(31, 111, 91, 0.14),
+    0 8px 32px rgba(31, 111, 91, 0.16),
+    0 0 48px rgba(42, 140, 114, 0.12) !important;
+}
+/* :focus-visible — match selected glow (no hard 3px ring) */
+button.onboarding-answer-pill.selected:focus-visible {
+  outline: none !important;
+  box-shadow:
+    0 2px 10px rgba(31, 111, 91, 0.18),
+    0 6px 28px rgba(31, 111, 91, 0.22),
+    0 0 44px rgba(42, 140, 114, 0.14) !important;
+}
+[data-theme="light"] button.onboarding-answer-pill.selected:focus-visible {
+  box-shadow:
+    0 3px 14px rgba(31, 111, 91, 0.14),
+    0 8px 32px rgba(31, 111, 91, 0.16),
+    0 0 48px rgba(42, 140, 114, 0.12) !important;
 }
 
 /* Profile cards (What best describes you): only the main card highlights on hover/selected, not inner elements */
@@ -617,6 +716,18 @@ button.onboarding-option-card.selected {
 [data-theme="light"] .onboarding-results-lock-text { color: var(--color-text-primary) !important; }
 [data-theme="light"] .onboarding-results-lock-text { color: var(--color-text-secondary) !important; }
 [data-theme="light"] .onboarding-results-lock-icon { color: var(--color-text-muted) !important; }
+/* Paywall card: light surface so lock title/body (forced to theme text colors) stay readable */
+[data-theme="light"] .onboarding-results-lock-card {
+  background: var(--color-surface-elevated) !important;
+  border-color: var(--color-border) !important;
+  box-shadow: var(--shadow-md);
+}
+[data-theme="light"] .onboarding-results-lock-card .onboarding-primary-btn {
+  color: var(--color-on-accent, #fff) !important;
+}
+[data-theme="light"] .onboarding-paid-access-note {
+  color: var(--color-text-secondary) !important;
+}
 [data-theme="light"] .onboarding-score-value,
 [data-theme="light"] .onboarding-score-label { color: var(--color-text-primary) !important; }
 [data-theme="light"] .onboarding-score-cat span,
@@ -743,6 +854,41 @@ button.onboarding-option-card.selected {
   width: 100%;
   flex: 1;
   min-height: 0;
+}
+.onboarding-hero-pricing {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1040px;
+  margin: 56px auto 0;
+  padding: 0 24px 56px;
+}
+.onboarding-hero-pricing-heading {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.onboarding-hero-pricing-title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  margin: 0 0 8px;
+}
+.onboarding-hero-pricing-sub {
+  font-size: 15px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  margin: 0 auto;
+  max-width: 620px;
+}
+@media (max-width: 700px) {
+  .onboarding-hero-pricing {
+    margin-top: 40px;
+    padding: 0 16px 40px;
+  }
+  .onboarding-hero-pricing-title {
+    font-size: 20px;
+  }
 }
 .onboarding-hero-backdrop {
   position: absolute;
@@ -1599,11 +1745,55 @@ a.clarion-labs-logo--link:hover .clarion-labs-logo-tagline {
 }
 .clarion-global-footer a:hover { color: var(--color-accent); }
 
+/* Subtle support hints (mailto, low emphasis) */
+.clarion-support-hint {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 10px 0 0;
+  line-height: 1.45;
+}
+.clarion-support-hint a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.clarion-support-hint a:hover {
+  color: var(--color-text-secondary);
+}
+.clarion-support-line--auth {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin: 20px 0 0;
+  line-height: 1.45;
+}
+.clarion-support-line--auth a {
+  color: inherit;
+  text-decoration: none;
+}
+.clarion-support-line--auth a:hover {
+  text-decoration: underline;
+  color: var(--color-text-secondary);
+}
+.dashboard-support-link {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-decoration: none;
+  opacity: 0.88;
+  padding: 0 6px;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+.dashboard-support-link:hover {
+  opacity: 1;
+  color: var(--color-text-secondary);
+}
+
 body.pitch-deck-active .clarion-global-footer {
   display: none !important;
 }
 
-/* Dashboard app shell + bottom nav */
+/* Dashboard app shell */
 .dashboard-app-shell {
   min-height: 100vh;
   min-height: 100dvh;
@@ -1670,6 +1860,11 @@ body.pitch-deck-active .clarion-global-footer {
   gap: 2px;
   padding: 0 8px;
   overflow-y: auto;
+}
+.dashboard-sidebar-primary {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .dashboard-sidebar-divider {
   height: 1px;
@@ -1815,23 +2010,56 @@ body.pitch-deck-active .clarion-global-footer {
   background: color-mix(in srgb, var(--color-surface-elevated) 82%, transparent);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65) inset;
 }
+
+/* Light UI + night/storm sky: sidebar & toolbar sit outside the sky layer — pull chrome down so it isn’t paper-white on a starfield */
+body[data-dashboard-sky="night"][data-theme="light"] .dashboard-sidebar,
+body[data-dashboard-sky="storm"][data-theme="light"] .dashboard-sidebar {
+  background: color-mix(in srgb, rgb(28, 38, 56) 22%, var(--color-surface-elevated));
+  border-right-color: color-mix(in srgb, rgb(45, 58, 82) 28%, var(--color-border));
+}
+@supports not (backdrop-filter: blur(1px)) {
+  body[data-dashboard-sky="night"][data-theme="light"] .dashboard-sidebar,
+  body[data-dashboard-sky="storm"][data-theme="light"] .dashboard-sidebar {
+    background: color-mix(in srgb, rgb(28, 38, 56) 32%, var(--color-surface-elevated));
+  }
+}
+body[data-dashboard-sky="night"][data-theme="light"] .dashboard-sidebar-brand,
+body[data-dashboard-sky="storm"][data-theme="light"] .dashboard-sidebar-brand {
+  border-bottom-color: color-mix(in srgb, var(--color-border) 55%, transparent);
+}
+body[data-dashboard-sky="night"][data-theme="light"] .dashboard-app-shell--clarion .dashboard-top-bar,
+body[data-dashboard-sky="storm"][data-theme="light"] .dashboard-app-shell--clarion .dashboard-top-bar {
+  background: color-mix(in srgb, rgb(26, 36, 54) 40%, transparent);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) inset;
+  border-bottom-color: color-mix(in srgb, rgb(55, 70, 95) 22%, transparent);
+}
+body[data-dashboard-sky="night"][data-theme="light"] .dashboard-sidebar-link:hover,
+body[data-dashboard-sky="storm"][data-theme="light"] .dashboard-sidebar-link:hover {
+  background: color-mix(in srgb, #fff 10%, transparent);
+}
+body[data-dashboard-sky="night"][data-theme="light"] .dashboard-sidebar-group-toggle:hover,
+body[data-dashboard-sky="storm"][data-theme="light"] .dashboard-sidebar-group-toggle:hover {
+  background: color-mix(in srgb, #fff 8%, transparent);
+}
+/* Top toolbar section links: hidden on small screens; one flex row on desktop (ul/li avoids run-on text if flex fails). */
 .dashboard-top-nav-links {
   display: none;
-  align-items: center;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-  justify-content: center;
-  padding: 0 8px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.dashboard-top-nav-item {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .dashboard-top-nav-links::-webkit-scrollbar {
   display: none;
 }
 .dashboard-top-nav-link {
-  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
   padding: 8px 10px;
   border-radius: 10px;
   font-size: 13px;
@@ -1850,8 +2078,19 @@ body.pitch-deck-active .clarion-global-footer {
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 @media (min-width: 900px) {
-  .dashboard-top-nav-links {
+  .dashboard-app-shell--clarion .dashboard-top-bar .dashboard-top-nav-links {
     display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+    padding: 0 8px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
   }
 }
 .dashboard-top-bar-start {
@@ -1898,9 +2137,6 @@ body.pitch-deck-active .clarion-global-footer {
     display: none;
   }
   .dashboard-top-brand--bar {
-    display: none;
-  }
-  .dashboard-bottom-nav {
     display: none;
   }
   .dashboard-app-content {
@@ -1966,6 +2202,8 @@ body.pitch-deck-active .clarion-global-footer {
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 .dashboard-top-logout {
   padding: 6px 10px;
@@ -2086,9 +2324,10 @@ body.pitch-deck-active .clarion-global-footer {
   z-index: 1;
 }
 
-/* Evening / night: subtle warm veil so the shell matches “Good evening” (pairs with data-sky calm | night) */
+/* Evening / night: subtle warm veil (pairs with calm | sunset | night) */
 .dashboard-route-sky-wrap[data-sky="night"] .dashboard-app-content--over-sky::before,
-.dashboard-route-sky-wrap[data-sky="calm"] .dashboard-app-content--over-sky::before {
+.dashboard-route-sky-wrap[data-sky="calm"] .dashboard-app-content--over-sky::before,
+.dashboard-route-sky-wrap[data-sky="sunset"] .dashboard-app-content--over-sky::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -2103,7 +2342,8 @@ body.pitch-deck-active .clarion-global-footer {
 }
 
 .dashboard-route-sky-wrap[data-sky="night"] .dashboard-app-content--over-sky > *,
-.dashboard-route-sky-wrap[data-sky="calm"] .dashboard-app-content--over-sky > * {
+.dashboard-route-sky-wrap[data-sky="calm"] .dashboard-app-content--over-sky > *,
+.dashboard-route-sky-wrap[data-sky="sunset"] .dashboard-app-content--over-sky > * {
   position: relative;
   z-index: 1;
 }
@@ -2127,45 +2367,6 @@ body.pitch-deck-active .clarion-global-footer {
   font-size: 14px;
 }
 .dashboard-app-loading-dots { display: flex; gap: 8px; }
-.dashboard-bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-around;
-  padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0));
-  background: var(--color-bg-muted);
-  border-top: 1px solid var(--color-border);
-  z-index: 1000;
-}
-.dashboard-bottom-nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  min-height: 44px;
-  min-width: 44px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  color: var(--color-text-muted);
-  text-decoration: none;
-  font-size: 11px;
-  font-weight: 500;
-  transition: color 0.2s, background 0.2s;
-}
-.dashboard-bottom-nav-item:hover {
-  color: var(--color-text-secondary);
-  background: var(--color-surface);
-}
-.dashboard-bottom-nav-item--active {
-  color: var(--color-accent);
-}
-.dashboard-bottom-nav-item--active:hover {
-  color: var(--color-accent-hover);
-}
 
 /* Dashboard tab pages (Tracking, Challenges, Feed) */
 .dashboard-tab-shell {
@@ -2206,7 +2407,7 @@ body.pitch-deck-active .clarion-global-footer {
   background: var(--clarion-card-bg);
   border: 1px solid var(--clarion-card-border);
   border-radius: var(--clarion-radius-lg, 16px);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 .dashboard-app-shell--clarion .dashboard-tab-section-title {
   font-family: var(--font-jakarta), var(--font-body), system-ui, sans-serif;
@@ -2247,6 +2448,55 @@ body.pitch-deck-active .clarion-global-footer {
   color: var(--color-text-secondary);
   margin: 0;
 }
+.dashboard-shop-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  margin-bottom: 24px;
+}
+.dashboard-shop-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.dashboard-shop-tile--link:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent-soft) 25%, var(--color-surface));
+}
+.dashboard-shop-tile-icon {
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+.dashboard-shop-tile-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.dashboard-shop-tile-desc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+.dashboard-shop-section-heading {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--color-text-primary);
+}
+.dashboard-shop-section-muted {
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+.dashboard-shop-amazon .current-supplements-editor-amazon-sitestripe-hint {
+  margin-top: 0;
+}
 .settings-field-label-block {
   display: block;
   font-size: 14px;
@@ -2259,6 +2509,154 @@ body.pitch-deck-active .clarion-global-footer {
   color: var(--color-text-secondary);
   line-height: 1.45;
   margin: 0 0 12px;
+}
+.current-supplements-editor-search-wrap {
+  position: relative;
+  margin-bottom: 12px;
+}
+.current-supplements-editor-search {
+  width: 100%;
+  box-sizing: border-box;
+}
+.current-supplements-editor-suggest {
+  position: absolute;
+  z-index: 40;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: min(280px, 40vh);
+  overflow-y: auto;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: 0 12px 40px color-mix(in srgb, #000 12%, transparent);
+}
+.current-supplements-editor-suggest-btn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.current-supplements-editor-suggest-btn:hover,
+.current-supplements-editor-suggest-btn--hi {
+  background: color-mix(in srgb, var(--color-accent-soft) 55%, var(--color-surface));
+}
+.current-supplements-editor-suggest-label {
+  font-weight: 600;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.current-supplements-editor-suggest-meta {
+  font-size: 11px;
+  text-transform: capitalize;
+  color: var(--color-text-muted);
+}
+.current-supplements-editor-suggest-add,
+.current-supplements-editor-suggest-on {
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: auto;
+  color: var(--color-accent);
+}
+.current-supplements-editor-suggest-on {
+  color: var(--color-text-muted);
+}
+.current-supplements-editor-nomatch {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin: -4px 0 12px;
+  line-height: 1.45;
+}
+.current-supplements-editor-amazon {
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 92%, var(--color-bg));
+}
+.current-supplements-editor-amazon-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.current-supplements-editor-amazon-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: 0.02em;
+}
+.current-supplements-editor-amazon-disclosure {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin: 10px 0 0;
+  line-height: 1.4;
+}
+.current-supplements-editor-amazon--sitestripe {
+  margin-top: 4px;
+}
+.current-supplements-editor-amazon-sitestripe-hint {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin: 0 0 10px;
+  line-height: 1.45;
+}
+.current-supplements-editor-amazon-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.current-supplements-editor-amazon-quick-link {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent-soft) 22%, var(--color-surface));
+  color: var(--color-text-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+.current-supplements-editor-amazon-quick-link:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
+}
+.current-supplements-editor-amazon-search-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+}
+.current-supplements-editor-amazon-search-input {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+.current-supplements-editor-amazon-search-btn {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
 }
 .current-supplements-editor-chips {
   display: flex;
@@ -2343,6 +2741,21 @@ body.pitch-deck-active .clarion-global-footer {
   min-width: 0;
   font-size: 13px;
 }
+.current-supplements-editor-resolve-btn {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px dashed color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.current-supplements-editor-resolve-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
 .current-supplements-editor-remove {
   border: none;
   background: transparent;
@@ -2404,11 +2817,29 @@ body.pitch-deck-active .clarion-global-footer {
   margin: 0 0 12px;
 }
 .dashboard-tab-card {
-  background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
+  background: var(--dashboard-surface-l2-bg, var(--color-surface-elevated));
+  border: 1px solid var(--dashboard-surface-l2-border, var(--color-border));
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 12px;
+  box-shadow: none;
+}
+/* Optional tier utilities — same tokens as tab cards; use for large stripes or highlights */
+.dashboard-surface-l1 {
+  background: var(--dashboard-surface-l1-bg, var(--color-surface));
+  border: 1px solid var(--dashboard-surface-l1-border, var(--color-border));
+  border-radius: 14px;
+}
+.dashboard-surface-l2 {
+  background: var(--dashboard-surface-l2-bg, var(--color-surface-elevated));
+  border: 1px solid var(--dashboard-surface-l2-border, var(--color-border));
+  border-radius: 14px;
+}
+.dashboard-surface-l3 {
+  background: var(--dashboard-surface-l3-bg, color-mix(in srgb, var(--color-accent) 10%, var(--color-surface)));
+  border: 1px solid var(--dashboard-surface-l3-border, var(--color-accent-border));
+  border-radius: 14px;
+  box-shadow: none;
 }
 .dashboard-tab-link {
   font-size: 14px;
@@ -2657,8 +3088,7 @@ body.pitch-deck-active .clarion-global-footer {
   z-index: 10001;
   left: auto;
   right: max(24px, env(safe-area-inset-right, 0px));
-  /* Stack above Clarion assistant FAB (~56px) + gap; clears bottom nav on mobile */
-  bottom: calc(24px + 56px + 12px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   width: 56px;
   height: 56px;
   border-radius: 50%;

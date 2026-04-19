@@ -15,6 +15,11 @@
   filter: brightness(1.07) saturate(0.96);
 }
 
+/* Light: pull back chroma on blues/yellows so glass UI doesn’t sit on “neon poster” skies */
+[data-theme="light"] .dashboard-shell--clarion-home.dashboard-shell--sky-active .dashboard-sky-stack {
+  filter: brightness(1.01) saturate(0.82) contrast(1.03);
+}
+
 .dashboard-sky-plane {
   position: absolute;
   inset: 0;
@@ -181,7 +186,7 @@
 }
 
 [data-theme="light"] .dashboard-sky-plane[data-sky="night"] .dashboard-sky-plane__base {
-  background: linear-gradient(180deg, #141c2e 0%, #1e2a42 50%, #263550 100%);
+  background: linear-gradient(180deg, #2a3548 0%, #3d4d62 48%, #4a5c72 100%);
 }
 
 /* Moon / rim light — off-center */
@@ -235,12 +240,20 @@
   animation: clarion-sky-stars-twinkle 6.5s ease-in-out infinite alternate;
 }
 
+/* Light UI + night sky: keep a readable star field (was very sparse vs dark theme). */
 [data-theme="light"] .dashboard-sky-plane[data-sky="night"] .dashboard-sky-plane__stars {
-  opacity: 0.12;
+  opacity: 0.15;
   background:
-    radial-gradient(1.2px 1.2px at 10% 14%, rgba(255, 255, 255, 0.95), transparent),
-    radial-gradient(1px 1px at 52% 20%, rgba(255, 255, 255, 0.8), transparent),
-    radial-gradient(1.5px 1.5px at 84% 16%, rgba(255, 255, 255, 0.9), transparent);
+    radial-gradient(1.2px 1.2px at 8% 12%, rgba(255, 255, 255, 0.92), transparent),
+    radial-gradient(1px 1px at 18% 22%, rgba(255, 255, 255, 0.78), transparent),
+    radial-gradient(1.5px 1.5px at 28% 10%, rgba(255, 255, 255, 0.88), transparent),
+    radial-gradient(1px 1px at 42% 18%, rgba(255, 255, 255, 0.72), transparent),
+    radial-gradient(1.2px 1.2px at 55% 26%, rgba(255, 255, 255, 0.85), transparent),
+    radial-gradient(1px 1px at 68% 14%, rgba(255, 255, 255, 0.75), transparent),
+    radial-gradient(1.5px 1.5px at 82% 22%, rgba(255, 255, 255, 0.9), transparent),
+    radial-gradient(1px 1px at 12% 44%, rgba(255, 255, 255, 0.65), transparent),
+    radial-gradient(1.2px 1.2px at 38% 52%, rgba(255, 255, 255, 0.72), transparent),
+    radial-gradient(1px 1px at 72% 48%, rgba(255, 255, 255, 0.68), transparent);
   animation: clarion-sky-stars-twinkle 6.5s ease-in-out infinite alternate;
 }
 
@@ -334,7 +347,7 @@
 }
 
 [data-theme="light"] .dashboard-sky-plane[data-sky="drizzle"] .dashboard-sky-plane__base {
-  background: linear-gradient(180deg, #d4e2ef 0%, #e2ebf4 52%, #eef2f7 100%);
+  background: linear-gradient(180deg, #dde8e4 0%, #e6eeea 48%, #eef1ee 100%);
 }
 
 [data-theme="dark"] .dashboard-sky-plane[data-sky="drizzle"] .dashboard-sky-plane__light {
@@ -343,7 +356,7 @@
 }
 
 [data-theme="light"] .dashboard-sky-plane[data-sky="drizzle"] .dashboard-sky-plane__light {
-  background: radial-gradient(ellipse 110% 60% at 50% 5%, rgba(255, 255, 255, 0.35), transparent 48%);
+  background: radial-gradient(ellipse 110% 60% at 50% 5%, rgba(255, 255, 255, 0.22), transparent 50%);
   animation: clarion-sky-cloud-drift-slow 100s linear infinite alternate;
 }
 
@@ -390,8 +403,8 @@
 
 [data-theme="light"] .dashboard-sky-plane[data-sky="drizzle"] .dashboard-sky-plane__veil {
   background:
-    radial-gradient(ellipse 100% 52% at 50% -6%, rgba(130, 160, 195, 0.12), transparent 50%),
-    linear-gradient(180deg, rgba(210, 225, 240, 0.22) 0%, transparent 52%);
+    radial-gradient(ellipse 100% 52% at 50% -6%, rgba(100, 130, 120, 0.08), transparent 50%),
+    linear-gradient(180deg, rgba(220, 230, 224, 0.35) 0%, transparent 52%);
   animation: clarion-sky-cloud-drift-a 98s linear infinite alternate;
 }
 
@@ -401,7 +414,7 @@
 }
 
 [data-theme="light"] .dashboard-sky-plane[data-sky="calm"] .dashboard-sky-plane__base {
-  background: linear-gradient(180deg, #e8eef5 0%, #f0f4f8 50%, #f6f7f5 100%);
+  background: linear-gradient(180deg, #e6ebe7 0%, #eef1ed 45%, #f3f5f2 100%);
 }
 
 [data-theme="dark"] .dashboard-sky-plane[data-sky="calm"] .dashboard-sky-plane__light {
@@ -410,7 +423,7 @@
 }
 
 [data-theme="light"] .dashboard-sky-plane[data-sky="calm"] .dashboard-sky-plane__light {
-  background: radial-gradient(ellipse 90% 55% at 50% 8%, rgba(255, 255, 255, 0.45), transparent 45%);
+  background: radial-gradient(ellipse 90% 55% at 50% 8%, rgba(255, 255, 255, 0.28), transparent 48%);
   animation: clarion-sky-cloud-drift-slow 105s linear infinite alternate;
 }
 
@@ -436,8 +449,8 @@
 
 [data-theme="light"] .dashboard-sky-plane[data-sky="calm"] .dashboard-sky-plane__veil {
   background:
-    radial-gradient(ellipse 100% 56% at 50% -10%, rgba(100, 140, 180, 0.09), transparent 50%),
-    radial-gradient(circle at 0% 100%, rgba(120, 150, 130, 0.04), transparent 40%);
+    radial-gradient(ellipse 100% 56% at 50% -10%, rgba(90, 125, 110, 0.07), transparent 50%),
+    radial-gradient(circle at 0% 100%, rgba(120, 145, 130, 0.05), transparent 42%);
   animation: clarion-sky-cloud-drift-b 96s linear infinite alternate;
 }
 
@@ -447,7 +460,7 @@
 }
 
 [data-theme="light"] .dashboard-sky-plane[data-sky="sunrise"] .dashboard-sky-plane__base {
-  background: linear-gradient(to top, #e8f2ff 0%, #f5f8fc 55%, #fafcfa 100%);
+  background: linear-gradient(to top, #e5edf5 0%, #f2f6f8 52%, #f6f8f5 100%);
 }
 
 [data-theme="dark"] .dashboard-sky-plane[data-sky="sunrise"] .dashboard-sky-plane__light {
@@ -459,8 +472,8 @@
 
 [data-theme="light"] .dashboard-sky-plane[data-sky="sunrise"] .dashboard-sky-plane__light {
   background:
-    radial-gradient(circle at 50% 88%, rgba(255, 190, 120, 0.45), transparent 46%),
-    radial-gradient(ellipse 90% 40% at 48% 96%, rgba(255, 220, 180, 0.2), transparent 52%);
+    radial-gradient(circle at 50% 88%, rgba(255, 195, 140, 0.28), transparent 48%),
+    radial-gradient(ellipse 90% 40% at 48% 96%, rgba(255, 230, 200, 0.12), transparent 54%);
   animation: clarion-sky-cloud-drift-slow 72s linear infinite alternate;
 }
 
@@ -487,13 +500,59 @@
   animation: clarion-sky-cloud-drift-b 78s linear infinite alternate;
 }
 
+/* Sunset — warm horizon, violet undertone (dusk; not starry night) */
+[data-theme="dark"] .dashboard-sky-plane[data-sky="sunset"] .dashboard-sky-plane__base {
+  background: linear-gradient(180deg, #140c18 0%, #1a1428 38%, #120a14 100%);
+}
+
+[data-theme="light"] .dashboard-sky-plane[data-sky="sunset"] .dashboard-sky-plane__base {
+  background: linear-gradient(180deg, #f5ebe4 0%, #f0e4e2 40%, #eee8f0 100%);
+}
+
+[data-theme="dark"] .dashboard-sky-plane[data-sky="sunset"] .dashboard-sky-plane__light {
+  background:
+    radial-gradient(ellipse 90% 42% at 50% 100%, rgba(255, 120, 80, 0.22), transparent 52%),
+    radial-gradient(circle at 22% 88%, rgba(255, 180, 100, 0.12), transparent 40%),
+    radial-gradient(circle at 78% 85%, rgba(200, 120, 220, 0.1), transparent 38%);
+  animation: clarion-sky-cloud-drift-slow 80s linear infinite alternate;
+}
+
+[data-theme="light"] .dashboard-sky-plane[data-sky="sunset"] .dashboard-sky-plane__light {
+  background:
+    radial-gradient(ellipse 100% 48% at 50% 96%, rgba(220, 130, 100, 0.2), transparent 50%),
+    radial-gradient(circle at 30% 92%, rgba(255, 210, 170, 0.14), transparent 44%);
+  animation: clarion-sky-cloud-drift-slow 80s linear infinite alternate;
+}
+
+.dashboard-sky-plane[data-sky="sunset"] .dashboard-sky-plane__clouds {
+  opacity: 0.11;
+  background:
+    radial-gradient(ellipse 220px 80px at 35% 32%, rgba(255, 160, 140, 0.18), transparent 56%),
+    radial-gradient(ellipse 190px 72px at 68% 28%, rgba(180, 130, 200, 0.12), transparent 54%);
+  animation: clarion-sky-cloud-drift-a 76s linear infinite;
+}
+
+.dashboard-sky-plane[data-sky="sunset"] .dashboard-sky-plane__rain,
+.dashboard-sky-plane[data-sky="sunset"] .dashboard-sky-plane__lightning {
+  opacity: 0;
+}
+
+[data-theme="dark"] .dashboard-sky-plane[data-sky="sunset"] .dashboard-sky-plane__veil {
+  background: linear-gradient(180deg, rgba(60, 40, 80, 0.12) 0%, transparent 42%);
+  animation: clarion-sky-cloud-drift-b 82s linear infinite alternate;
+}
+
+[data-theme="light"] .dashboard-sky-plane[data-sky="sunset"] .dashboard-sky-plane__veil {
+  background: linear-gradient(180deg, rgba(200, 140, 130, 0.07) 0%, transparent 42%);
+  animation: clarion-sky-cloud-drift-b 82s linear infinite alternate;
+}
 /* ═══ Clear day — sun above, soft blue, light cloud drift ═══ */
 [data-theme="dark"] .dashboard-sky-plane[data-sky="clear"] .dashboard-sky-plane__base {
   background: linear-gradient(180deg, #0a1622 0%, #0e1c28 45%, #101a16 100%);
 }
 
 [data-theme="light"] .dashboard-sky-plane[data-sky="clear"] .dashboard-sky-plane__base {
-  background: linear-gradient(180deg, #d8ecff 0%, #e8f4fc 50%, #f6fafc 100%);
+  background: linear-gradient(180deg, #dfe8ee 0%, #e8f0f4 45%, #f1f5f3 100%);
 }
 
 [data-theme="dark"] .dashboard-sky-plane[data-sky="clear"] .dashboard-sky-plane__light {
@@ -505,8 +564,8 @@
 
 [data-theme="light"] .dashboard-sky-plane[data-sky="clear"] .dashboard-sky-plane__light {
   background:
-    radial-gradient(circle at 50% 16%, rgba(255, 245, 200, 0.55), transparent 42%),
-    radial-gradient(ellipse 130% 65% at 50% 0%, rgba(180, 220, 255, 0.2), transparent 48%);
+    radial-gradient(circle at 50% 16%, rgba(255, 248, 220, 0.32), transparent 46%),
+    radial-gradient(ellipse 130% 65% at 50% 0%, rgba(170, 200, 220, 0.12), transparent 50%);
   animation: clarion-sky-cloud-drift-slow 85s linear infinite alternate;
 }
 
@@ -532,8 +591,8 @@
 
 [data-theme="light"] .dashboard-sky-plane[data-sky="clear"] .dashboard-sky-plane__veil {
   background:
-    radial-gradient(circle at 70% 6%, rgba(255, 230, 140, 0.25), transparent 28%),
-    radial-gradient(ellipse 115% 50% at 50% -2%, rgba(150, 200, 255, 0.12), transparent 46%);
+    radial-gradient(circle at 70% 6%, rgba(255, 235, 190, 0.12), transparent 32%),
+    radial-gradient(ellipse 115% 50% at 50% -2%, rgba(140, 175, 195, 0.08), transparent 48%);
   animation: clarion-sky-cloud-drift-a 92s linear infinite alternate;
 }
 
@@ -543,7 +602,7 @@
 }
 
 [data-theme="light"] .dashboard-sky-plane[data-sky="perfect"] .dashboard-sky-plane__base {
-  background: linear-gradient(180deg, #eef8ff 0%, #f6fbff 52%, #fafcfa 100%);
+  background: linear-gradient(180deg, #e8f0f2 0%, #f0f5f6 50%, #f4f7f4 100%);
 }
 
 [data-theme="dark"] .dashboard-sky-plane[data-sky="perfect"] .dashboard-sky-plane__light {
@@ -555,8 +614,8 @@
 
 [data-theme="light"] .dashboard-sky-plane[data-sky="perfect"] .dashboard-sky-plane__light {
   background:
-    radial-gradient(ellipse 110% 70% at 50% -5%, rgba(255, 255, 255, 0.55), transparent 40%),
-    radial-gradient(circle at 50% 18%, rgba(220, 240, 255, 0.35), transparent 48%);
+    radial-gradient(ellipse 110% 70% at 50% -5%, rgba(255, 255, 255, 0.32), transparent 44%),
+    radial-gradient(circle at 50% 18%, rgba(200, 225, 230, 0.18), transparent 50%);
   animation: clarion-sky-cloud-drift-slow 110s linear infinite alternate;
 }
 
@@ -577,7 +636,7 @@
 }
 
 [data-theme="light"] .dashboard-sky-plane[data-sky="perfect"] .dashboard-sky-plane__veil {
-  background: linear-gradient(180deg, rgba(240, 250, 255, 0.35) 0%, transparent 55%);
+  background: linear-gradient(180deg, rgba(230, 240, 242, 0.22) 0%, transparent 55%);
   animation: clarion-sky-cloud-drift-b 105s linear infinite alternate;
 }
 

@@ -4,6 +4,9 @@ import { supplementInsightRateLimiter, getClientIp } from "@/src/lib/apiRateLimi
 import { createClient } from "@/src/lib/supabase/server"
 import { analyzeBiomarkers } from "@/src/lib/analyzeBiomarkers"
 import type { ProfileRow } from "@/src/lib/bloodwiseDb"
+import { getOpenAiApiKey } from "@/src/lib/openaiEnv"
+
+export const runtime = "nodejs"
 
 const SYSTEM_PROMPT = `You are Clarion's supplement education assistant. The user scanned or typed a product barcode. Your job is personalized, practical education — not diagnosis or prescribing.
 
@@ -50,7 +53,14 @@ function biomarkerSummaryFromInputs(inputs: Record<string, string | number> | nu
   if (!inputs || typeof inputs !== "object" || Object.keys(inputs).length === 0) {
     return "No lab values on file. Encourage adding bloodwork for marker-level personalization."
   }
-  const prof = profile ? { age: profile.age, sex: profile.sex, sport: profile.sport } : {}
+  const prof = profile
+    ? {
+        age: profile.age,
+        sex: profile.sex,
+        sport: profile.sport,
+        training_focus: profile.training_focus?.trim() || undefined,
+      }
+    : {}
   const results = analyzeBiomarkers(inputs, prof)
   const lines = results.slice(0, 14).map((r) => {
     const range =
@@ -128,7 +138,7 @@ export async function POST(req: NextRequest) {
 
     const userBlock = buildUserContext(profile, biomarkerSummary)
 
-    const apiKey = process.env.OPENAI_API_KEY
+    const apiKey = getOpenAiApiKey()
     if (!apiKey) {
       return NextResponse.json(
         { error: "AI insight is not configured. Add OPENAI_API_KEY.", code: "NO_AI" },

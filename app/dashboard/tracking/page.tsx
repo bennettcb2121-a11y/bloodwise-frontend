@@ -11,6 +11,8 @@ import { ProtocolTracker } from "@/src/components/ProtocolTracker"
 import { DailyHealthCheckIn } from "@/src/components/DailyHealthCheckIn"
 import { BetweenPanelsInsight } from "@/src/components/BetweenPanelsInsight"
 import { buildHabitLabCorrelationSeries, extractStackNamesFromSnapshot } from "@/src/lib/habitLabCorrelationSeries"
+import { analyzeBiomarkers } from "@/src/lib/analyzeBiomarkers"
+import type { BiomarkerResult } from "@/src/lib/analyzeBiomarkers"
 
 const HabitLabCorrelationChartLazy = dynamic(
   () => import("@/src/components/HabitLabCorrelationChart").then((m) => ({ default: m.HabitLabCorrelationChart })),
@@ -58,6 +60,23 @@ export default function TrackingPage() {
     return `Protocol logging, daily activity, and ${labs} lab snapshot${labs !== 1 ? "s" : ""} on a shared timeline.`
   }, [bloodworkHistory])
 
+  const profileForAnalysis = useMemo(
+    () =>
+      profile
+        ? {
+            age: profile.age,
+            sex: profile.sex,
+            sport: profile.sport,
+            training_focus: profile.training_focus?.trim() || undefined,
+          }
+        : {},
+    [profile?.age, profile?.sex, profile?.sport, profile?.training_focus]
+  )
+  const analysisResults = useMemo((): BiomarkerResult[] => {
+    if (!bloodwork?.biomarker_inputs || Object.keys(bloodwork.biomarker_inputs).length === 0) return []
+    return analyzeBiomarkers(bloodwork.biomarker_inputs, profileForAnalysis)
+  }, [bloodwork?.biomarker_inputs, profileForAnalysis])
+
   if (loading) {
     return (
       <main className="dashboard-tab-shell">
@@ -85,14 +104,19 @@ export default function TrackingPage() {
 
         <section id="daily-check-in" className="dashboard-tab-section" aria-labelledby="tracking-daily-heading">
           <h2 id="tracking-daily-heading" className="dashboard-tab-section-title">
-            Daily check-in
+            Performance signals
           </h2>
           <DailyHealthCheckIn userId={user?.id} />
         </section>
 
         <section className="dashboard-tab-section" aria-labelledby="tracking-protocol-heading">
           <h2 id="tracking-protocol-heading" className="dashboard-tab-section-title">Today&apos;s plan</h2>
-          <ProtocolTracker stackSnapshot={bloodwork?.stack_snapshot} userId={user?.id} />
+          <ProtocolTracker
+            stackSnapshot={bloodwork?.stack_snapshot}
+            userId={user?.id}
+            analysisResults={analysisResults}
+            groupByTiming
+          />
         </section>
 
         {user?.id && bloodworkHistory.length >= 2 && (

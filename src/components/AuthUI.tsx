@@ -4,6 +4,7 @@ import React, { useState } from "react"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { getReauthOAuthNext } from "@/src/lib/reauthPrompt"
 import type { OAuthProvider } from "@/src/contexts/AuthContext"
+import { SupportContactHint } from "@/src/components/SupportContactHints"
 
 type Mode = "idle" | "login" | "signup"
 
@@ -11,7 +12,12 @@ const OAUTH_PROVIDERS: { provider: OAuthProvider; label: string }[] = [
   { provider: "google", label: "Continue with Google" },
 ]
 
-export function AuthUI() {
+export type AuthUIProps = {
+  /** Internal path (starts with "/") to redirect to after OAuth. Ignored if reauth prompt is pending. */
+  next?: string | null
+}
+
+export function AuthUI({ next = null }: AuthUIProps = {}) {
   const { user, loading, signIn, signUp, signInWithOAuth, signOut } = useAuth()
   const [mode, setMode] = useState<Mode>("idle")
   const [email, setEmail] = useState("")
@@ -68,8 +74,12 @@ export function AuthUI() {
               className="auth-ui-btn auth-ui-btn-oauth"
               onClick={async () => {
                 setMessage(null)
-                const next = typeof window !== "undefined" ? getReauthOAuthNext() : null
-                const { error } = await signInWithOAuth(provider, next ? { next } : undefined)
+                const reauthNext = typeof window !== "undefined" ? getReauthOAuthNext() : null
+                const effectiveNext = reauthNext ?? (next && next.startsWith("/") ? next : null)
+                const { error } = await signInWithOAuth(
+                  provider,
+                  effectiveNext ? { next: effectiveNext } : undefined
+                )
                 if (error) setMessage({ type: "error", text: error.message })
               }}
             >
@@ -100,9 +110,12 @@ export function AuthUI() {
           </button>
         </div>
         {message && (
-          <p className={message.type === "error" ? "auth-ui-message auth-ui-message-error" : "auth-ui-message auth-ui-message-ok"}>
-            {message.text}
-          </p>
+          <>
+            <p className={message.type === "error" ? "auth-ui-message auth-ui-message-error" : "auth-ui-message auth-ui-message-ok"}>
+              {message.text}
+            </p>
+            {message.type === "error" ? <SupportContactHint /> : null}
+          </>
         )}
       </div>
     )
@@ -122,8 +135,12 @@ export function AuthUI() {
               className="auth-ui-btn auth-ui-btn-oauth"
               onClick={async () => {
                 setMessage(null)
-                const next = typeof window !== "undefined" ? getReauthOAuthNext() : null
-                const { error } = await signInWithOAuth(provider, next ? { next } : undefined)
+                const reauthNext = typeof window !== "undefined" ? getReauthOAuthNext() : null
+                const effectiveNext = reauthNext ?? (next && next.startsWith("/") ? next : null)
+                const { error } = await signInWithOAuth(
+                  provider,
+                  effectiveNext ? { next: effectiveNext } : undefined
+                )
                 if (error) setMessage({ type: "error", text: error.message })
               }}
             >
@@ -180,9 +197,12 @@ export function AuthUI() {
             </button>
           </div>
           {message && (
-            <p className={message.type === "error" ? "auth-ui-message auth-ui-message-error" : "auth-ui-message auth-ui-message-ok"}>
-              {message.text}
-            </p>
+            <>
+              <p className={message.type === "error" ? "auth-ui-message auth-ui-message-error" : "auth-ui-message auth-ui-message-ok"}>
+                {message.text}
+              </p>
+              {message.type === "error" ? <SupportContactHint /> : null}
+            </>
           )}
         </form>
       </div>

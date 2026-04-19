@@ -62,7 +62,14 @@ export default function DashboardTrendsPage() {
     if (!hasAccess && profile !== null) router.replace("/paywall")
   }, [authLoading, user, loading, profile, hasAccess, router])
 
-  const profileForAnalysis = profile ? { age: profile.age, sex: profile.sex, sport: profile.sport } : {}
+  const profileForAnalysis = profile
+    ? {
+        age: profile.age,
+        sex: profile.sex,
+        sport: profile.sport,
+        training_focus: profile.training_focus?.trim() || undefined,
+      }
+    : {}
   const analysisResults = useMemo(
     () =>
       bloodwork?.biomarker_inputs && Object.keys(bloodwork.biomarker_inputs).length > 0

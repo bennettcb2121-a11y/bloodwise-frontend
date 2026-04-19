@@ -22,26 +22,26 @@ export function getPremiumHeroHeadline(input: PremiumNarrativeInput): string {
     .slice(0, 4)
 
   if (scoreDelta != null && scoreDelta >= 2) {
-    return "Score up vs your last panel"
+    return "Nice — your score moved up from last time"
   }
   if (scoreDelta != null && scoreDelta <= -2) {
-    return "Prioritize the markers below"
+    return "Let’s steady the course — a few markers shifted"
   }
 
   const opportunities = statusCounts.flagged + statusCounts.borderline
   if (opportunities >= 3) {
-    return `${opportunities} markers outside your target range`
+    return `We have work to do — you have ${opportunities} markers outside your target range`
   }
   if (opportunities === 2 && markers.length >= 2) {
-    return `${markers[0]} and ${markers[1]} need attention first`
+    return `Two places to focus first: ${markers[0]} and ${markers[1]}`
   }
   if (opportunities === 1 && markers[0]) {
-    return `${markers[0]} is the main focus`
+    return `${markers[0]} is where we’ll start — one clear focus`
   }
   if (statusCounts.flagged === 0 && statusCounts.optimal >= 3 && statusCounts.borderline <= 1) {
-    return "Most markers are in range"
+    return "You’re in a good place — most markers look solid"
   }
-  return "Latest panel summary"
+  return "Here’s where your latest panel stands"
 }
 
 /** Factual one-liner when the hero has no priority list (all markers in range, etc.). */

@@ -6,8 +6,19 @@ import { createClient } from "@/src/lib/supabase/server"
  * Clarion analysis: $49 one-time (Stripe Checkout payment).
  * Webhook then attaches Clarion+ subscription ($29 every 2 months) with trial_period_days = 60.
  * Active/trialing subscribers skip this checkout — new bloodwork has no extra analysis fee.
+ *
+ * Optional JSON body: `{ tier?: "analysis" | "monthly" }` — purely a funnel-attribution marker
+ * for which framing/CTA the user clicked (Tier 2 "one-time analysis" vs Tier 3 "Clarion Monthly").
+ * The underlying offer is identical today; `tier` is stored in Stripe metadata as `source_tier`
+ * so we can slice conversion by CTA in Stripe/analytics.
  */
-export async function POST() {
+type SourceTier = "analysis" | "monthly"
+
+function parseSourceTier(raw: unknown): SourceTier {
+  return raw === "monthly" ? "monthly" : "analysis"
+}
+
+export async function POST(request: Request) {
   const supabase = await createClient()
   const {
     data: { session: authSession },
@@ -18,6 +29,18 @@ export async function POST() {
   }
 
   const userId = authSession.user.id
+
+  // Body is optional; ignore parse errors so existing callers sending no body still work.
+  let sourceTier: SourceTier = "analysis"
+  try {
+    const text = await request.text()
+    if (text.trim()) {
+      const parsed = JSON.parse(text) as { tier?: unknown }
+      sourceTier = parseSourceTier(parsed?.tier)
+    }
+  } catch {
+    // keep default
+  }
 
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY
   if (!stripeSecretKey) {
@@ -75,7 +98,7 @@ export async function POST() {
       cancel_url: `${origin}/paywall`,
       client_reference_id: userId,
       customer_email: authSession.user.email ?? undefined,
-      metadata: { user_id: userId, type: "analysis" },
+      metadata: { user_id: userId, type: "analysis", source_tier: sourceTier },
     })
     return NextResponse.json({ url: checkoutSession.url })
   } catch (err: unknown) {

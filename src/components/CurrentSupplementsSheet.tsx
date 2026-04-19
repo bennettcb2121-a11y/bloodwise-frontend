@@ -90,6 +90,7 @@ export function CurrentSupplementsSheet({ userId, onClose }: Props) {
         supplement_form_preference: profile.supplement_form_preference ?? "any",
         diet_preference: profile.diet_preference ?? undefined,
         symptoms: profile.symptoms ?? undefined,
+        health_goals: profile.health_goals ?? undefined,
         streak_milestones: profile.streak_milestones ?? undefined,
         daily_reminder: profile.daily_reminder ?? undefined,
         score_goal: profile.score_goal ?? undefined,

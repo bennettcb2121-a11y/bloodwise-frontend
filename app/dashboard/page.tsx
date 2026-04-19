@@ -5,13 +5,41 @@ import dynamic from "next/dynamic"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
-import { loadSavedState, upsertProfile, getSubscription, getBloodworkHistory, getProtocolLog, getProtocolLogHistory } from "@/src/lib/bloodwiseDb"
-import type { BloodworkSaveRow, ProfileRow, SavedSupplementStackItem, SubscriptionRow } from "@/src/lib/bloodwiseDb"
+import {
+  loadSavedState,
+  upsertProfile,
+  getSubscription,
+  getBloodworkHistory,
+  getProtocolLog,
+  getProtocolLogHistory,
+  updateLatestBloodworkStackSnapshot,
+  getSupplementInventory,
+} from "@/src/lib/bloodwiseDb"
+import type {
+  BloodworkSaveRow,
+  ProfileRow,
+  SavedSupplementStackItem,
+  SubscriptionRow,
+  SupplementInventoryRow,
+} from "@/src/lib/bloodwiseDb"
+import { computeRunningLow } from "@/src/lib/bottleRunout"
+import { loadReorderSnoozeMap, snoozeReorder } from "@/src/lib/reorderSnooze"
+import { RunningLowCard } from "@/src/components/RunningLowCard"
+import { ComplianceFooter } from "@/src/components/ComplianceFooter"
+import type { DailyMetrics } from "@/src/lib/dailyMetrics"
 import { analyzeBiomarkers, type BiomarkerResult } from "@/src/lib/analyzeBiomarkers"
 import { getRetestRecommendations } from "@/src/lib/retestEngine"
 import { scoreToLabel, countByStatus } from "@/src/lib/scoreEngine"
 import { getBloodwiseSummary } from "@/src/lib/bloodwiseSummaryEngine"
-import { getScoreBreakdown, getScoreDrivers, getImprovementForecast, getOrderedScoreDrivers, getCategoryForMarker, SCORE_CATEGORIES } from "@/src/lib/scoreBreakdown"
+import {
+  getScoreBreakdown,
+  getScoreDrivers,
+  getImprovementForecast,
+  getOrderedScoreDrivers,
+  getOrderedFocusResults,
+  getCategoryForMarker,
+  SCORE_CATEGORIES,
+} from "@/src/lib/scoreBreakdown"
 import { buildPriorityContextFromProfile } from "@/src/lib/priorityRanking"
 import { getDashboardStatus, getDoThisFirst } from "@/src/lib/dashboardStatus"
 import { getContextualInsight } from "@/src/lib/dashboardContextLine"
@@ -19,8 +47,13 @@ import { getAdherence } from "@/src/lib/adherence"
 import { getEarnedBadges } from "@/src/lib/badges"
 import { getLatestLearningItem, getLearningItemForPriority } from "@/src/lib/learningFeed"
 import { getLongTermInsightForPriorities } from "@/src/lib/longTermInsights"
-import { CLARION_PROFILE_UPDATED_EVENT } from "@/src/lib/profileEvents"
-import { buildTopFocus, getPrioritySummary, getStatusTone, inferWhyItMatters } from "@/src/lib/priorityEngine"
+import { CLARION_PROFILE_UPDATED_EVENT, dispatchProfileUpdated } from "@/src/lib/profileEvents"
+import { buildHomeStatusLine } from "@/src/lib/homeStatusLine"
+import { pickDailyNote, dayOfYear } from "@/src/lib/dailyHomeNote"
+import { getBiomarkerProfileNarrative } from "@/src/lib/biomarkerProfileNarrative"
+import { getRangeComparison } from "@/src/lib/analyzeBiomarkers"
+import { getPrioritySummary, getStatusTone, inferWhyItMatters } from "@/src/lib/priorityEngine"
+import { detectPatterns } from "@/src/lib/patternEngine"
 import { getGuidesForPriorities, getGuidesForBiomarker } from "@/src/lib/guides"
 import {
   getFeaturedMicrocopy,
@@ -30,17 +63,63 @@ import {
 } from "@/src/lib/dashboardTips"
 import { parseSupplementRow, shortStackDoseLabel } from "@/src/lib/supplementDisplay"
 import { CHALLENGES, getChallengeProgress, getChallengeExtra } from "@/src/lib/challenges"
-import { hasClarionAnalysisAccess, hasLabPersonalizationAccess } from "@/src/lib/accessGate"
+import {
+  hasClarionAnalysisAccess,
+  hasLabPersonalizationAccess,
+  subscriptionStatusGrantsAccess,
+} from "@/src/lib/accessGate"
 import { buildLiteSupplementSuggestions, LITE_DISCLAIMER } from "@/src/lib/symptomLiteSupplements"
-import { getAffiliateProductForStackItem } from "@/src/lib/stackAffiliate"
+import { getStackItemReorderContext } from "@/src/lib/stackItemReorder"
+import { filterStackItemsByLabSafety, getStackItemBadgeKind } from "@/src/lib/stackLabSafety"
+import { supplementRecommendations, type SupplementRecommendation } from "@/src/lib/supplements"
+import { optimizeStack } from "@/src/lib/stackOptimizer"
+import { computeSavings } from "@/src/lib/savingsEngine"
+import {
+  loadStackAcquisition,
+  saveStackAcquisition,
+  setStackItemAcquisition,
+  migrateStackAcquisitionMap,
+  mergeInferredAcquisitionDefaults,
+  stackItemStorageKey,
+  type StackAcquisitionMap,
+  type AcquisitionMode,
+} from "@/src/lib/stackAcquisition"
 import { getSupplementDetail } from "@/src/lib/supplementProtocolDetail"
 import { getPriorityMarkerSeries } from "@/src/lib/dashboardTrendData"
-import { BookOpen, Trophy, Settings as SettingsIcon, ListChecks, Target, Lightbulb, ArrowUpCircle, Package, BarChart2, LineChart, ChevronDown } from "lucide-react"
+import { parseCurrentSupplementsEntries } from "@/src/lib/supplementMetadata"
+import {
+  dedupeStackByStorageKey,
+  filterOrphanLifestyleRowsFromLabSnapshot,
+  mergeLabStackWithProfileStack,
+  sortedSupplementNamesKey,
+  stackItemsFromProfileCurrentSupplements,
+} from "@/src/lib/profileStackMerge"
+import { deleteMergedStackItem, updateMergedStackItem } from "@/src/lib/stackMutations"
+import { loadDoseAckMap, setDoseAcknowledged } from "@/src/lib/dosePromptStorage"
+import {
+  BookOpen,
+  Trophy,
+  Settings as SettingsIcon,
+  ListChecks,
+  Target,
+  Lightbulb,
+  ArrowUpCircle,
+  Package,
+  BarChart2,
+  LineChart,
+  ChevronDown,
+  Sparkles,
+  DollarSign,
+} from "lucide-react"
 import { TypewriterHeading } from "@/src/components/TypewriterHeading"
 import { SubscribeButton } from "@/src/components/SubscribeButton"
 import { AddToHomeScreenPopup } from "@/src/components/AddToHomeScreenPopup"
 import { CLARION_OPEN_ASSISTANT_EVENT } from "@/src/components/ClarionAssistant"
 import { ProtocolTracker } from "@/src/components/ProtocolTracker"
+import { CurrentSupplementsCaptureModal } from "@/src/components/CurrentSupplementsCaptureModal"
+import { StackItemActionsMenu } from "@/src/components/StackItemActionsMenu"
+import { StackItemEditModal } from "@/src/components/StackItemEditModal"
+import { StackDosePromptModal } from "@/src/components/StackDosePromptModal"
 import { DailyHealthCheckIn } from "@/src/components/DailyHealthCheckIn"
 const BetweenPanelsInsightLazy = dynamic(
   () => import("@/src/components/BetweenPanelsInsight").then((m) => ({ default: m.BetweenPanelsInsight })),
@@ -68,13 +147,25 @@ import {
 } from "@/src/lib/dashboardSkyMood"
 import { useDashboardSkyAtmosphere } from "@/src/contexts/DashboardSkyAtmosphereContext"
 
-function buildShortFocusTitle(markerName: string): string {
+const DASHBOARD_GREETING_FOLLOW_LEAD = "Let's make today count"
+const DASHBOARD_GREETING_FOLLOW_REST =
+  " — movement, sleep, nutrition, and your plan work together—start wherever feels easiest."
+
+function buildShortFocusTitle(markerName: string, status?: string): string {
   const raw = markerName.trim()
   const m = raw.toLowerCase()
+  const st = (status ?? "").toLowerCase()
   if (m.includes("hs-crp") || m === "crp" || m.includes("c-reactive")) return `Lower inflammation (${raw})`
   if (m.includes("crp") || m.includes("esr") || m.includes("inflammation")) return `Lower inflammation (${raw})`
-  if (m.includes("vitamin d") || m.includes("25-oh")) return "Rebuild Vitamin D levels"
-  if (m.includes("ferritin")) return "Rebuild iron stores (ferritin)"
+  if (m.includes("vitamin d") || m.includes("25-oh")) {
+    if (st === "high") return "Review elevated Vitamin D"
+    return "Rebuild Vitamin D levels"
+  }
+  if (m.includes("ferritin")) {
+    if (st === "high") return "Review elevated ferritin"
+    return "Rebuild iron stores (ferritin)"
+  }
+  if ((m.includes("b12") || m.includes("cobalamin")) && st === "high") return "Review elevated B12"
   return `Improve ${raw}`
 }
 
@@ -90,16 +181,38 @@ function clampGuidedWhyText(text: string, maxChars: number): string {
   return `${cut.trim()}…`
 }
 
-function shortWhySummaryLine(marker: string): string {
+function shortWhySummaryLine(marker: string, status?: string): string {
   const m = marker.toLowerCase()
+  const st = (status ?? "").toLowerCase()
   if (m.includes("crp") || m.includes("inflammation")) {
     return "High hs-CRP = higher inflammation → affects recovery, energy, and long-term health."
   }
   if (m.includes("vitamin d")) {
+    if (st === "high") return "Levels are above target — clarify supplements and retest with your clinician."
     return "More stable energy, better recovery, stronger immune resilience."
   }
-  if (m.includes("ferritin") || m.includes("iron")) return "Iron affects oxygen delivery, fatigue, and endurance."
+  if (m.includes("ferritin") || m.includes("iron")) {
+    if (st === "high") return "Iron stores are elevated — avoid extra iron unless your clinician advises."
+    return "Iron affects oxygen delivery, fatigue, and endurance."
+  }
+  if ((m.includes("b12") || m.includes("cobalamin")) && st === "high") {
+    return "High serum B12 needs clinical context — not a signal to add more B12."
+  }
   return `Improving ${marker} aligns with how you feel day to day.`
+}
+
+function mapOptimizedRecToSavedStackItem(
+  rec: SupplementRecommendation & { duplicateMarkersMerged?: string[] }
+): SavedSupplementStackItem {
+  return {
+    supplementName: rec.name ?? "",
+    dose: rec.dose ?? "",
+    monthlyCost: Number(rec.estimatedMonthlyCost) || 0,
+    recommendationType: rec.recommendationType ?? "Core",
+    reason: rec.whyThisIsRecommended || rec.whyRecommended || "",
+    marker: rec.marker ?? (Array.isArray(rec.duplicateMarkersMerged) ? rec.duplicateMarkersMerged[0] : undefined),
+    ...(rec.stackHint ? { stackHint: rec.stackHint } : {}),
+  }
 }
 
 function findAnalysisForMarker(results: BiomarkerResult[], markerName: string): BiomarkerResult | null {
@@ -171,6 +284,174 @@ function ProtocolCompletionRing({ pct, label }: { pct: number; label: string }) 
   )
 }
 
+function DashboardWhatYouTakeStrip({
+  className,
+  headingId,
+  previewLine,
+  onOpen,
+}: {
+  className?: string
+  headingId: string
+  previewLine: string | null
+  onOpen: () => void
+}) {
+  return (
+    <section className={className ?? "dashboard-what-you-take"} aria-labelledby={headingId}>
+      <div className="dashboard-what-you-take__inner">
+        <div className="dashboard-what-you-take__copy">
+          <p className="dashboard-what-you-take__eyebrow">
+            <Sparkles size={14} strokeWidth={2.25} aria-hidden />
+            AI-assisted
+          </p>
+          <h2 id={headingId} className="dashboard-what-you-take__title">
+            What are you taking?
+          </h2>
+          <p className="dashboard-what-you-take__desc">
+            Photo of your bottles or a barcode scan — we read labels and merge with your Clarion plan.
+          </p>
+          {previewLine ? (
+            <p className="dashboard-what-you-take__saved">
+              <span className="dashboard-what-you-take__saved-label">On file:</span> {previewLine}
+            </p>
+          ) : null}
+        </div>
+        <button type="button" className="dashboard-what-you-take__cta" onClick={onOpen}>
+          <Sparkles size={18} strokeWidth={2.25} aria-hidden />
+          Add or update
+        </button>
+      </div>
+    </section>
+  )
+}
+
+/** Home v2 — Block 1. Calm, specific recognition of the user and their state. */
+function HomeBlock1_Recognition({
+  greet,
+  firstName,
+  statusLine,
+}: {
+  greet: string
+  firstName: string
+  statusLine: string
+}) {
+  return (
+    <header className="home-v2-recognition">
+      <h1 className="home-v2-recognition__greet">
+        {greet}, {firstName}.
+      </h1>
+      <p className="home-v2-recognition__status">{statusLine}</p>
+    </header>
+  )
+}
+
+/** Home v2 — Block 2. Savings hero: one big number + a small before/after. */
+function HomeBlock2_Savings({
+  currentMonthlySpend,
+  optimizedMonthlySpend,
+  annualSavings,
+}: {
+  currentMonthlySpend: number
+  optimizedMonthlySpend: number
+  annualSavings: number
+}) {
+  return (
+    <section className="home-v2-savings" aria-label="Savings snapshot">
+      <p className="home-v2-savings__eyebrow">What Clarion saves you</p>
+      <p className="home-v2-savings__hero">
+        You&apos;re on track to save{" "}
+        <span className="home-v2-savings__amount">${annualSavings}</span> this year.
+      </p>
+      <div className="home-v2-savings__compare">
+        <div>
+          <span className="home-v2-savings__label">Current stack</span>
+          <span className="home-v2-savings__value home-v2-savings__value--muted">
+            ${currentMonthlySpend}/mo
+          </span>
+        </div>
+        <span className="home-v2-savings__arrow" aria-hidden>→</span>
+        <div>
+          <span className="home-v2-savings__label">Optimized</span>
+          <span className="home-v2-savings__value home-v2-savings__value--accent">
+            ${optimizedMonthlySpend}/mo
+          </span>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/** Home v2 — Block 2 fallback. Slot never feels empty. */
+function HomeBlock2_SavingsEmpty() {
+  return (
+    <section className="home-v2-savings home-v2-savings--empty" aria-label="Savings snapshot">
+      <p className="home-v2-savings__eyebrow">What Clarion saves you</p>
+      <p className="home-v2-savings__hero">Add what you currently take to see your savings.</p>
+      <Link href="/dashboard/plan#current-supplements" className="home-v2-savings__cta">
+        Add current supplements →
+      </Link>
+    </section>
+  )
+}
+
+/** Home v2 — Block 3 positive state. Silence would miss a trust moment. */
+function HomeBlock3_AllStocked() {
+  return (
+    <section className="home-v2-allstocked" aria-label="Supply status">
+      <p className="home-v2-allstocked__line">All supplements have 10+ days supply.</p>
+    </section>
+  )
+}
+
+/** Home v2 — Block 5. A single pill summarizing streak + weekly consistency. */
+function HomeBlock5_Progress({
+  streakDays,
+  weekConsistencyPct,
+}: {
+  streakDays: number
+  weekConsistencyPct: number
+}) {
+  return (
+    <section className="home-v2-progress" aria-label="Progress this week">
+      <p className="home-v2-progress__line">
+        <span className="home-v2-progress__streak">{streakDays}-day streak</span>
+        <span className="home-v2-progress__dot" aria-hidden>·</span>
+        <span className="home-v2-progress__pct">
+          {weekConsistencyPct}% consistency this week
+        </span>
+      </p>
+    </section>
+  )
+}
+
+/** Home v2 — Block 6. One small, specific observation chosen for today. */
+function HomeBlock6_DailyNote({
+  note,
+}: {
+  note: { title: string; body: string; source: "marker" | "protocol" | "generic" }
+}) {
+  return (
+    <section className="home-v2-note" aria-label="Note for today">
+      <p className="home-v2-note__eyebrow">Note for today</p>
+      <p className="home-v2-note__title">{note.title}</p>
+      <p className="home-v2-note__body">{note.body}</p>
+    </section>
+  )
+}
+
+/** Home v2 — Block 7. Quiet escape hatch; not a CTA. */
+function HomeBlock7_More() {
+  return (
+    <nav className="home-v2-more" aria-label="More sections">
+      <span className="home-v2-more__label">More:</span>
+      <Link href="/dashboard/biomarkers">Biomarkers</Link>
+      <Link href="/dashboard/trends">Trends</Link>
+      <Link href="/dashboard/tracking">Tracking</Link>
+      <Link href="/guides">Guides</Link>
+      <Link href="/settings">Profile</Link>
+    </nav>
+  )
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const { setAtmosphere } = useDashboardSkyAtmosphere()
@@ -180,6 +461,8 @@ export default function DashboardPage() {
   const [bloodworkHistory, setBloodworkHistory] = useState<BloodworkSaveRow[]>([])
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null)
   const [loading, setLoading] = useState(true)
+  const [supplementInventory, setSupplementInventory] = useState<SupplementInventoryRow[] | null>(null)
+  const [reorderSnoozeMap, setReorderSnoozeMap] = useState<Record<string, number>>({})
   const [prefsPhone, setPrefsPhone] = useState("")
   const [prefsRetestWeeks, setPrefsRetestWeeks] = useState(8)
   const [prefsSaving, setPrefsSaving] = useState(false)
@@ -197,8 +480,25 @@ export default function DashboardPage() {
   const [protocolTodayChecks, setProtocolTodayChecks] = useState<Record<string, boolean>>({})
   /** Dev-only: force sky mood; `null` = follow protocol + time */
   const [devSkyOverride, setDevSkyOverride] = useState<DashboardSkyMood | null>(null)
-  /** Bumps every 5 min so night / computed mood updates without interaction */
+  /** Home v2: sky-mood chip strip is hidden unless ?sky=1 is in the URL. */
+  const [showSkyControls, setShowSkyControls] = useState(false)
+  /** Bumps on an interval + when the tab wakes so time-of-day sky doesn’t stay stale (5 min was too slow; background tabs throttle timers). */
   const [skyClock, setSkyClock] = useState(0)
+  /** Today = protocol + habits; Labs = score + momentum; Explore = links + learning */
+  const [activeHomeTab, setActiveHomeTab] = useState<"today" | "labs" | "explore">("today")
+  /** Habit sliders — blended into daily score on Today tab. */
+  const [habitMetricsForDailyScore, setHabitMetricsForDailyScore] = useState<DailyMetrics>({})
+  /** Today tab: capture what you already take (photo / barcode AI). */
+  const [whatYouTakeOpen, setWhatYouTakeOpen] = useState(false)
+  /** When true, opening the capture modal also launches link → dose → lab fit wizard. */
+  const [whatYouTakeOpenGuided, setWhatYouTakeOpenGuided] = useState(false)
+  const [stackEditRow, setStackEditRow] = useState<SavedSupplementStackItem | null>(null)
+  const [dosePromptRow, setDosePromptRow] = useState<SavedSupplementStackItem | null>(null)
+  const [doseAckTick, setDoseAckTick] = useState(0)
+   /** Plan-style supply status for each stack row (local). */
+  const [stackAcqMap, setStackAcqMap] = useState<StackAcquisitionMap>({})
+  /** Dedupe bloodwork stack_snapshot sync (lab + profile merge). */
+  const stackSnapshotSyncInFlightRef = useRef<string | null>(null)
 
   useEffect(() => {
     const t = setTimeout(() => setShowBelowFold(true), 0)
@@ -223,6 +523,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const pulse = () => {
       if (typeof window === "undefined" || window.location.hash !== "#protocol") return
+      setActiveHomeTab("today")
       const el = document.getElementById("protocol")
       if (!el) return
       const deferred = el.querySelector("details.dashboard-protocol-deferred")
@@ -239,14 +540,32 @@ export default function DashboardPage() {
   }, [])
 
   useEffect(() => {
-    const id = window.setInterval(() => setSkyClock((n) => n + 1), 5 * 60 * 1000)
-    return () => window.clearInterval(id)
+    if (typeof window === "undefined") return
+    const bump = () => setSkyClock((n) => n + 1)
+    const id = window.setInterval(bump, 60_000)
+    const onVisible = () => {
+      if (document.visibilityState === "visible") bump()
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      window.clearInterval(id)
+      document.removeEventListener("visibilitychange", onVisible)
+    }
   }, [])
 
   useEffect(() => {
+    if (typeof window === "undefined") return
+    const params = new URLSearchParams(window.location.search)
+    const q = params.get("sky")
+    if (q === "1") {
+      setShowSkyControls(true)
+      return
+    }
     if (process.env.NODE_ENV !== "development") return
-    const q = new URLSearchParams(window.location.search).get("sky")
-    if (isDashboardSkyMood(q)) setDevSkyOverride(q)
+    if (isDashboardSkyMood(q)) {
+      setDevSkyOverride(q)
+      setShowSkyControls(true)
+    }
   }, [])
 
   const handleSavePrefs = useCallback(async () => {
@@ -272,6 +591,7 @@ export default function DashboardPage() {
         supplement_form_preference: profile.supplement_form_preference ?? "any",
         diet_preference: profile.diet_preference ?? undefined,
         symptoms: profile.symptoms ?? undefined,
+        health_goals: profile.health_goals ?? undefined,
         streak_milestones: profile.streak_milestones ?? undefined,
         daily_reminder: profile.daily_reminder ?? undefined,
         score_goal: profile.score_goal ?? undefined,
@@ -308,8 +628,16 @@ export default function DashboardPage() {
     return () => window.removeEventListener(CLARION_PROFILE_UPDATED_EVENT, reload)
   }, [user?.id])
 
+  const handleStackAcquisitionChange = useCallback(
+    (key: string, mode: AcquisitionMode) => {
+      if (!user?.id) return
+      setStackAcqMap(setStackItemAcquisition(user.id, key, { mode }))
+    },
+    [user?.id]
+  )
+
   const hasPaidAnalysis = Boolean(profile?.analysis_purchased_at)
-  const hasActiveSubscription = subscription?.status === "active" || subscription?.status === "trialing"
+  const hasActiveSubscription = subscriptionStatusGrantsAccess(subscription?.status)
   const returnedFromSubscriptionCheckout =
     typeof window !== "undefined" && window.location.search.includes("subscription=success")
 
@@ -368,58 +696,6 @@ export default function DashboardPage() {
       .catch(() => setBloodworkHistory([]))
   }, [user?.id])
 
-  // Protocol state for "Next action" block and Today strip: today X/Y, streak
-  useEffect(() => {
-    if (!user?.id || !bloodwork?.stack_snapshot) {
-      setProtocolTodayComplete(null)
-      setProtocolHasStreak(false)
-      setProtocolTodayX(0)
-      setProtocolTodayY(0)
-      setProtocolStreakDays(0)
-      setProtocolHistory([])
-      setProtocolTodayChecks({})
-      return
-    }
-    const today = new Date().toISOString().slice(0, 10)
-    const stack = bloodwork.stack_snapshot && "stack" in bloodwork.stack_snapshot && Array.isArray(bloodwork.stack_snapshot.stack)
-      ? (bloodwork.stack_snapshot.stack as { supplementName?: string }[]).map((s) => s.supplementName || "").filter(Boolean)
-      : ["Iron protocol", "Vitamin D", "Magnesium", "Omega-3"]
-    Promise.all([getProtocolLog(user.id, today), getProtocolLogHistory(user.id, 14)])
-      .then(([todayChecks, history]) => {
-        setProtocolTodayChecks(todayChecks)
-        setProtocolHistory(history.slice(0, 7))
-        const completed = stack.filter((item) => todayChecks[item]).length
-        const total = stack.length
-        const todayComplete = total > 0 && completed === total
-        const byDate: Record<string, boolean> = {}
-        history.forEach(({ log_date, checks }) => {
-          byDate[log_date] = Object.values(checks).some(Boolean)
-        })
-        byDate[today] = todayComplete
-        let streak = 0
-        for (let i = 0; i < 14; i++) {
-          const d = new Date()
-          d.setDate(d.getDate() - i)
-          const dateStr = d.toISOString().slice(0, 10)
-          if (byDate[dateStr]) streak++
-          else break
-        }
-        setProtocolTodayComplete(todayComplete)
-        setProtocolHasStreak(streak > 0)
-        setProtocolTodayX(completed)
-        setProtocolTodayY(total)
-        setProtocolStreakDays(streak)
-      })
-      .catch(() => {
-        setProtocolTodayComplete(null)
-        setProtocolHasStreak(false)
-        setProtocolTodayX(0)
-        setProtocolTodayY(0)
-        setProtocolStreakDays(0)
-        setProtocolTodayChecks({})
-      })
-  }, [user?.id, bloodwork?.stack_snapshot])
-
   useEffect(() => {
     if (typeof window === "undefined") return
     const params = new URLSearchParams(window.location.search)
@@ -456,7 +732,7 @@ export default function DashboardPage() {
       loadSavedState(user.id).then(({ profile: p }) => { if (p) setProfile(p) }).catch(() => {})
       getSubscription(user.id).then((sub) => {
         setSubscription(sub)
-        if (sub?.status === "active" || sub?.status === "trialing") router.replace("/dashboard")
+        if (subscriptionStatusGrantsAccess(sub?.status)) router.replace("/dashboard")
       }).catch(() => {})
     }
     refetch()
@@ -496,14 +772,313 @@ export default function DashboardPage() {
     }
   }, [authLoading, user, loading, profile, hasAnyAccess, router])
 
-  const profileForAnalysis = profile
-    ? { age: profile.age, sex: profile.sex, sport: profile.sport }
-    : {}
-  const analysisResults =
-    bloodwork?.biomarker_inputs && Object.keys(bloodwork.biomarker_inputs).length > 0
-      ? analyzeBiomarkers(bloodwork.biomarker_inputs, profileForAnalysis)
-      : []
-  const retestRecommendations = getRetestRecommendations(analysisResults)
+  const profileForAnalysis = useMemo(
+    () =>
+      profile
+        ? {
+            age: profile.age,
+            sex: profile.sex,
+            sport: profile.sport,
+            training_focus: profile.training_focus?.trim() || undefined,
+          }
+        : {},
+    [profile?.age, profile?.sex, profile?.sport, profile?.training_focus]
+  )
+  /** Must be memoized: a fresh array every render breaks downstream useMemos and the protocol log effect (infinite setState loop). */
+  const analysisResults = useMemo((): BiomarkerResult[] => {
+    if (!bloodwork?.biomarker_inputs || Object.keys(bloodwork.biomarker_inputs).length === 0) return []
+    return analyzeBiomarkers(bloodwork.biomarker_inputs, profileForAnalysis)
+  }, [bloodwork?.biomarker_inputs, profileForAnalysis])
+  const retestRecommendations = useMemo(() => getRetestRecommendations(analysisResults), [analysisResults])
+
+  const profileForSupplementRecs = useMemo(
+    () =>
+      profile
+        ? {
+            shopping_preference: profile.shopping_preference ?? "Best value",
+            diet_preference: profile.diet_preference?.trim() || null,
+            supplement_form_preference: profile.supplement_form_preference ?? "any",
+            improvement_preference: profile.improvement_preference ?? null,
+            sport: profile.sport?.trim() || null,
+            goal: profile.goal?.trim() || null,
+            profile_type: profile.profile_type?.trim() || null,
+            health_goals: profile.health_goals?.trim() || null,
+          }
+        : null,
+    [
+      profile?.shopping_preference,
+      profile?.diet_preference,
+      profile?.supplement_form_preference,
+      profile?.improvement_preference,
+      profile?.sport,
+      profile?.goal,
+      profile?.profile_type,
+      profile?.health_goals,
+    ]
+  )
+
+  const dashboardSupplementRecs = useMemo(() => {
+    try {
+      return supplementRecommendations(analysisResults as BiomarkerResult[], {
+        supplementFormPreference: profile?.supplement_form_preference === "no_pills" ? "no_pills" : "any",
+        profile: profileForSupplementRecs,
+      })
+    } catch {
+      return []
+    }
+  }, [analysisResults, profile?.supplement_form_preference, profileForSupplementRecs])
+
+  const dashboardOptimizedFromLabs = useMemo(() => {
+    try {
+      return optimizeStack(dashboardSupplementRecs)
+    } catch {
+      return {
+        stack: [],
+        totalMonthlyCost: 0,
+        totalUniqueSupplements: 0,
+        savingsVsHighestPotency: 0,
+        cheapestPlanMonthlyCost: 0,
+        highestPotencyPlanMonthlyCost: 0,
+      }
+    }
+  }, [dashboardSupplementRecs])
+
+  const profileStackItems = useMemo(
+    () => stackItemsFromProfileCurrentSupplements(profile?.current_supplements),
+    [profile?.current_supplements]
+  )
+
+  const rawStackFromSnapshotUnfiltered = useMemo(() => {
+    const snap = bloodwork?.stack_snapshot
+    if (!snap || !("stack" in snap) || !Array.isArray(snap.stack)) return []
+    return (snap.stack as SavedSupplementStackItem[]).filter((s) => s?.supplementName?.trim())
+  }, [bloodwork?.stack_snapshot])
+
+  const rawStackFromSnapshot = useMemo(
+    () => filterOrphanLifestyleRowsFromLabSnapshot(rawStackFromSnapshotUnfiltered),
+    [rawStackFromSnapshotUnfiltered]
+  )
+
+  const derivedStackFromAnalysis = useMemo((): SavedSupplementStackItem[] => {
+    if (rawStackFromSnapshot.length > 0) return []
+    return dashboardOptimizedFromLabs.stack.map((rec) =>
+      mapOptimizedRecToSavedStackItem(rec as SupplementRecommendation & { duplicateMarkersMerged?: string[] })
+    )
+  }, [rawStackFromSnapshot, dashboardOptimizedFromLabs])
+
+  /** Labs/onboarding snapshot or derived recommendations — before profile “what you take”. */
+  const baseStackFromLabs = useMemo(
+    () => (rawStackFromSnapshot.length > 0 ? rawStackFromSnapshot : derivedStackFromAnalysis),
+    [rawStackFromSnapshot, derivedStackFromAnalysis]
+  )
+
+  const combinedRawStackItems = useMemo(
+    () => dedupeStackByStorageKey(mergeLabStackWithProfileStack(baseStackFromLabs, profileStackItems)),
+    [baseStackFromLabs, profileStackItems]
+  )
+
+  const labSafeStackItems = useMemo(
+    () => filterStackItemsByLabSafety(combinedRawStackItems, analysisResults),
+    [combinedRawStackItems, analysisResults]
+  )
+
+  /** Fetch supplement inventory once per user; refresh when the profile updates (editor saves). */
+  useEffect(() => {
+    if (!user?.id) {
+      setSupplementInventory(null)
+      return
+    }
+    let cancelled = false
+    const refresh = () => {
+      getSupplementInventory(user.id)
+        .then((rows) => {
+          if (!cancelled) setSupplementInventory(rows)
+        })
+        .catch(() => {
+          if (!cancelled) setSupplementInventory([])
+        })
+    }
+    refresh()
+    const onProfileUpdated = () => refresh()
+    if (typeof window !== "undefined") {
+      window.addEventListener(CLARION_PROFILE_UPDATED_EVENT, onProfileUpdated)
+    }
+    return () => {
+      cancelled = true
+      if (typeof window !== "undefined") {
+        window.removeEventListener(CLARION_PROFILE_UPDATED_EVENT, onProfileUpdated)
+      }
+    }
+  }, [user?.id])
+
+  /** Hydrate snooze map from localStorage once on mount (prunes expired entries). */
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    setReorderSnoozeMap(loadReorderSnoozeMap())
+  }, [])
+
+  const notifyReorderDays = useMemo(() => {
+    const raw = profile?.notify_reorder_days
+    const n = typeof raw === "number" ? raw : Number(raw)
+    return Number.isFinite(n) && n > 0 ? Math.floor(n) : 7
+  }, [profile?.notify_reorder_days])
+
+  const runningLowItems = useMemo(() => {
+    if (supplementInventory === null) return []
+    return computeRunningLow(labSafeStackItems, supplementInventory, notifyReorderDays, reorderSnoozeMap)
+  }, [labSafeStackItems, supplementInventory, notifyReorderDays, reorderSnoozeMap])
+
+  const handleReorderSnooze = useCallback(
+    (name: string) => {
+      snoozeReorder(name, 3)
+      setReorderSnoozeMap(loadReorderSnoozeMap())
+    },
+    []
+  )
+
+  /** Live estimate: profile spend vs current lab-safe stack costs (matches Plan savings when stack is in sync). */
+  const homeSavingsSummary = useMemo(() => {
+    const userSpend = Number(profile?.current_supplement_spend || 0) || 0
+    const optimizedSpend = labSafeStackItems.reduce((sum, s) => sum + (Number(s.monthlyCost) || 0), 0)
+    return computeSavings(userSpend, { totalMonthlyCost: optimizedSpend })
+  }, [profile?.current_supplement_spend, labSafeStackItems])
+
+  /** String snapshot of stack sync inputs — use instead of array deps on the DB sync effect (avoids React “dependency array changed size”). */
+  const stackSnapshotSyncSignature = useMemo(() => {
+    const labKey = sortedSupplementNamesKey(labSafeStackItems)
+    const rawFilteredKey = sortedSupplementNamesKey(rawStackFromSnapshot)
+    const rawUnfilteredKey = sortedSupplementNamesKey(rawStackFromSnapshotUnfiltered)
+    const monthlyTotal = labSafeStackItems.reduce((sum, s) => sum + (Number(s.monthlyCost) || 0), 0)
+    const snapshotNeedsCleanup = rawUnfilteredKey !== rawFilteredKey
+    const upToDate = labKey === rawFilteredKey && !snapshotNeedsCleanup
+    return `${rawUnfilteredKey}|${rawFilteredKey}|${labKey}|${monthlyTotal}|${upToDate ? "1" : "0"}`
+  }, [rawStackFromSnapshotUnfiltered, rawStackFromSnapshot, labSafeStackItems])
+
+  const acqStackSignature = useMemo(
+    () => sortedSupplementNamesKey(labSafeStackItems),
+    [labSafeStackItems]
+  )
+
+  const acqStackProductSig = useMemo(
+    () =>
+      labSafeStackItems
+        .map(
+          (s) =>
+            `${stackItemStorageKey(s)}:${s.productUrl ?? ""}:${s.stackEntryId ?? ""}:${s.userChoseKeepProduct ? "1" : ""}`
+        )
+        .join("|"),
+    [labSafeStackItems]
+  )
+
+  useEffect(() => {
+    if (!user?.id || typeof window === "undefined") return
+    const raw = loadStackAcquisition(user.id)
+    if (labSafeStackItems.length === 0) {
+      setStackAcqMap(raw)
+      return
+    }
+    const { map, changed } = migrateStackAcquisitionMap(raw, labSafeStackItems)
+    const { map: merged, changed: changedInf } = mergeInferredAcquisitionDefaults(labSafeStackItems, map)
+    if (changed || changedInf) saveStackAcquisition(user.id, merged)
+    setStackAcqMap(merged)
+  }, [user?.id, acqStackSignature, acqStackProductSig])
+
+  /** Supplement names for daily protocol — full lab-safe stack (not acquisition-filtered). */
+  const stackNamesForProtocol = useMemo(
+    () => labSafeStackItems.map((s) => s.supplementName).filter(Boolean),
+    [labSafeStackItems]
+  )
+
+  /** Today tab + ProtocolTracker: use full lab-safe stack so logging doesn’t require Plan “I have it” first. */
+  const protocolStackSnapshot = useMemo(() => {
+    if (labSafeStackItems.length === 0) return undefined
+    const snap = bloodwork?.stack_snapshot as { totalMonthlyCost?: number } | undefined
+    return { stack: labSafeStackItems, totalMonthlyCost: snap?.totalMonthlyCost ?? 0 }
+  }, [labSafeStackItems, bloodwork?.stack_snapshot])
+
+  const stackPreviewItems = useMemo(() => labSafeStackItems.slice(0, 5), [labSafeStackItems])
+
+  /**
+   * Keep bloodwork stack_snapshot aligned with the merged lab + “what you take” protocol
+   * (empty snapshot + recommendations, or profile-only adds like iron / D / magnesium).
+   */
+  useEffect(() => {
+    if (!user?.id || !bloodwork?.id) return
+    if (labSafeStackItems.length === 0) {
+      stackSnapshotSyncInFlightRef.current = null
+      return
+    }
+    const snapshotNeedsCleanup =
+      sortedSupplementNamesKey(rawStackFromSnapshotUnfiltered) !== sortedSupplementNamesKey(rawStackFromSnapshot)
+    if (
+      sortedSupplementNamesKey(labSafeStackItems) === sortedSupplementNamesKey(rawStackFromSnapshot) &&
+      !snapshotNeedsCleanup
+    ) {
+      stackSnapshotSyncInFlightRef.current = null
+      return
+    }
+    if (stackSnapshotSyncInFlightRef.current === bloodwork.id) return
+    stackSnapshotSyncInFlightRef.current = bloodwork.id
+    const totalMonthly = labSafeStackItems.reduce((sum, s) => sum + (Number(s.monthlyCost) || 0), 0)
+    updateLatestBloodworkStackSnapshot(user.id, { stack: labSafeStackItems, totalMonthlyCost: totalMonthly }, undefined)
+      .then(() => loadSavedState(user.id))
+      .then(({ bloodwork: b }) => {
+        if (b) setBloodwork(b)
+      })
+      .catch(() => {
+        stackSnapshotSyncInFlightRef.current = null
+      })
+  }, [user?.id, bloodwork?.id, stackSnapshotSyncSignature])
+
+  // Protocol state for "Next action" block and Today strip: today X/Y, streak
+  useEffect(() => {
+    if (!user?.id || stackNamesForProtocol.length === 0) {
+      setProtocolTodayComplete(null)
+      setProtocolHasStreak(false)
+      setProtocolTodayX(0)
+      setProtocolTodayY(0)
+      setProtocolStreakDays(0)
+      setProtocolHistory([])
+      setProtocolTodayChecks({})
+      return
+    }
+    const today = new Date().toISOString().slice(0, 10)
+    const stack = stackNamesForProtocol
+    Promise.all([getProtocolLog(user.id, today), getProtocolLogHistory(user.id, 14)])
+      .then(([todayChecks, history]) => {
+        setProtocolTodayChecks(todayChecks)
+        setProtocolHistory(history.slice(0, 7))
+        const completed = stack.filter((item) => todayChecks[item]).length
+        const total = stack.length
+        const todayComplete = total > 0 && completed === total
+        const byDate: Record<string, boolean> = {}
+        history.forEach(({ log_date, checks }) => {
+          byDate[log_date] = Object.values(checks).some(Boolean)
+        })
+        byDate[today] = todayComplete
+        let streak = 0
+        for (let i = 0; i < 14; i++) {
+          const d = new Date()
+          d.setDate(d.getDate() - i)
+          const dateStr = d.toISOString().slice(0, 10)
+          if (byDate[dateStr]) streak++
+          else break
+        }
+        setProtocolTodayComplete(todayComplete)
+        setProtocolHasStreak(streak > 0)
+        setProtocolTodayX(completed)
+        setProtocolTodayY(total)
+        setProtocolStreakDays(streak)
+      })
+      .catch(() => {
+        setProtocolTodayComplete(null)
+        setProtocolHasStreak(false)
+        setProtocolTodayX(0)
+        setProtocolTodayY(0)
+        setProtocolStreakDays(0)
+        setProtocolTodayChecks({})
+      })
+  }, [user?.id, stackNamesForProtocol])
 
   const scoreBreakdown = useMemo(
     () => (analysisResults.length > 0 ? getScoreBreakdown(analysisResults) : null),
@@ -533,16 +1108,7 @@ export default function DashboardPage() {
       improved: newestRaw > oldestRaw,
     }
   }, [bloodworkHistory])
-  const stackNames = useMemo(() => {
-    const snap = bloodwork?.stack_snapshot
-    if (!snap || !("stack" in snap) || !Array.isArray(snap.stack)) return []
-    return (snap.stack as SavedSupplementStackItem[]).map((s) => s.supplementName || "").filter(Boolean)
-  }, [bloodwork?.stack_snapshot])
-  const stackPreviewItems = useMemo(() => {
-    const snap = bloodwork?.stack_snapshot
-    if (!snap || !("stack" in snap) || !Array.isArray(snap.stack)) return []
-    return (snap.stack as SavedSupplementStackItem[]).filter((s) => s?.supplementName?.trim()).slice(0, 5)
-  }, [bloodwork?.stack_snapshot])
+  const stackNames = stackNamesForProtocol
   const scoreCategoriesWithMarkers = useMemo(() => {
     const seen = new Set<string>()
     for (const r of analysisResults) {
@@ -612,12 +1178,66 @@ export default function DashboardPage() {
     const dates = protocolHistory.map((p) => p.log_date).filter(Boolean)
     return dates.length > 0 ? dates.sort().reverse()[0] ?? null : null
   }, [protocolHistory])
-  const hasStack = Boolean(
-    bloodwork?.stack_snapshot &&
-      "stack" in bloodwork.stack_snapshot &&
-      Array.isArray(bloodwork.stack_snapshot.stack) &&
-      (bloodwork.stack_snapshot.stack as SavedSupplementStackItem[]).filter((s) => s?.supplementName?.trim()).length > 0
+  const hasStack = labSafeStackItems.length > 0
+
+  const doseGateSignature = useMemo(
+    () =>
+      labSafeStackItems
+        .map((s) => `${stackItemStorageKey(s)}::${(s.dose ?? "").trim()}`)
+        .sort()
+        .join("|"),
+    [labSafeStackItems]
   )
+
+  const refreshAfterStackMutation = useCallback(async () => {
+    if (!user?.id) return
+    dispatchProfileUpdated()
+    const { profile: p, bloodwork: b } = await loadSavedState(user.id)
+    if (p) setProfile(p)
+    if (b) setBloodwork(b)
+  }, [user?.id])
+
+  const renderStackRowActions = useCallback(
+    ({ row }: { row: SavedSupplementStackItem; storageKey: string }) => (
+      <StackItemActionsMenu
+        compact
+        ariaLabel={`Actions for ${row.supplementName}`}
+        onEdit={() => setStackEditRow(row)}
+        onDelete={() => {
+          if (!user?.id) return
+          if (!window.confirm(`Remove “${row.supplementName}” from your stack?`)) return
+          void (async () => {
+            try {
+              await deleteMergedStackItem(user.id, row, profile, bloodwork)
+              await refreshAfterStackMutation()
+              notifications.show({ title: "Removed", message: "Your stack was updated.", color: "green" })
+            } catch {
+              notifications.show({ title: "Couldn’t update", message: "Try again in a moment.", color: "red" })
+            }
+          })()
+        }}
+      />
+    ),
+    [user?.id, profile, bloodwork, refreshAfterStackMutation]
+  )
+
+  useEffect(() => {
+    if (!user?.id || typeof window === "undefined") return
+    if (labSafeStackItems.length === 0) {
+      setDosePromptRow(null)
+      return
+    }
+    const ack = loadDoseAckMap(user.id)
+    for (const row of labSafeStackItems) {
+      const k = stackItemStorageKey(row)
+      if (ack[k]) continue
+      if (row.dose?.trim()) continue
+      setDosePromptRow(row)
+      return
+    }
+    setDosePromptRow(null)
+  }, [user?.id, doseGateSignature, labSafeStackItems, doseAckTick])
+
   const dashboardStatus = useMemo(
     () =>
       getDashboardStatus({
@@ -639,7 +1259,19 @@ export default function DashboardPage() {
       }),
     [orderedDrivers, protocolTodayComplete, hasStack]
   )
-  const topFocusForSummary = useMemo(() => buildTopFocus(analysisResults), [analysisResults])
+
+  /** Home tab that best matches the next action — soft pulse invites attention without harsh UI cuts */
+  const nudgeHomeTab = useMemo((): "today" | "labs" | "explore" => {
+    if (hasStack && protocolTodayComplete !== true) return "today"
+    if (retestCountdown?.type === "until" && retestCountdown.weeks <= 2) return "labs"
+    if (orderedDrivers.length > 0) return "labs"
+    return "explore"
+  }, [hasStack, protocolTodayComplete, retestCountdown, orderedDrivers.length])
+
+  const topFocusForSummary = useMemo(
+    () => getOrderedFocusResults(analysisResults, 3, priorityContext),
+    [analysisResults, priorityContext]
+  )
   const topPriorityNames = useMemo(
     () => topFocusForSummary.slice(0, 3).map((t: { name?: string; marker?: string }) => t.name || t.marker || "").filter(Boolean),
     [topFocusForSummary]
@@ -649,6 +1281,7 @@ export default function DashboardPage() {
     () => getPrioritySummary(analysisResults, topFocusForSummary),
     [analysisResults, topFocusForSummary]
   )
+  const detectedPatternsForSummary = useMemo(() => detectPatterns(analysisResults), [analysisResults])
   const bloodwiseSummary = useMemo(() => {
     const score = bloodwork?.score ?? 0
     if (analysisResults.length === 0 || typeof score !== "number") return null
@@ -658,8 +1291,9 @@ export default function DashboardPage() {
       statusCounts,
       topFocus: topFocusForSummary,
       prioritySummary,
+      detectedPatterns: detectedPatternsForSummary,
     })
-  }, [analysisResults, bloodwork?.score, statusCounts, topFocusForSummary, prioritySummary])
+  }, [analysisResults, bloodwork?.score, statusCounts, topFocusForSummary, prioritySummary, detectedPatternsForSummary])
 
   const heroFocus = useMemo(() => {
     const marker = orderedDrivers[0]?.markerName?.trim() || ""
@@ -672,7 +1306,7 @@ export default function DashboardPage() {
         markerForWhy: "",
       }
     }
-    const title = buildShortFocusTitle(marker)
+    const title = buildShortFocusTitle(marker, orderedDrivers[0]?.status)
     const currentSc = typeof bloodwork?.score === "number" ? Math.round(bloodwork.score) : 0
     const gain =
       improvementForecast && improvementForecast.projectedScore > currentSc
@@ -752,6 +1386,16 @@ export default function DashboardPage() {
         : [],
     [profile]
   )
+  const currentSupplementsPreviewLine = useMemo(() => {
+    const raw = profile?.current_supplements
+    if (!raw?.trim()) return null
+    const entries = parseCurrentSupplementsEntries(raw)
+    if (entries.length === 0) return null
+    const names = entries.map((e) => e.name)
+    const shown = names.slice(0, 3).join(", ")
+    const extra = names.length > 3 ? ` +${names.length - 3} more` : ""
+    return `${shown}${extra}`
+  }, [profile?.current_supplements])
   const nudgeBanner = useMemo(() => {
     if (nudgeDismissed || !hasBloodwork) return null
     if (hasStack && protocolTodayComplete !== true && daysSinceLog != null && daysSinceLog >= 2) {
@@ -780,8 +1424,9 @@ export default function DashboardPage() {
   }, [nudgeDismissed, hasBloodwork, hasStack, protocolTodayComplete, daysSinceLog, retestCountdown, lastBloodworkAt, profile?.retest_weeks])
   const greeting = useMemo(() => {
     const h = typeof window !== "undefined" ? new Date().getHours() : 12
+    if (h < 5) return "Still up"
     if (h < 12) return "Good morning"
-    if (h < 17) return "Good afternoon"
+    if (h < 18) return "Good afternoon"
     return "Good evening"
   }, [])
   const displayName = useMemo(() => {
@@ -798,6 +1443,18 @@ export default function DashboardPage() {
     }
     return "there"
   }, [user?.user_metadata?.full_name, user?.user_metadata?.name, user?.email])
+
+  /** Second line typewriter starts after the greeting’s pop has begun (stagger matches TypewriterHeading pop). */
+  const greetingFollowPopDelayMs = useMemo(() => {
+    const first = `${greeting}, ${displayName}`
+    return Math.min(2600, Math.max(680, first.length * 42 + 400))
+  }, [greeting, displayName])
+
+  const greetingFollowRestPopDelayMs = useMemo(
+    () => greetingFollowPopDelayMs + DASHBOARD_GREETING_FOLLOW_LEAD.length * 42 + 280,
+    [greetingFollowPopDelayMs]
+  )
+
   const todayFocusWithIcons = useMemo(
     () =>
       getTodayFocusActionsWithIcons(
@@ -978,7 +1635,7 @@ export default function DashboardPage() {
 
   const guidedStepEyebrow = useMemo(() => {
     if (orderedDrivers[0]?.markerName?.trim()) {
-      return "Biggest opportunity"
+      return "Biggest opportunity for growth"
     }
     if (!roadmapSnapshot) {
       return "Your health journey"
@@ -1003,7 +1660,7 @@ export default function DashboardPage() {
       return "Finish today’s protocol"
     }
     const first = orderedDrivers[0]?.markerName?.trim()
-    if (first) return buildShortFocusTitle(first)
+    if (first) return buildShortFocusTitle(first, orderedDrivers[0]?.status)
     const fallback = (heroFocus.title || homeHeadline || "").trim()
     if (!fallback) return "Take your next step"
     if (/^(improve|lower|raise|finish|focus|add|complete|start|take|get|build|track|log)\b/i.test(fallback)) {
@@ -1015,7 +1672,7 @@ export default function DashboardPage() {
   const guidedBenefitLine = useMemo(() => {
     const m = orderedDrivers[0]?.markerName
     const raw = m
-      ? shortWhySummaryLine(m)
+      ? shortWhySummaryLine(m, orderedDrivers[0]?.status)
       : heroPositiveLine || "Small, steady steps are how scores move."
     return clampGuidedWhyText(raw, 160)
   }, [orderedDrivers, heroPositiveLine])
@@ -1128,18 +1785,6 @@ export default function DashboardPage() {
     return Math.min(100, Math.round((protocolTodayX / protocolTodayY) * 100))
   }, [hasStack, protocolTodayY, protocolTodayX])
 
-  const homeSupportiveSubline = useMemo(() => {
-    if (protocolStreakDays >= 2) {
-      return `${protocolStreakDays} days in a row — keep the rhythm gentle and consistent.`
-    }
-    if (scoreDelta != null && scoreDelta >= 3) {
-      return "Your last panel showed meaningful movement — stay with the plan."
-    }
-    const lede = homeLede.trim()
-    if (lede.length > 0 && lede.length < 140) return lede
-    return "We’ll keep today simple: one clear priority, then your plan."
-  }, [protocolStreakDays, scoreDelta, homeLede])
-
   const homeLearningTeaser = useMemo(() => {
     const priority = topPriorityNames[0]
     if (priority) {
@@ -1204,10 +1849,69 @@ export default function DashboardPage() {
     window.history.replaceState({}, "", url)
   }, [])
 
+  /** Home v2 status line — priority order encoded in homeStatusLine.ts. */
+  const homeStatusLineText = useMemo(() => {
+    const retestWeeksUntil =
+      retestCountdown && retestCountdown.type === "until" ? retestCountdown.weeks : null
+    return buildHomeStatusLine({
+      runningLowCount: runningLowItems.length,
+      retestWeeks: retestWeeksUntil,
+      streakDays: protocolStreakDays,
+      adherencePct: adherenceResult?.overallPct ?? 0,
+      hasStack,
+      hasBloodwork,
+    })
+  }, [
+    runningLowItems.length,
+    retestCountdown,
+    protocolStreakDays,
+    adherenceResult?.overallPct,
+    hasStack,
+    hasBloodwork,
+  ])
+
+  /** Home v2 "note for today" — marker verdict first, protocol insight next, curated fallback last. */
+  const homeDailyNote = useMemo((): { title: string; body: string; source: "marker" | "protocol" | "generic" } => {
+    const topMarker = orderedDrivers[0]?.markerName?.trim()
+    if (hasBloodwork && topMarker) {
+      const match = findAnalysisForMarker(analysisResults, topMarker)
+      if (match && typeof match.value === "number" && Number.isFinite(match.value)) {
+        try {
+          const narrative = getBiomarkerProfileNarrative(topMarker, match, profile)
+          const comparison = getRangeComparison(topMarker, match.value, profileForAnalysis)
+          const body = (comparison.verdict || narrative.fitForGoals || narrative.whyForYou).trim()
+          if (body) {
+            return {
+              title: `On your ${shortMarkerLabel(topMarker).toLowerCase() || topMarker.toLowerCase()}`,
+              body,
+              source: "marker",
+            }
+          }
+        } catch {
+          // fall through to the next source
+        }
+      }
+    }
+    if (hasStack && contextualInsightLine) {
+      return { title: "Today's note", body: contextualInsightLine, source: "protocol" }
+    }
+    const fallback = pickDailyNote(dayOfYear())
+    return { title: fallback.title, body: fallback.body, source: "generic" }
+  }, [hasBloodwork, hasStack, orderedDrivers, analysisResults, profile, profileForAnalysis, contextualInsightLine])
+
+  const firstName = useMemo(() => {
+    if (!displayName || displayName === "there") return "there"
+    return displayName
+  }, [displayName])
+
+  const annualSavingsRounded = Math.round(homeSavingsSummary.annualSavings)
+  const currentMonthlySpendRounded = Math.round(homeSavingsSummary.userCurrentSpend)
+  const optimizedMonthlySpendRounded = Math.round(homeSavingsSummary.optimizedSpend)
+  const weekConsistencyPct = adherenceResult?.consistencyPct ?? 0
+
   if (authLoading || (user && loading)) {
     return (
-      <main className="dashboard-shell">
-        <div className="dashboard-bg" aria-hidden />
+      <main className="dashboard-shell dashboard-shell--clarion-home">
         <div className="dashboard-container dashboard-loading-skeleton" aria-busy="true" aria-label="Loading dashboard">
           <div className="dashboard-skeleton-block dashboard-skeleton-line dashboard-skeleton-line--display" />
           <div className="dashboard-skeleton-block dashboard-skeleton-line dashboard-skeleton-line--narrow" />
@@ -1297,19 +2001,17 @@ export default function DashboardPage() {
   const isDev = process.env.NODE_ENV === "development"
 
   return (
-    <main className={hasBloodwork ? "dashboard-shell dashboard-shell--clarion-home" : "dashboard-shell"}>
+    <main className="dashboard-shell dashboard-shell--clarion-home">
       <AddToHomeScreenPopup />
-      {!hasBloodwork ? <div className="dashboard-bg" aria-hidden /> : null}
       <div className="dashboard-container">
-        <header className="dashboard-header">
-          <TypewriterHeading variant="pop" className="dashboard-greeting dashboard-greeting-typewriter">
-            {`${greeting}, ${displayName}`}
-          </TypewriterHeading>
-          {hasBloodwork ? (
-            <p className="dashboard-header-companion">{homeSupportiveSubline}</p>
-          ) : null}
-          <Link href="/" className="dashboard-back">← Back to Clarion Labs</Link>
-        </header>
+        {!hasBloodwork ? (
+          <header className="dashboard-header">
+            <TypewriterHeading variant="pop" className="dashboard-greeting dashboard-greeting-typewriter">
+              {`${greeting}, ${displayName}`}
+            </TypewriterHeading>
+            <Link href="/" className="dashboard-back">← Back to Clarion Labs</Link>
+          </header>
+        ) : null}
 
         {hasBloodwork && unifiedBanner && (
           <div
@@ -1453,886 +2155,79 @@ export default function DashboardPage() {
         ) : (
           <>
             {hasBloodwork && (
-              <section className="dashboard-today dashboard-home" aria-labelledby="dashboard-today-heading">
+              <section
+                className="dashboard-today dashboard-home dashboard-home-v2"
+                aria-labelledby="dashboard-today-heading"
+              >
                 <h2 id="dashboard-today-heading" className="visually-hidden">
-                  Today
+                  Home
                 </h2>
 
-                <div className="dashboard-clarion-mosaic" data-dashboard-home="guided">
-                <div className="dashboard-guided-mosaic-accent" aria-hidden />
-                <p className="dashboard-guided-journey-eyebrow">Today · your path</p>
+                <HomeBlock1_Recognition
+                  greet={greeting}
+                  firstName={firstName}
+                  statusLine={homeStatusLineText}
+                />
 
-                <div className="dashboard-guided-top">
-                  <aside className="dashboard-guided-rail" aria-label="At a glance">
-                    <PanelScoreEditorial
-                      compact
-                      score={score}
-                      max={100}
-                      interpretation={panelInterpretation}
-                      contributors={panelContributors.slice(0, 2)}
-                      progressionLine={scoreProgressionLine}
-                      focusLine={scoreFocusLine}
-                      tierClassName={scoreTierClass}
-                      ariaLabel={`Panel score ${score} out of 100. ${panelInterpretation}`}
+                {annualSavingsRounded >= 12 ? (
+                  <HomeBlock2_Savings
+                    currentMonthlySpend={currentMonthlySpendRounded}
+                    optimizedMonthlySpend={optimizedMonthlySpendRounded}
+                    annualSavings={annualSavingsRounded}
+                  />
+                ) : (
+                  <HomeBlock2_SavingsEmpty />
+                )}
+
+                {supplementInventory !== null ? (
+                  runningLowItems.length > 0 ? (
+                    <RunningLowCard
+                      items={runningLowItems}
+                      onSnooze={(item) => handleReorderSnooze(item.supplementName)}
                     />
-                    {hasBloodwork && bloodwork?.score != null && profile?.score_goal != null && profile.score_goal > 0 ? (
-                      <div className="dashboard-guided-rail__score-goal" aria-label="Progress toward score goal">
-                        <span className="dashboard-guided-rail__score-goal-label">Your score goal</span>
-                        <span className="dashboard-guided-rail__score-goal-value">
-                          {Math.round(Number(bloodwork.score))} / {profile.score_goal}
-                        </span>
-                        <div className="dashboard-guided-rail__score-goal-bar" aria-hidden>
-                          <div
-                            className="dashboard-guided-rail__score-goal-fill"
-                            style={{
-                              width: `${Math.min(100, (Number(bloodwork.score) / profile.score_goal) * 100)}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    ) : null}
-                    {guidedDailyRhythmLine ? (
-                      <div className="dashboard-guided-rail__daily">
-                        <p className="dashboard-guided-rail__daily-label">{guidedDailyRhythmLine.label}</p>
-                        <p className="dashboard-guided-rail__daily-text">{guidedDailyRhythmLine.text}</p>
-                        {guidedDailyRhythmLine.progressPct != null ? (
-                          <div className="dashboard-guided-rail__daily-bar" aria-hidden>
-                            <div
-                              className="dashboard-guided-rail__daily-bar-fill"
-                              style={{ width: `${guidedDailyRhythmLine.progressPct}%` }}
-                            />
-                          </div>
-                        ) : null}
-                      </div>
-                    ) : null}
-                    {protocolTodayCompletionPct != null ? (
-                      <div className="dashboard-guided-rail__protocol-completion">
-                        <p className="dashboard-guided-rail__protocol-completion-label">Today&apos;s protocol</p>
-                        <div className="dashboard-guided-rail__protocol-completion-row">
-                          <ProtocolCompletionRing
-                            pct={protocolTodayCompletionPct}
-                            label={`Today's protocol ${protocolTodayCompletionPct} percent complete`}
-                          />
-                          {mindfulRailMessage ? (
-                            <p className="dashboard-guided-rail__mindful">{mindfulRailMessage}</p>
-                          ) : null}
-                        </div>
-                      </div>
-                    ) : mindfulRailMessage ? (
-                      <p className="dashboard-guided-rail__mindful dashboard-guided-rail__mindful--solo">{mindfulRailMessage}</p>
-                    ) : null}
-                    <p className="dashboard-guided-rail__tip" role="note">
-                      <span className="dashboard-guided-rail__tip-label">Tip</span>
-                      {tipOfDay}
-                    </p>
-                  </aside>
-
-                  <div className="dashboard-guided-story">
-                    <section className="dashboard-guided-hero" aria-labelledby="dashboard-guided-hero-heading">
-                      <div className="dashboard-guided-hero__glow" aria-hidden />
-                      <div className="dashboard-guided-hero__inner">
-                        <p className="dashboard-guided-hero__eyebrow">{guidedStepEyebrow}</p>
-                        <h3 id="dashboard-guided-hero-heading" className="dashboard-guided-hero__title">
-                          {guidedHeroHeadline}
-                        </h3>
-                        {guidedHeroSnapshot ? (
-                          <p className="dashboard-guided-hero__snapshot" role="status">
-                            {guidedHeroSnapshot}
-                          </p>
-                        ) : null}
-                        {guidedProfileGoalLine ? (
-                          <p className="dashboard-guided-hero__profile-goal" role="note">
-                            Your focus: {guidedProfileGoalLine}
-                          </p>
-                        ) : null}
-                        <p className="dashboard-guided-hero__lede">
-                          <span className="dashboard-guided-hero__lede-strong">{guidedBenefitLine}</span>
-                          <span className="dashboard-guided-hero__lede-muted">{guidedWhyNowLine}</span>
-                        </p>
-                        <div className="dashboard-guided-hero__ctas">
-                          <Link href="/dashboard/plan" className="dashboard-guided-hero__cta-primary">
-                            Open today&apos;s plan
-                          </Link>
-                          {heroFocus.markerForWhy ? (
-                            <Link href="/dashboard/actions" className="dashboard-guided-hero__cta-secondary dashboard-guided-hero__cta-why">
-                              Why this matters
-                            </Link>
-                          ) : null}
-                        </div>
-                        <div className="dashboard-guided-today-flow" aria-label="Today's flow">
-                          <span className="dashboard-guided-today-flow__label">Today&apos;s flow</span>
-                          <ol className="dashboard-guided-today-flow__steps">
-                            <li className="dashboard-guided-today-flow__step dashboard-guided-today-flow__step--active">
-                              <span className="dashboard-guided-today-flow__num" aria-hidden>
-                                ●
-                              </span>
-                              <Link href="/dashboard/plan">Plan</Link>
-                            </li>
-                            <li className="dashboard-guided-today-flow__step dashboard-guided-today-flow__step--future">
-                              <span className="dashboard-guided-today-flow__num" aria-hidden>
-                                ○
-                              </span>
-                              <Link href="#protocol">Check off</Link>
-                            </li>
-                            <li className="dashboard-guided-today-flow__step dashboard-guided-today-flow__step--future">
-                              <span className="dashboard-guided-today-flow__num" aria-hidden>
-                                ○
-                              </span>
-                              <Link href="#daily-check-in">Log habits</Link>
-                            </li>
-                          </ol>
-                        </div>
-                        {heroFocus.markerForWhy ? (
-                          <details className="dashboard-why-matters-details dashboard-guided-hero__why-details">
-                            <summary className="dashboard-why-matters-summary">
-                              Deeper context
-                              <ChevronDown size={18} strokeWidth={2} aria-hidden className="dashboard-why-chevron" />
-                            </summary>
-                            <div className="dashboard-why-matters-body">
-                              <p className="dashboard-why-matters-lead">{shortWhySummaryLine(heroFocus.markerForWhy)}</p>
-                              <p className="dashboard-why-matters-detail">{inferWhyItMatters(heroFocus.markerForWhy)}</p>
-                              <Link href="/dashboard/actions" className="dashboard-why-matters-more">
-                                View personalized actions →
-                              </Link>
-                            </div>
-                          </details>
-                        ) : null}
-                      </div>
-                    </section>
-                  </div>
-                </div>
-
-                {profile ? (
-                  <section
-                    className="dashboard-guided-status-strip dashboard-current-supplements"
-                    id="supplements-you-take"
-                    aria-labelledby="dashboard-supplements-you-take-heading"
-                  >
-                    <h3 id="dashboard-supplements-you-take-heading" className="dashboard-current-supplements-title">
-                      Supplements you already take
-                    </h3>
-                    <p className="dashboard-guided-status-lede">
-                      Tell us what you use today so we can compare it to your lab-based plan, spot overlaps, and estimate savings. Optional product links help with upgrades.
-                    </p>
-                    <div className="dashboard-current-supplements-editor">
-                      <CurrentSupplementsEditor
-                        idPrefix="dashboard-current-supplements"
-                        value={profile.current_supplements ?? ""}
-                        onChange={(serialized) =>
-                          setProfile((p) => (p ? { ...p, current_supplements: serialized } : null))
-                        }
-                      />
-                    </div>
-                    <label className="dashboard-prefs-field dashboard-current-supplements-spend">
-                      <span>Monthly supplement spend (approx.)</span>
-                      <input
-                        type="text"
-                        className="dashboard-prefs-input"
-                        value={profile.current_supplement_spend ?? ""}
-                        onChange={(e) =>
-                          setProfile((p) => (p ? { ...p, current_supplement_spend: e.target.value } : null))
-                        }
-                        placeholder="e.g. 50"
-                        autoComplete="off"
-                      />
-                    </label>
-                    <div className="dashboard-current-supplements-actions">
-                      <button
-                        type="button"
-                        className="dashboard-prefs-save"
-                        onClick={() => void handleSavePrefs()}
-                        disabled={prefsSaving}
-                      >
-                        {prefsSaving ? "Saving…" : "Save"}
-                      </button>
-                      {prefsSaved ? <span className="dashboard-prefs-saved">Saved</span> : null}
-                      <Link href="/settings" className="dashboard-current-supplements-settings-link">
-                        All settings →
-                      </Link>
-                    </div>
-                  </section>
+                  ) : supplementInventory.length > 0 ? (
+                    <HomeBlock3_AllStocked />
+                  ) : null
                 ) : null}
 
-                <section className="dashboard-guided-momentum" aria-labelledby="dashboard-momentum-heading">
-                  <h3 id="dashboard-momentum-heading" className="dashboard-guided-momentum__title">
-                    Your momentum
-                  </h3>
-                  <div className="dashboard-guided-momentum__grid">
-                    {priorityMarkerSeries ? (
-                      <div className="dashboard-guided-momentum__block">
-                        <p className="dashboard-guided-momentum__label">{shortMarkerLabel(priorityMarkerSeries.displayName)}</p>
-                        <div className="dashboard-guided-momentum__spark">
-                          <ScoreSparklinePreview
-                            values={priorityMarkerSeries.values}
-                            className="dashboard-guided-momentum__sparkline"
-                          />
-                        </div>
-                        <Link href="/dashboard/trends" className="dashboard-guided-momentum__link">
-                          Marker trends →
-                        </Link>
-                      </div>
-                    ) : null}
-
-                    <div className="dashboard-guided-momentum__block">
-                      <p className="dashboard-guided-momentum__label">Protocol · last 7 days</p>
-                      <div className="dashboard-guided-momentum__week" role="list" aria-label="Days with a protocol check-in">
-                        {protocolWeekDots.map((d) => (
-                          <span
-                            key={d.iso}
-                            role="listitem"
-                            className={`dashboard-guided-momentum__dot ${d.active ? "dashboard-guided-momentum__dot--on" : ""}`}
-                            title={d.iso}
-                          />
-                        ))}
-                      </div>
-                      <p className="dashboard-guided-momentum__week-caption">
-                        {protocolStreakDays >= 2
-                          ? `${protocolStreakDays}-day streak`
-                          : protocolWeekDots.some((d) => d.active)
-                            ? "At least one check-in this week"
-                            : hasStack
-                              ? "Check off on Home when you dose"
-                              : "Add a stack on Plan to track"}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="dashboard-guided-momentum__bridge">
-                    Logging and habits help your clinician interpret change at the next panel.{" "}
-                    <Link href="/dashboard/tracking">Tracking</Link>
-                    {" · "}
-                    <Link href="/dashboard/trends">Trends</Link>
-                  </p>
-                  {retestCountdown?.type === "until" &&
-                  adherenceResult != null &&
-                  adherenceResult.consistencyPct >= 50 ? (
-                    <p className="dashboard-guided-momentum__retest">
-                      Stay consistent — your next comparison lands in ~{retestCountdown.weeks} week
-                      {retestCountdown.weeks !== 1 ? "s" : ""}. <Link href="/?step=labs">Add labs</Link>
-                    </p>
-                  ) : null}
-                </section>
-
-                <section className="dashboard-guided-status-strip" aria-label="Optimization status">
-                  <div className="dashboard-guided-status-copy">
-                    {dashboardStatus.urgency !== "neutral" && dashboardStatus.href ? (
-                      <p
-                        className={`dashboard-guided-status-pulse dashboard-guided-status-pulse--${dashboardStatus.urgency ?? "neutral"}`}
-                      >
-                        <Link href={dashboardStatus.href}>{dashboardStatus.label}</Link>
-                      </p>
-                    ) : null}
-                    <p className="dashboard-guided-status-meta">
-                      <span className="dashboard-guided-status-kicker">{scoreToLabel(score)}</span>
-                      {reportDateRelative ? (
-                        <>
-                          <span aria-hidden> · </span>
-                          {reportDateRelative}
-                        </>
-                      ) : null}
-                    </p>
-                    <details className="dashboard-today-panel-details dashboard-guided-status-details">
-                      <summary>Goal, history &amp; analysis</summary>
-                      {hasBloodwork && bloodwork?.score != null && (
-                        <div className="dashboard-guided-status-goal dashboard-guided-status-goal--in-details" aria-label="Score goal">
-                          {profile?.score_goal != null && profile.score_goal > 0 ? (
-                            <>
-                              <span className="dashboard-guided-status-goal-label">Goal</span>
-                              <span className="dashboard-guided-status-goal-value">
-                                {Math.round(Number(bloodwork.score))} / {profile.score_goal}
-                              </span>
-                              <div className="dashboard-guided-status-goal-bar" aria-hidden>
-                                <div
-                                  className="dashboard-guided-status-goal-fill"
-                                  style={{
-                                    width: `${Math.min(100, (Number(bloodwork.score) / profile.score_goal) * 100)}%`,
-                                  }}
-                                />
-                              </div>
-                            </>
-                          ) : (
-                            <p className="dashboard-guided-status-goal-nudge">
-                              <Link href="/settings">Set a score goal</Link> to track momentum.
-                            </p>
-                          )}
-                        </div>
-                      )}
-                      <ul className="dashboard-today-panel-details-list">
-                        {heroFocus.gain != null && heroFocus.gain > 0 && (
-                          <li>+{heroFocus.gain} points when you finish today&apos;s protocol steps.</li>
-                        )}
-                        {scoreDelta != null && scoreDelta !== 0 && (
-                          <li>
-                            {scoreDelta > 0 ? "+" : ""}
-                            {Math.round(scoreDelta)} vs last panel
-                          </li>
-                        )}
-                        {scoreJourney && (
-                          <li>
-                            {scoreJourney.improved ? "Improved: " : "Panels: "}
-                            {scoreJourney.from} → {scoreJourney.to}
-                          </li>
-                        )}
-                        {retestCountdown && (
-                          <li>
-                            {retestCountdown.type === "until"
-                              ? `Next retest in ${retestCountdown.weeks} week${retestCountdown.weeks !== 1 ? "s" : ""}`
-                              : `Retest suggested ${retestCountdown.weeks} week${retestCountdown.weeks !== 1 ? "s" : ""} ago`}{" "}
-                            <Link href="/?step=labs">Add labs</Link>
-                          </li>
-                        )}
-                        {heroMomentumLine && <li>{heroMomentumLine}</li>}
-                        {heroFocus.statusChip && (
-                          <li>
-                            {heroFocus.markerForWhy}: {heroFocus.statusChip}
-                            {heroFocus.gain != null && heroFocus.gain > 0 ? ` · up to +${heroFocus.gain} pts` : ""}
-                          </li>
-                        )}
-                      </ul>
-                      <p className="dashboard-guided-status-details-analysis">
-                        <Link href="/dashboard/biomarkers" className="dashboard-guided-status-analysis-link">
-                          View full biomarker analysis
-                        </Link>
-                      </p>
-                    </details>
-                  </div>
-                </section>
-
-                <section className="dashboard-guided-weekly-recap" aria-labelledby="dashboard-weekly-recap-heading">
-                  <h3 id="dashboard-weekly-recap-heading" className="dashboard-guided-weekly-recap__title">
-                    This week
-                  </h3>
-                  <p className="dashboard-guided-weekly-recap__summary">
-                    {weeklyCheckInDays} of 7 days with a protocol check-in
-                    {protocolStreakDays >= 2 ? ` · ${protocolStreakDays}-day streak` : ""}
-                    {bloodworkHistory.length >= 2 && scoreDelta != null && scoreDelta !== 0
-                      ? ` · Score ${scoreDelta > 0 ? "up" : "down"} ${Math.abs(Math.round(scoreDelta))} vs last panel`
-                      : ""}
-                  </p>
-                  <p className="dashboard-guided-weekly-recap__challenges">
-                    <Link href="/dashboard/challenges">Challenges</Link>
-                    {": "}
-                    {challengesSummary.completed}/{challengesSummary.total} complete
-                    {challengesSummary.nextClosest
-                      ? ` · next: ${challengesSummary.nextClosest.name} (${challengesSummary.nextClosest.left})`
-                      : ""}
-                  </p>
-                </section>
-
-                {(stackPreviewItems.length > 0 || protocolTodayY > 0) && (
-                  <section className="dashboard-guided-plan-preview" aria-labelledby="dashboard-plan-preview-heading">
-                    <div className="dashboard-guided-plan-preview__head">
-                      <h3 id="dashboard-plan-preview-heading">Next in your plan</h3>
-                      <span className="dashboard-guided-plan-preview__progress">
-                        {protocolTodayY > 0
-                          ? `${protocolTodayX} of ${protocolTodayY} complete today`
-                          : "Your supplements"}
-                      </span>
-                    </div>
-                    <ul className="dashboard-guided-plan-preview__list dashboard-guided-plan-preview__list--stack">
-                      {(nextPlanPreviewSteps.length > 0 ? nextPlanPreviewSteps : stackPreviewItems.slice(0, 3)).map(
-                        (item, i) => {
-                          const short = parseSupplementRow(item.supplementName ?? "")
-                          const doseLabel = shortStackDoseLabel(item.dose)
-                          const affiliate = getAffiliateProductForStackItem(item)
-                          const detail = getSupplementDetail(item.marker, item.supplementName)
-                          return (
-                            <li key={`${item.supplementName}-${i}`} className="dashboard-stack-row dashboard-guided-plan-preview__stack-row">
-                              {affiliate?.imageUrl ? (
-                                <img
-                                  src={affiliate.imageUrl}
-                                  alt=""
-                                  className="dashboard-stack-row-img"
-                                  width={48}
-                                  height={48}
-                                />
-                              ) : (
-                                <div className="dashboard-stack-row-img dashboard-stack-row-img-placeholder" aria-hidden />
-                              )}
-                              <div className="dashboard-stack-row-body">
-                                <div className="dashboard-stack-row-main">
-                                  <span className="dashboard-stack-item-name">{short.title}</span>
-                                  {doseLabel ? <span className="dashboard-stack-item-dose">{doseLabel}</span> : null}
-                                </div>
-                                {detail?.timing ? (
-                                  <div className="dashboard-stack-detail">
-                                    <span className="dashboard-stack-timing">{detail.timing}</span>
-                                  </div>
-                                ) : null}
-                              </div>
-                            </li>
-                          )
-                        }
-                      )}
-                    </ul>
-                    <div className="dashboard-guided-plan-preview__foot">
-                      <Link href="/dashboard/plan" className="dashboard-guided-plan-preview__cta">
-                        Full plan &amp; stack
-                      </Link>
-                      <Link href="#protocol" className="dashboard-guided-plan-preview__cta-secondary">
-                        Log today&apos;s doses
-                      </Link>
-                    </div>
-                  </section>
-                )}
-
-                {homeLearningTeaser && (
-                  <div className="dashboard-home-learn-card dashboard-home-learn-card--guided-support">
-                    <p className="dashboard-guided-support-eyebrow">Supporting insight</p>
-                    {homeLearningTeaser.biomarkerTag && (
-                      <span className="dashboard-home-learn-card__tag">{homeLearningTeaser.biomarkerTag}</span>
-                    )}
-                    <h3 className="dashboard-home-learn-card__title">{homeLearningTeaser.title}</h3>
-                    <p className="dashboard-home-learn-card__body">{homeLearningTeaser.body}</p>
-                    <Link href={homeLearningTeaser.link} className="dashboard-home-learn-card__cta">
-                      Read insight →
-                    </Link>
-                  </div>
-                )}
-
-                <nav className="dashboard-guided-explore-rail" aria-label="More in Clarion">
-                  <Link href="/dashboard/trends" className="dashboard-guided-explore-rail__link">
-                    Trends
-                  </Link>
-                  <Link href="/dashboard/actions" className="dashboard-guided-explore-rail__link">
-                    Actions
-                  </Link>
-                  <Link href="/dashboard/tracking" className="dashboard-guided-explore-rail__link">
-                    Tracking
-                  </Link>
-                  <Link href="/guides" className="dashboard-guided-explore-rail__link">
-                    Guides
-                  </Link>
-                  <Link href="/dashboard/challenges" className="dashboard-guided-explore-rail__link">
-                    Challenges
-                  </Link>
-                  <Link href="/dashboard/feed" className="dashboard-guided-explore-rail__link">
-                    Feed
-                  </Link>
-                  <button
-                    type="button"
-                    className="dashboard-guided-explore-rail__link dashboard-guided-explore-rail__link--button"
-                    onClick={() =>
-                      typeof window !== "undefined" &&
-                      window.dispatchEvent(new CustomEvent(CLARION_OPEN_ASSISTANT_EVENT))
-                    }
-                  >
-                    Ask Clarion
-                  </button>
-                  <Link href="/settings" className="dashboard-guided-explore-rail__link">
-                    Profile
-                  </Link>
-                  <Link href="/?step=labs" className="dashboard-guided-explore-rail__link">
-                    Add labs
-                  </Link>
-                  {bloodworkHistory.length >= 2 ? (
-                    <Link href="#between-panels" className="dashboard-guided-explore-rail__link">
-                      Habits vs labs
-                    </Link>
-                  ) : null}
-                </nav>
-                </div>
-
-                <section
-                  id="daily-check-in"
-                  className="dashboard-section dashboard-section-habits dashboard-section-habits--guided"
-                  aria-labelledby="dashboard-habits-heading"
-                >
-                  <div className="dashboard-section-habits-head">
-                    <h2 id="dashboard-habits-heading" className="dashboard-section-title">
-                      Reflection &amp; habits
-                    </h2>
-                    <Link href="/dashboard/tracking#daily-check-in" className="dashboard-section-habits-more">
-                      Tracking page →
-                    </Link>
-                  </div>
-                  <p className="dashboard-section-habits-lede">
-                    Small daily signals (sun, sleep, hydration, activity) build the story between lab panels — mindfulness
-                    here supports what you see next in your numbers.
-                  </p>
-                  <DailyHealthCheckIn userId={user?.id} />
-                </section>
-
-                {user?.id && bloodworkHistory.length >= 2 && (
-                  <BetweenPanelsInsightLazy
-                    userId={user.id}
-                    bloodworkHistory={bloodworkHistory}
-                    profile={profile}
-                    sectionId="between-panels"
+                <h2 className="home-v2-section-title">Today&apos;s doses</h2>
+                <div className="dashboard-today-protocol-card" id="protocol">
+                  <ProtocolTracker
+                    stackSnapshot={protocolStackSnapshot}
+                    hasLabsButEmptyStack={hasBloodwork && labSafeStackItems.length === 0}
+                    dashboardHome
+                    suppressPlanHead
+                    analysisResults={analysisResults}
+                    userId={user?.id}
+                    groupByTiming
+                    finishTodayHref="/dashboard#protocol"
+                    renderStackRowActions={renderStackRowActions}
+                    onAllComplete={() => {
+                      notifications.show({
+                        title: "Today's protocol — complete",
+                        message: "Steady work. That consistency is what moves labs over time.",
+                        color: "green",
+                      })
+                    }}
                   />
-                )}
-
-                <section
-                  id="protocol"
-                  className="dashboard-section dashboard-section-protocol dashboard-today-protocol"
-                  aria-labelledby="dashboard-protocol-heading"
-                >
-                  <details className="dashboard-protocol-deferred" open>
-                    <summary className="dashboard-protocol-deferred-summary">
-                      <h2 id="dashboard-protocol-heading" className="dashboard-section-title">
-                        <ListChecks className="dashboard-section-title-icon" size={18} strokeWidth={2} aria-hidden />
-                        <span className="dashboard-protocol-heading-text">Today&apos;s checklist</span>
-                      </h2>
-                    </summary>
-                    <div className="dashboard-protocol-deferred-body">
-                    <p className="dashboard-protocol-mission">
-                      Check off each dose here. Full dosing and your stack live on{" "}
-                      <Link href="/dashboard/plan">Plan</Link>.
-                    </p>
-                    {doThisFirst && <p className="dashboard-protocol-lede">{doThisFirst.line}</p>}
-                <ProtocolTracker
-                  stackSnapshot={bloodwork?.stack_snapshot}
-                  userId={user?.id}
-                  pointsAvailable={heroFocus.gain}
-                  finishTodayHref="/dashboard#protocol"
-                  onAllComplete={() => {
-                    notifications.show({
-                      title: "All set for today",
-                      message: "You've completed your protocol for today.",
-                      color: "green",
-                    })
-                  }}
-                />
-                {stackPreviewItems.length > 0 && (
-                  <div className="dashboard-card dashboard-stack-compact">
-                    <div className="dashboard-stack-compact-head">
-                      <div>
-                        <h3 className="dashboard-stack-compact-title">Your stack (optional)</h3>
-                        <p className="dashboard-stack-compact-subtitle">
-                          Education & reorder — execution is above.
-                        </p>
-                      </div>
-                      <Link href="/dashboard/plan#stack" className="dashboard-stack-compact-head-cta">
-                        View plan
-                      </Link>
-                    </div>
-                    <ul className="dashboard-stack-compact-chips" aria-label="Supplements in your stack">
-                      {stackPreviewItems.map((item, i) => {
-                        const short = parseSupplementRow(item.supplementName)
-                        const doseLabel = shortStackDoseLabel(item.dose)
-                        return (
-                          <li key={`${item.supplementName}-${i}`} className="dashboard-stack-chip">
-                            <div className="dashboard-stack-chip-name-row">
-                              <span
-                                className={`dashboard-stack-chip-mark dashboard-stack-chip-mark--${short.glyphKind}`}
-                                aria-hidden
-                              />
-                              <span className="dashboard-stack-chip-name">{short.title}</span>
-                            </div>
-                            <div className="dashboard-stack-chip-meta">
-                              <span className="dashboard-stack-chip-dose">{doseLabel}</span>
-                              {item.marker ? (
-                                <span className="dashboard-stack-chip-marker">For {item.marker}</span>
-                              ) : null}
-                            </div>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                    <Link href="/dashboard/plan#stack" className="dashboard-stack-compact-link">
-                      Full dosing & reorder links →
-                    </Link>
-                  </div>
-                )}
-                {adherenceResult && adherenceResult.perItem.length > 0 && (
-                  <div className="dashboard-card dashboard-adherence-card">
-                    <h3 className="dashboard-adherence-title">Protocol consistency</h3>
-                    <div className="dashboard-adherence-overall-wrap">
-                      <p className="dashboard-adherence-overall">Overall: {adherenceResult.consistencyPct}% this week</p>
-                      <div className="dashboard-adherence-gradient-bar" aria-hidden>
-                        <div
-                          className="dashboard-adherence-gradient-bar-fill"
-                          style={{ width: `${Math.min(100, adherenceResult.consistencyPct)}%` }}
-                        />
-                      </div>
-                    </div>
-                    <ul className="dashboard-adherence-list">
-                      {adherenceResult.perItem.map((item) => (
-                        <li key={item.itemName} className="dashboard-adherence-item">
-                          <span className="dashboard-adherence-name">{item.itemName}</span>
-                          <span className="dashboard-adherence-pct">{item.pct}%</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {earnedBadges.length > 0 && (
-                  <div className="dashboard-card dashboard-badges-card">
-                    <h3 className="dashboard-badges-title">Earned</h3>
-                    <p className="dashboard-badges-list">{earnedBadges.map((b) => b.name).join(", ")}</p>
-                  </div>
-                )}
-                    </div>
-                  </details>
-                </section>
-              </section>
-            )}
-
-            <div className="dashboard-main">
-            {/* Quick links — full detail on dedicated pages */}
-            {hasBloodwork && (
-              <section
-                className="dashboard-section dashboard-explore-section"
-                aria-labelledby="dashboard-explore-heading"
-              >
-                <h2 id="dashboard-explore-heading" className="dashboard-section-title">
-                  <BarChart2 className="dashboard-section-title-icon" size={18} strokeWidth={2} aria-hidden /> Go deeper
-                </h2>
-                <p className="dashboard-explore-intro dashboard-explore-intro--muted">
-                  When you&apos;re ready beyond today&apos;s path — trends, levers, and your full stack.
-                </p>
-                <div className="dashboard-explore-deeper">
-                  <Link href="/dashboard/trends" className="dashboard-explore-deeper__featured">
-                    <span className="dashboard-explore-deeper__featured-icon" aria-hidden>
-                      <LineChart size={20} strokeWidth={2} />
-                    </span>
-                    <span className="dashboard-explore-deeper__featured-text">
-                      <span className="dashboard-explore-deeper__featured-title">Trends &amp; charts</span>
-                      <span className="dashboard-explore-deeper__featured-desc">Labs over time</span>
-                    </span>
-                    {scoreSparklineSeries.length >= 2 ? (
-                      <ScoreSparklinePreview values={scoreSparklineSeries.slice(-8)} />
-                    ) : (
-                      <span className="dashboard-explore-deeper__hint">2+ panels unlock curves</span>
-                    )}
-                  </Link>
-                  <div className="dashboard-explore-deeper__links" role="list">
-                    <Link href="/dashboard/plan" className="dashboard-explore-deeper__link" role="listitem">
-                      <Package size={18} strokeWidth={2} aria-hidden /> Plan &amp; stack
-                    </Link>
-                    <Link href="/dashboard/actions" className="dashboard-explore-deeper__link" role="listitem">
-                      <Target size={18} strokeWidth={2} aria-hidden /> Actions &amp; levers
-                    </Link>
-                    <Link href="/dashboard/biomarkers" className="dashboard-explore-deeper__link" role="listitem">
-                      <BarChart2 size={18} strokeWidth={2} aria-hidden /> Biomarkers
-                    </Link>
-                  </div>
                 </div>
+
+                {protocolStreakDays > 0 ? (
+                  <HomeBlock5_Progress
+                    streakDays={protocolStreakDays}
+                    weekConsistencyPct={weekConsistencyPct}
+                  />
+                ) : null}
+
+                <HomeBlock6_DailyNote note={homeDailyNote} />
+
+                <HomeBlock7_More />
               </section>
             )}
-
-            {hasBloodwork && scoreBreakdown && scoreCategoriesWithMarkers.length > 0 && (
-              <section
-                className="dashboard-section dashboard-score-areas-section"
-                aria-labelledby="dashboard-score-areas-heading"
-              >
-                <h2 id="dashboard-score-areas-heading" className="dashboard-section-title">
-                  <BarChart2 className="dashboard-section-title-icon" size={18} strokeWidth={2} aria-hidden /> Score by area
-                </h2>
-                <div className="dashboard-card dashboard-score-areas-card">
-                  <p className="dashboard-score-areas-hint">How each area of your panel contributes (100 = best).</p>
-                  <ul className="dashboard-score-areas-list">
-                    {scoreCategoriesWithMarkers.map((cat, idx) => {
-                      const value = scoreBreakdown.breakdown[cat]
-                      return (
-                        <li key={cat} className="dashboard-score-area-row">
-                          <span className="dashboard-score-area-label">{cat}</span>
-                          <span className="dashboard-score-area-value">{value}</span>
-                          <div className={`dashboard-score-area-track dashboard-score-area-track--${idx % 6}`}>
-                            <div className="dashboard-score-area-fill" style={{ width: `${value}%` }} />
-                          </div>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                  <Link href="/dashboard/actions" className="dashboard-score-areas-cta">
-                    What to do next →
-                  </Link>
-                </div>
-              </section>
-            )}
-
-            {/* Expand 1: Your priorities & guides */}
-            {hasBloodwork && (
-              <section
-                id="priorities-guides"
-                className="dashboard-section"
-                aria-labelledby="dashboard-expand-priorities-heading"
-              >
-                <h2 id="dashboard-expand-priorities-heading" className="dashboard-section-title"><Lightbulb className="dashboard-section-title-icon" size={18} strokeWidth={2} aria-hidden /> Your priorities & guides</h2>
-                {!showPrioritiesAndGuides ? (
-                  <Link
-                    href="#priorities-guides"
-                    className="dashboard-card dashboard-expand-trigger"
-                    scroll={false}
-                    onClick={() => setShowPrioritiesAndGuides(true)}
-                  >
-                    <span className="dashboard-expand-trigger-label">Priorities & learning</span>
-                    <span className="dashboard-expand-trigger-chevron" aria-hidden>↓</span>
-                  </Link>
-                ) : (
-                  <>
-                    <button type="button" className="dashboard-expand-close" onClick={() => setShowPrioritiesAndGuides(false)} aria-label="Collapse">↑ Less</button>
-                    {/* Today's insight */}
-                    {(() => {
-                      const priorityName = topPriorityNames[0]
-                      const learningItem = priorityName ? getLearningItemForPriority(priorityName) : null
-                      const tip = getTodaysTip()
-                      if (learningItem) {
-                        return (
-                          <section className="dashboard-section" aria-labelledby="dashboard-todays-insight-heading">
-                            <h3 id="dashboard-todays-insight-heading" className="dashboard-section-title"><Lightbulb className="dashboard-section-title-icon" size={18} strokeWidth={2} aria-hidden /> Today&apos;s insight</h3>
-                            <Link href={learningItem.link} className="dashboard-card dashboard-todays-insight-card">
-                              {learningItem.biomarkerTag && <span className="dashboard-todays-insight-tag">{learningItem.biomarkerTag}</span>}
-                              <h3 className="dashboard-todays-insight-title">{learningItem.title}</h3>
-                              <p className="dashboard-todays-insight-body">{learningItem.body}</p>
-                              <span className="dashboard-todays-insight-cta">Read more</span>
-                            </Link>
-                          </section>
-                        )
-                      }
-                      return (
-                        <section className="dashboard-section" aria-labelledby="dashboard-todays-insight-heading">
-                          <h3 id="dashboard-todays-insight-heading" className="dashboard-section-title"><Lightbulb className="dashboard-section-title-icon" size={18} strokeWidth={2} aria-hidden /> Today&apos;s insight</h3>
-                          <div className="dashboard-card dashboard-todays-insight-card dashboard-todays-insight-card--tip">
-                            <p className="dashboard-todays-insight-body">{tip}</p>
-                          </div>
-                        </section>
-                      )
-                    })()}
-                    {/* Top Priorities */}
-                    {analysisResults.length > 0 && (
-                      <section className="dashboard-section" aria-labelledby="dashboard-priorities-heading">
-                        <h3 id="dashboard-priorities-heading" className="dashboard-section-title"><ArrowUpCircle className="dashboard-section-title-icon" size={18} strokeWidth={2} aria-hidden /> Top priorities</h3>
-                        <div className="dashboard-priorities-grid">
-                          {buildTopFocus(analysisResults).slice(0, 3).map((item, idx) => {
-                            const name = String((item as { name?: string; marker?: string }).name || (item as { name?: string; marker?: string }).marker || "Marker")
-                            const tone = getStatusTone(item.status)
-                            const optimalMin = (item as { optimalMin?: number }).optimalMin
-                            const optimalMax = (item as { optimalMax?: number }).optimalMax
-                            const targetRange = optimalMin != null && optimalMax != null ? `Aim: ${optimalMin}–${optimalMax}` : null
-                            const guideMatch = getGuidesForBiomarker(name)[0]
-                            const actionHref = guideMatch ? `/guides/${guideMatch.slug}` : null
-                            const actionLabel = guideMatch ? "Read the guide" : "Discuss with your clinician"
-                            const value = (item as { value?: number }).value
-                            const progressPct = typeof value === "number" && typeof optimalMin === "number" && optimalMin > 0
-                              ? Math.min(100, Math.max(0, (value / optimalMin) * 100))
-                              : null
-                            return (
-                              <div key={`${name}-${idx}`} className="dashboard-card dashboard-priority-card">
-                                <div className="dashboard-priority-name">{name}</div>
-                                <div className={`dashboard-priority-status ${tone.className}`}>{tone.label}</div>
-                                {value != null && <div className="dashboard-priority-value">You: {value}{targetRange && ` · ${targetRange}`}</div>}
-                                {targetRange && value == null && <div className="dashboard-priority-target">{targetRange}</div>}
-                                {progressPct != null && (
-                                  <div className="dashboard-priority-bar-wrap">
-                                    <div className="dashboard-priority-bar" style={{ width: `${progressPct}%` }} />
-                                  </div>
-                                )}
-                                <p className="dashboard-priority-explanation">{inferWhyItMatters(name)}</p>
-                                <Link href="/dashboard#protocol" className="dashboard-priority-link">View protocol</Link>
-                                <Link
-                                  href={actionHref ?? "/faq"}
-                                  className={`dashboard-priority-action ${actionHref ? "" : "dashboard-priority-action-muted"}`}
-                                >
-                                  → {actionLabel}
-                                </Link>
-                              </div>
-                            )
-                          })}
-                        </div>
-                        {(() => {
-                          const priorityNames = buildTopFocus(analysisResults).slice(0, 3).map((t: { name?: string; marker?: string }) => t.name || t.marker || "").filter(Boolean)
-                          const longTerm = getLongTermInsightForPriorities(priorityNames)
-                          return longTerm ? <p className="dashboard-priorities-longterm">Why this matters: {longTerm}</p> : null
-                        })()}
-                      </section>
-                    )}
-                    {/* Guides for you */}
-                    {analysisResults.length > 0 && (() => {
-                      const topFocus = buildTopFocus(analysisResults).slice(0, 3)
-                      const priorityNames = topFocus.map((t: { name?: string; marker?: string }) => t.name || t.marker || "").filter(Boolean)
-                      const guidesForYou = getGuidesForPriorities(priorityNames)
-                      if (guidesForYou.length === 0) return null
-                      return (
-                        <section className="dashboard-section" aria-labelledby="dashboard-guides-heading">
-                          <h3 id="dashboard-guides-heading" className="dashboard-section-title">
-                            <BookOpen className="dashboard-section-title-icon" size={18} strokeWidth={2} aria-hidden /> Guides for you
-                            {hasActiveSubscription && <span className="dashboard-section-badge">Included with Clarion+</span>}
-                          </h3>
-                          <div className="dashboard-guides-grid">
-                            {guidesForYou.map((guide) => (
-                              <Link key={guide.slug} href={`/guides/${guide.slug}`} className="dashboard-card dashboard-guide-card">
-                                <div className="dashboard-guide-title">{guide.title}</div>
-                                <p className="dashboard-guide-desc">{guide.description && guide.description.length > 60 ? guide.description.slice(0, 57) + "…" : guide.description}</p>
-                                <span className="dashboard-guide-link">Read guide</span>
-                              </Link>
-                            ))}
-                          </div>
-                        </section>
-                      )
-                    })()}
-                    {/* Latest from Clarion */}
-                    {getLatestLearningItem() && (
-                      <section className="dashboard-section" aria-labelledby="dashboard-learning-heading">
-                        <h3 id="dashboard-learning-heading" className="dashboard-section-title"><BookOpen className="dashboard-section-title-icon" size={18} strokeWidth={2} aria-hidden /> Latest from Clarion</h3>
-                        {(() => {
-                          const item = getLatestLearningItem()!
-                          return (
-                            <Link href={item.link} className="dashboard-card dashboard-learning-teaser">
-                              <span className="dashboard-learning-tag">{item.biomarkerTag ?? "Research"}</span>
-                              <h3 className="dashboard-learning-title">{item.title}</h3>
-                              <p className="dashboard-learning-body">{item.body}</p>
-                              <span className="dashboard-learning-cta">Read more</span>
-                            </Link>
-                          )
-                        })()}
-                        <Link href="/dashboard/feed" className="dashboard-learning-feed-link">See all in Feed</Link>
-                      </section>
-                    )}
-                  </>
-                )}
-              </section>
-            )}
-
-            {hasBloodwork && (
-              <section className="dashboard-section dashboard-challenges-section" aria-labelledby="dashboard-challenges-teaser-heading">
-                <h2 id="dashboard-challenges-teaser-heading" className="dashboard-section-title">
-                  <Trophy className="dashboard-section-title-icon" size={18} strokeWidth={2} aria-hidden /> Challenges
-                </h2>
-                <Link href="/dashboard/challenges" className="dashboard-card dashboard-challenges-teaser-card">
-                  <span className="dashboard-challenges-teaser-count">
-                    {challengesSummary.completed} of {challengesSummary.total} complete
-                  </span>
-                  {challengesSummary.nextClosest && (
-                    <p className="dashboard-challenges-teaser-next">
-                      Next: {challengesSummary.nextClosest.name} — {challengesSummary.nextClosest.left}
-                    </p>
-                  )}
-                  <span className="dashboard-challenges-teaser-cta">View all</span>
-                </Link>
-              </section>
-            )}
-
-            {showBelowFold && (
-            <>
-            {/* From the research / Tip */}
-            {hasBloodwork && (
-              <div className="dashboard-tip-bar" role="complementary">
-                <span className="dashboard-tip-label">From the research</span>
-                <span className="dashboard-tip-text">{contextualInsightLine}</span>
-              </div>
-            )}
-
-            {hasActiveSubscription ? (
-              <div className="dashboard-card dashboard-welcome-clarion" style={{ marginTop: 24 }}>
-                <div className="dashboard-welcome-clarion-badge">✓</div>
-                <h3 className="dashboard-welcome-clarion-title">Welcome to Clarion+</h3>
-                <p className="dashboard-card-muted">Full access to trends, retest reminders, and recommendations.</p>
-              </div>
-            ) : (
-              <div className="dashboard-card dashboard-subscribe-card" style={{ marginTop: 24 }}>
-                <div className="dashboard-card-label">Clarion+</div>
-                <p className="dashboard-card-muted">Trends, retest reminders, and recommendations. Cancel anytime.</p>
-                <SubscribeButton className="dashboard-cta dashboard-cta-subscribe">Subscribe to Clarion+</SubscribeButton>
-              </div>
-            )}
-            </>
-            )}
-          </div>
           </>
         )}
 
-        {user && profile && (
+        {!hasBloodwork && user && profile && (
           <section className="dashboard-section dashboard-settings-section" aria-labelledby="dashboard-settings-heading" style={{ marginTop: hasBloodwork ? 32 : 24 }}>
             <h2 id="dashboard-settings-heading" className="dashboard-section-title"><SettingsIcon className="dashboard-section-title-icon" size={18} strokeWidth={2} aria-hidden /> Settings</h2>
             {(() => {
@@ -2363,8 +2258,8 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {isDev && hasBloodwork && (
-        <div className="dashboard-sky-dev" role="toolbar" aria-label="Dev: sky background (development only)">
+      {showSkyControls && hasBloodwork && (
+        <div className="dashboard-sky-dev" role="toolbar" aria-label="Sky background selector">
           <span className="dashboard-sky-dev-label">Sky</span>
           <button
             type="button"
@@ -2385,6 +2280,101 @@ export default function DashboardPage() {
           ))}
         </div>
       )}
+
+      <StackItemEditModal
+        open={stackEditRow != null}
+        title="Update supplement"
+        initialName={stackEditRow?.supplementName ?? ""}
+        initialDose={stackEditRow?.dose ?? ""}
+        initialUrl={stackEditRow?.productUrl ?? ""}
+        onClose={() => setStackEditRow(null)}
+        onSave={async (payload) => {
+          if (!user?.id || !stackEditRow) return
+          try {
+            await updateMergedStackItem(user.id, stackEditRow, payload, profile, bloodwork)
+            setStackEditRow(null)
+            await refreshAfterStackMutation()
+            notifications.show({ title: "Saved", message: "Supplement details updated.", color: "green" })
+          } catch {
+            notifications.show({ title: "Couldn’t save", message: "Try again in a moment.", color: "red" })
+          }
+        }}
+      />
+      <StackDosePromptModal
+        open={dosePromptRow != null}
+        productName={dosePromptRow?.supplementName ?? ""}
+        onSkip={() => {
+          if (!user?.id || !dosePromptRow) return
+          setDoseAcknowledged(user.id, stackItemStorageKey(dosePromptRow))
+          setDosePromptRow(null)
+          setDoseAckTick((n) => n + 1)
+        }}
+        onSave={async (dose) => {
+          if (!user?.id || !dosePromptRow) return
+          try {
+            await updateMergedStackItem(
+              user.id,
+              dosePromptRow,
+              { supplementName: dosePromptRow.supplementName, dose },
+              profile,
+              bloodwork
+            )
+            setDoseAcknowledged(user.id, stackItemStorageKey(dosePromptRow))
+            setDosePromptRow(null)
+            setDoseAckTick((n) => n + 1)
+            await refreshAfterStackMutation()
+          } catch {
+            notifications.show({ title: "Couldn’t save", message: "Try again in a moment.", color: "red" })
+          }
+        }}
+      />
+
+      {profile && user?.id ? (
+        <CurrentSupplementsCaptureModal
+          open={whatYouTakeOpen}
+          onClose={() => {
+            setWhatYouTakeOpen(false)
+            setWhatYouTakeOpenGuided(false)
+          }}
+          initialOpenGuidedWizard={whatYouTakeOpenGuided}
+          currentSupplements={profile.current_supplements ?? ""}
+          onChangeSupplements={async (serialized) => {
+            if (!user?.id) return
+            try {
+              await upsertProfile(user.id, {
+                age: profile.age ?? "",
+                sex: profile.sex ?? "",
+                sport: profile.sport ?? "",
+                goal: profile.goal ?? "",
+                current_supplement_spend: profile.current_supplement_spend ?? "",
+                current_supplements: serialized,
+                shopping_preference: profile.shopping_preference ?? "Best value",
+                improvement_preference: profile.improvement_preference ?? "",
+                profile_type: profile.profile_type ?? "",
+                retest_weeks: profile.retest_weeks ?? 8,
+                supplement_form_preference: profile.supplement_form_preference ?? "any",
+                health_goals: profile.health_goals ?? undefined,
+                symptoms: profile.symptoms ?? undefined,
+                height_cm: profile.height_cm ?? undefined,
+                weight_kg: profile.weight_kg ?? undefined,
+                diet_preference: profile.diet_preference ?? undefined,
+                streak_milestones: profile.streak_milestones ?? undefined,
+                daily_reminder: profile.daily_reminder ?? undefined,
+                score_goal: profile.score_goal ?? undefined,
+                notify_reorder_email: profile.notify_reorder_email ?? undefined,
+                notify_reorder_days: profile.notify_reorder_days ?? undefined,
+                plan_tier: profile.plan_tier ?? undefined,
+              })
+              setProfile((prev) => (prev ? { ...prev, current_supplements: serialized } : null))
+              dispatchProfileUpdated()
+            } catch {
+              // ignore
+            }
+          }}
+        />
+      ) : null}
+
+      <ComplianceFooter variant="footer" />
     </main>
   )
 }

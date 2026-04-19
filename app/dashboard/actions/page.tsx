@@ -7,11 +7,14 @@ import { useAuth } from "@/src/contexts/AuthContext"
 import { loadSavedState, getSubscription } from "@/src/lib/bloodwiseDb"
 import type { BloodworkSaveRow, ProfileRow, SubscriptionRow } from "@/src/lib/bloodwiseDb"
 import { analyzeBiomarkers } from "@/src/lib/analyzeBiomarkers"
-import { getOrderedScoreDrivers, getImprovementForecast } from "@/src/lib/scoreBreakdown"
+import { findAnalysisResultForDriverMarker, getOrderedScoreDrivers, getImprovementForecast } from "@/src/lib/scoreBreakdown"
 import { buildPriorityContextFromProfile } from "@/src/lib/priorityRanking"
 import { inferWhyItMatters } from "@/src/lib/priorityEngine"
 import { getActionPlanForBiomarker } from "@/src/lib/actionPlans"
-import { getAffiliateProductsForBiomarker } from "@/src/lib/affiliateProducts"
+import {
+  applyAmazonAssociatesTag,
+  getAffiliateProductsForBiomarker,
+} from "@/src/lib/affiliateProducts"
 import type { AffiliateProduct } from "@/src/lib/affiliateProducts"
 import { AFFILIATE_DISCLOSURE } from "@/src/lib/affiliateProducts"
 import { getCoreProtocol } from "@/src/lib/coreBiomarkerProtocols"
@@ -113,9 +116,9 @@ function PriorityMarkerCard({
             ) : (
               <div className="dashboard-priority-product-thumb dashboard-priority-product-thumb--empty" aria-hidden />
             )}
-            {primaryProduct ? (
+                       {primaryProduct ? (
               <a
-                href={primaryProduct.affiliateUrl}
+                href={applyAmazonAssociatesTag(primaryProduct.affiliateUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="dashboard-priority-cta-buy"
@@ -148,7 +151,7 @@ function PriorityMarkerCard({
             </button>
             {primaryProduct ? (
               <a
-                href={primaryProduct.affiliateUrl}
+                href={applyAmazonAssociatesTag(primaryProduct.affiliateUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="dashboard-priority-purchase dashboard-priority-purchase--on-back"
@@ -283,7 +286,14 @@ export default function ActionsPage() {
     if (!hasAccess && profile !== null) router.replace("/paywall")
   }, [authLoading, user, loading, profile, hasAccess, router])
 
-  const profileForAnalysis = profile ? { age: profile.age, sex: profile.sex, sport: profile.sport } : {}
+  const profileForAnalysis = profile
+    ? {
+        age: profile.age,
+        sex: profile.sex,
+        sport: profile.sport,
+        training_focus: profile.training_focus?.trim() || undefined,
+      }
+    : {}
   const analysisResults = useMemo(
     () =>
       bloodwork?.biomarker_inputs && Object.keys(bloodwork.biomarker_inputs).length > 0
@@ -391,13 +401,19 @@ export default function ActionsPage() {
           </p>
           <div className="dashboard-action-priority-row" role="list">
             {orderedDrivers.map((driver, idx) => {
+              const driverRow = findAnalysisResultForDriverMarker(analysisResults, driver.markerName)
+              const driverStatus = driverRow?.status ?? driver.status
               const forecast = getImprovementForecast(analysisResults, driver.markerName)
-              const actionPlan = getActionPlanForBiomarker(driver.markerName, analysisResults)
-              const products = getAffiliateProductsForBiomarker(driver.markerName, [
-                "overall_winner",
-                "cheapest",
-                "premium",
-              ])
+              const actionPlan = getActionPlanForBiomarker(driver.markerName, analysisResults, {
+                status: driverStatus,
+                value: driverRow?.value,
+                profile: profileForAnalysis,
+              })
+              const products = getAffiliateProductsForBiomarker(
+                driver.markerName,
+                ["overall_winner", "cheapest", "premium"],
+                { status: driverStatus }
+              )
               const protocol = getCoreProtocol(driver.markerName)
               const supplementDetail = getSupplementDetail(driver.markerName)
               const foods = protocol?.foods?.slice(0, 5) ?? []
@@ -409,13 +425,13 @@ export default function ActionsPage() {
               const guides = getGuidesForBiomarker(guideKey)
               const guide = guides[0]
               const statusLower = (driver.status ?? "").toLowerCase()
-              const statusTeaser = getPositiveStatusTeaser(statusLower)
+              const statusTeaser = getPositiveStatusTeaser(statusLower, driver.markerName)
               const isHighUrgency = statusLower === "deficient" || statusLower === "high"
               const primaryProduct = products[0]
               const bestValue = products.find((p) => p.optionType === "cheapest") ?? products[1]
               const bestQuality = products.find((p) => p.optionType === "premium") ?? products[2]
-              const progressTitle = getProgressHeadlineForMarker(driver.markerName, driver.label)
-              const lifestyleTagline = getLifestyleTaglineForMarker(driver.markerName)
+              const progressTitle = getProgressHeadlineForMarker(driver.markerName, driver.label, driverStatus)
+              const lifestyleTagline = getLifestyleTaglineForMarker(driver.markerName, driverStatus)
               const visualKind = getMarkerVisualKind(driver.markerName)
               const journey = getJourneyStepCopy(idx + 1)
 
@@ -1026,7 +1042,7 @@ function ActionSupplementStrip({
             </>
           ) : null}
           <a
-            href={selected.affiliateUrl}
+            href={applyAmazonAssociatesTag(selected.affiliateUrl)}
             target="_blank"
             rel="noopener noreferrer"
             className="dashboard-action-product-detail-cta"

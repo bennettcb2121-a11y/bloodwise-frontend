@@ -5,10 +5,29 @@
 
 import type { SavedSupplementStackItem } from "./bloodwiseDb"
 import {
+  applyAmazonAssociatesTag,
   getAffiliateProductsForBiomarker,
-  AFFILIATE_TAG,
+  getAmazonAssociatesTag,
+  type AffiliateOptionType,
   type AffiliateProduct,
 } from "./affiliateProducts"
+import type { SupplementPreset } from "./supplementMetadata"
+
+/** Map catalog preset → biomarker list in `affiliateProducts` + which tier best matches the preset. */
+const PRESET_AMAZON_REC: Partial<Record<string, { biomarker: string; optionTypes: AffiliateOptionType[] }>> = {
+  vitamin_d: { biomarker: "Vitamin D", optionTypes: ["overall_winner"] },
+  iron: { biomarker: "Ferritin", optionTypes: ["overall_winner"] },
+  omega3: { biomarker: "Triglycerides", optionTypes: ["overall_winner"] },
+  b12: { biomarker: "Vitamin B12", optionTypes: ["overall_winner"] },
+  folate: { biomarker: "Folate", optionTypes: ["overall_winner"] },
+  magnesium: { biomarker: "Magnesium", optionTypes: ["overall_winner"] },
+  /** Fiber / psyllium — LDL-C protocol emphasis. */
+  fiber: { biomarker: "LDL-C", optionTypes: ["overall_winner"] },
+  /** Berberine SKUs live under HbA1c in the core set. */
+  berberine: { biomarker: "HbA1c", optionTypes: ["overall_winner"] },
+  /** Curcumin tier under inflammation marker (overall winner there is omega; use cheapest for turmeric). */
+  turmeric: { biomarker: "hs-CRP", optionTypes: ["cheapest"] },
+}
 
 /** Normalize text for matching: lowercase, collapse spaces/hyphens/underscores. */
 function normalize(text: string): string {
@@ -44,7 +63,7 @@ function inferBiomarkerFromSupplementName(supplementName: string): string | null
 /**
  * Resolve biomarker for a stack item: use stored marker first, then infer from supplement name.
  */
-function resolveBiomarkerForStackItem(item: SavedSupplementStackItem): string | null {
+export function resolveBiomarkerForStackItem(item: SavedSupplementStackItem): string | null {
   const stored = item.marker?.trim()
   if (stored) {
     // Normalize to a key we have products for
@@ -86,5 +105,18 @@ export function getAffiliateProductForStackItem(
  */
 export function getAmazonSearchUrl(supplementName: string): string {
   const query = encodeURIComponent(`${supplementName} supplement`)
-  return `https://www.amazon.com/s?k=${query}&tag=${AFFILIATE_TAG}`
+  return `https://www.amazon.com/s?k=${query}&tag=${encodeURIComponent(getAmazonAssociatesTag())}`
+}
+
+/**
+ * Prefer a **single curated /dp/ product** from the core biomarker affiliate set when the preset maps to a lab context;
+ * otherwise fall back to a tagged Amazon **search** (same as {@link getAmazonSearchUrl}).
+ */
+export function getRecommendedAmazonUrlForPreset(preset: SupplementPreset): string {
+  const rec = PRESET_AMAZON_REC[preset.id]
+  if (!rec) return getAmazonSearchUrl(preset.displayName)
+  const products = getAffiliateProductsForBiomarker(rec.biomarker, rec.optionTypes)
+  const url = products[0]?.affiliateUrl
+  if (url) return applyAmazonAssociatesTag(url)
+  return getAmazonSearchUrl(preset.displayName)
 }
