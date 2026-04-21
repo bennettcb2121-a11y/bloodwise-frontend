@@ -3,10 +3,10 @@
 import React, { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Plus, X, ListChecks, Droplets, LineChart, Pill, ScanLine } from "lucide-react"
+import { Plus, X, ListChecks, Droplets, ScanLine, Pill, FileText } from "lucide-react"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { SupplementCheckerSheet } from "@/src/components/SupplementCheckerSheet"
-import { CurrentSupplementsSheet } from "@/src/components/CurrentSupplementsSheet"
+import { WhatITakeSheet } from "@/src/components/WhatITakeSheet"
 
 /**
  * One-tap entry to logging: protocol, daily habits, supplements, barcode checker.
@@ -29,10 +29,10 @@ export function DashboardLogFab() {
   }, [menuOpen, checkerOpen])
 
   useEffect(() => {
-    setMenuOpen(false)
+    queueMicrotask(() => setMenuOpen(false))
   }, [pathname])
 
-  if (!pathname?.startsWith("/dashboard")) return null
+  if (!pathname?.startsWith("/dashboard") && !pathname?.startsWith("/labs")) return null
 
   return (
     <>
@@ -54,7 +54,7 @@ export function DashboardLogFab() {
             <h2 id="dashboard-log-fab-title" className="dashboard-log-fab-title">
               Log &amp; track
             </h2>
-            <p className="dashboard-log-fab-sub">Quick paths to what you already have in Clarion.</p>
+            <p className="dashboard-log-fab-sub">Log from anywhere.</p>
             <ul className="dashboard-log-fab-list">
               <li>
                 <Link
@@ -65,7 +65,7 @@ export function DashboardLogFab() {
                   <ListChecks size={20} strokeWidth={2} aria-hidden />
                   <span>
                     <strong>Today&apos;s protocol</strong>
-                    <small>Check off your stack</small>
+                    <small>Check off a dose</small>
                   </span>
                 </Link>
               </li>
@@ -83,19 +83,6 @@ export function DashboardLogFab() {
                 </Link>
               </li>
               <li>
-                <Link
-                  href="/dashboard/tracking#daily-check-in"
-                  className="dashboard-log-fab-item"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  <LineChart size={20} strokeWidth={2} aria-hidden />
-                  <span>
-                    <strong>Tracking page</strong>
-                    <small>History &amp; charts</small>
-                  </span>
-                </Link>
-              </li>
-              <li>
                 <button
                   type="button"
                   className="dashboard-log-fab-item dashboard-log-fab-item--button"
@@ -106,8 +93,8 @@ export function DashboardLogFab() {
                 >
                   <Pill size={20} strokeWidth={2} aria-hidden />
                   <span>
-                    <strong>Supplements you take</strong>
-                    <small>Edit your list</small>
+                    <strong>Add what I take</strong>
+                    <small>Photo, barcode, paste a list, or type</small>
                   </span>
                 </button>
               </li>
@@ -122,10 +109,23 @@ export function DashboardLogFab() {
                 >
                   <ScanLine size={20} strokeWidth={2} aria-hidden />
                   <span>
-                    <strong>Supplement checker</strong>
-                    <small>Scan barcode · lab context</small>
+                    <strong>Check a single bottle</strong>
+                    <small>Scan to see if it fits your labs</small>
                   </span>
                 </button>
+              </li>
+              <li>
+                <Link
+                  href="/labs/upload"
+                  className="dashboard-log-fab-item"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <FileText size={20} strokeWidth={2} aria-hidden />
+                  <span>
+                    <strong>Upload labs</strong>
+                    <small>PDF or photos — AI reads them</small>
+                  </span>
+                </Link>
               </li>
             </ul>
           </div>
@@ -139,7 +139,7 @@ export function DashboardLogFab() {
           onRequestSupplementsYouTake={() => setSupplementsSheetOpen(true)}
         />
       )}
-      {supplementsSheetOpen && <CurrentSupplementsSheet userId={user?.id} onClose={() => setSupplementsSheetOpen(false)} />}
+      {supplementsSheetOpen && <WhatITakeSheet userId={user?.id} onClose={() => setSupplementsSheetOpen(false)} />}
     </>
   )
 }

@@ -179,7 +179,7 @@ type OnboardingFlowProps = {
   biomarkerKeys: string[]
   activePanel: string[]
   togglePanelMarker: (marker: string) => void
-  useRecommendedPanel: () => void
+  applyRecommendedPanel: () => void
   hasEnoughLabsFlag: boolean
   loadExampleData: () => void
   analysisResults: any[]
@@ -237,7 +237,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
     biomarkerKeys,
     activePanel,
     togglePanelMarker,
-    useRecommendedPanel,
+    applyRecommendedPanel,
     hasEnoughLabsFlag,
     loadExampleData,
     analysisResults,
@@ -289,7 +289,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
     if (typeof window === "undefined") return
     if (currentStep !== STEP_SCORE) return
     if (sessionStorage.getItem("clarion_capture_supplements_v1") === "1") return
-    setShowCaptureSupplementsModal(true)
+    queueMicrotask(() => setShowCaptureSupplementsModal(true))
   }, [currentStep])
 
   const dismissCaptureSupplementsModal = useCallback(() => {
@@ -376,7 +376,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
   }
 
   const handleUseRecommended = () => {
-    useRecommendedPanel()
+    applyRecommendedPanel()
     setCurrentStep(STEP_HAVE_LABS)
   }
   const biomarkerTiers = getBiomarkerTiers(recommendedMarkers)

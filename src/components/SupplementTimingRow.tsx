@@ -19,7 +19,7 @@ import type { BiomarkerResult } from "@/src/lib/analyzeBiomarkers"
 import { computeStackProductFit } from "@/src/lib/stackProductFit"
 import { getStackItemBadgeKind } from "@/src/lib/stackLabSafety"
 import { ProtocolLabFitPopover } from "@/src/components/ProtocolLabFitPopover"
-import { Circle, Sun, Droplets, Fish, Pill, Leaf, ChevronDown } from "lucide-react"
+import { Circle, Sun, Droplets, Fish, Pill, Leaf, ChevronDown, Check } from "lucide-react"
 import {
   getProtocolMeterFillClass,
   getProtocolSignalMeterClass,
@@ -85,6 +85,10 @@ export type SupplementTimingRowProps = {
   renderNestedProtocolRow?: (row: SavedSupplementStackItem) => React.ReactNode
   /** Latest analyzed labs — drives per-row educational “lab fit” copy. */
   analysisResults?: BiomarkerResult[]
+  /** Home: interactions block stays collapsed unless the user opens it. */
+  defaultCollapsedOnHome?: boolean
+  /** When true, the row is already nested under a timing group header (Morning/Evening/Anytime) so the inline timing chip is suppressed to avoid repeating the same label 2–3× per row. */
+  inTimingGroup?: boolean
 }
 
 export function SupplementTimingRow({
@@ -101,6 +105,8 @@ export function SupplementTimingRow({
   nestedVitaminCRows,
   renderNestedProtocolRow,
   analysisResults,
+  defaultCollapsedOnHome = false,
+  inTimingGroup = false,
 }: SupplementTimingRowProps) {
   const display = supplementProtocolDisplay(row)
   const detail = getSupplementDetail(row.marker, row.supplementName)
@@ -139,12 +145,17 @@ export function SupplementTimingRow({
       <div className="relative flex items-start gap-3">
         <button
           type="button"
-          className="dashboard-signal-meter__icon protocol-meter__icon-btn"
+          data-checked={done}
+          className={`dashboard-dose-check dashboard-protocol-gamified-dose-check ${done ? "dashboard-protocol-gamified-dose-check--on" : ""}`}
           onClick={onToggle}
           aria-pressed={done}
           aria-label={done ? `Mark ${display.title} not done` : `Mark ${display.title} done`}
         >
-          <ProtocolGlyphIcon kind={display.glyphKind} size={20} />
+          {done ? (
+            <Check className="dashboard-dose-check__icon" size={22} strokeWidth={2.5} aria-hidden />
+          ) : (
+            <Circle className="dashboard-dose-check__icon dashboard-dose-check__icon--empty" size={22} strokeWidth={2} aria-hidden />
+          )}
         </button>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
@@ -182,9 +193,11 @@ export function SupplementTimingRow({
                   </span>
                 ) : null}
               </span>
-              <span className={`${badgeClass(badge.kind)} ${gamified ? "dashboard-timing-badge--inline" : "origin-left scale-90"}`}>
-                {badge.label}
-              </span>
+              {inTimingGroup ? null : (
+                <span className={`${badgeClass(badge.kind)} ${gamified ? "dashboard-timing-badge--inline" : "origin-left scale-90"}`}>
+                  {badge.label}
+                </span>
+              )}
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <span
@@ -232,12 +245,17 @@ export function SupplementTimingRow({
     <div className={`dashboard-supplement-timing-row ${done ? "dashboard-supplement-timing-row--done" : ""}`}>
       <button
         type="button"
-        className={`dashboard-protocol-check ${done ? "dashboard-protocol-check--on" : ""}`}
+        data-checked={done}
+        className={`dashboard-dose-check dashboard-protocol-check ${done ? "dashboard-protocol-check--on" : ""}`}
         onClick={onToggle}
         aria-pressed={done}
         aria-label={done ? `Mark ${display.title} not done` : `Mark ${display.title} done`}
       >
-        <span className="dashboard-protocol-check-mark" aria-hidden />
+        {done ? (
+          <Check className="dashboard-dose-check__icon" size={22} strokeWidth={2.5} aria-hidden />
+        ) : (
+          <Circle className="dashboard-dose-check__icon dashboard-dose-check__icon--empty" size={22} strokeWidth={2} aria-hidden />
+        )}
       </button>
       <div className="dashboard-supplement-timing-row-main">
         <span className="dashboard-protocol-glyph" aria-hidden>
@@ -264,7 +282,7 @@ export function SupplementTimingRow({
                 </span>
               ) : null}
             </span>
-            <span className={badgeClass(badge.kind)}>{badge.label}</span>
+            {inTimingGroup ? null : <span className={badgeClass(badge.kind)}>{badge.label}</span>}
           </div>
           {display.line2 ? <span className="dashboard-protocol-sub">{display.line2}</span> : null}
           {detail?.timing ? <span className="dashboard-supplement-timing-hint">{detail.timing}</span> : null}
@@ -289,22 +307,26 @@ export function SupplementTimingRow({
     </div>
   )
 
+  const hasInteractionContent = interactionBlocks.length > 0
   return (
     <li className="dashboard-supplement-timing-row-wrap">
       {rowBody}
-      <details
-        className={`dashboard-supplement-interactions${gamified ? " dashboard-supplement-interactions--gamified" : ""}`}
-      >
-        <summary className="dashboard-supplement-interactions__summary">Interactions & spacing</summary>
-        <ul className="dashboard-supplement-interactions__list" role="list">
-          {interactionBlocks.map((b) => (
-            <li key={b.label} className="dashboard-supplement-interactions__item">
-              <span className="dashboard-supplement-interactions__label">{b.label}</span>
-              <span className="dashboard-supplement-interactions__text">{b.text}</span>
-            </li>
-          ))}
-        </ul>
-      </details>
+      {hasInteractionContent ? (
+        <details
+          className={`dashboard-supplement-interactions${gamified ? " dashboard-supplement-interactions--gamified" : ""}`}
+          data-collapsed-home={defaultCollapsedOnHome ? "1" : undefined}
+        >
+          <summary className="dashboard-supplement-interactions__summary">Interactions & spacing</summary>
+          <ul className="dashboard-supplement-interactions__list" role="list">
+            {interactionBlocks.map((b) => (
+              <li key={b.label} className="dashboard-supplement-interactions__item">
+                <span className="dashboard-supplement-interactions__label">{b.label}</span>
+                <span className="dashboard-supplement-interactions__text">{b.text}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
 
       {showVitCSupplemental ? (
         <details className={`dashboard-supplement-pairing-nested${gamified ? " dashboard-supplement-pairing-nested--gamified" : ""}`}>
@@ -324,21 +346,18 @@ export function SupplementTimingRow({
         </details>
       ) : null}
       {nestedVitaminCRows && nestedVitaminCRows.length > 0 && renderNestedProtocolRow ? (
-        <details
-          className={`dashboard-supplement-pairing-nested dashboard-supplement-pairing-nested--iron-pair${
+        <section
+          className={`dashboard-supplement-pairing-nested dashboard-supplement-pairing-nested--iron-pair dashboard-supplement-pairing-nested--open${
             gamified ? " dashboard-supplement-pairing-nested--gamified" : ""
           }`}
+          aria-label={`Vitamin C paired with iron (${nestedVitaminCRows.length} ${nestedVitaminCRows.length === 1 ? "item" : "items"})`}
         >
-          <summary className="dashboard-supplement-pairing-nested__summary">
-            <ChevronDown className="dashboard-supplement-pairing-nested__chev" size={16} strokeWidth={2} aria-hidden />
-            <span className="dashboard-supplement-pairing-nested__kicker">Iron absorption</span>
-            <span className="dashboard-supplement-pairing-nested__name">Vitamin C</span>
+          <div className="dashboard-supplement-pairing-nested__summary dashboard-supplement-pairing-nested__summary--static">
+            <span className="dashboard-supplement-pairing-nested__kicker">Pairs with iron</span>
             <span className="dashboard-supplement-pairing-nested__dose-inline">
-              {nestedVitaminCRows.length === 1
-                ? "Same meal as iron · supports non-heme absorption"
-                : `${nestedVitaminCRows.length} items · same meal as iron`}
+              Same meal — supports non-heme absorption
             </span>
-          </summary>
+          </div>
           <div className="dashboard-supplement-pairing-nested__iron-pair-stack">
             {nestedVitaminCRows.map((vitRow) => (
               <div key={stackItemStorageKey(vitRow)} className="dashboard-supplement-pairing-nested__iron-pair-item">
@@ -346,7 +365,7 @@ export function SupplementTimingRow({
               </div>
             ))}
           </div>
-        </details>
+        </section>
       ) : null}
       {acquisitionSlot}
     </li>

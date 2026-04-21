@@ -39,13 +39,15 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>("dark")
 
   useEffect(() => {
-    setThemeState(getStoredMode())
+    queueMicrotask(() => setThemeState(getStoredMode()))
   }, [])
 
   useEffect(() => {
-    const next = resolveTheme(theme)
-    setResolvedTheme(next)
-    document.documentElement.setAttribute("data-theme", next)
+    queueMicrotask(() => {
+      const next = resolveTheme(theme)
+      setResolvedTheme(next)
+      document.documentElement.setAttribute("data-theme", next)
+    })
   }, [theme])
 
   useEffect(() => {

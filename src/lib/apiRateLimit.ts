@@ -36,3 +36,6 @@ export const supportChatRateLimiter = createSlidingWindowRateLimiter({ windowMs:
 
 /** Barcode / supplement insight — authenticated; cap cost */
 export const supplementInsightRateLimiter = createSlidingWindowRateLimiter({ windowMs: 60_000, max: 12 })
+
+/** Unauthenticated barcode resolve (OFF + optional DSLD proxy) */
+export const barcodeResolveRateLimiter = createSlidingWindowRateLimiter({ windowMs: 60_000, max: 12 })

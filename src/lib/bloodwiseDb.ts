@@ -21,6 +21,30 @@ function missingColumnFromPostgrestMessage(msg: string): string | null {
   return m ? m[1] : null
 }
 
+/** Thrown when `supplement_inventory` is missing from the remote DB (migration 013 not applied). */
+export class SupplementInventoryUnavailableError extends Error {
+  constructor() {
+    super(
+      "Supply tracking requires the supplement_inventory table. In Supabase: open SQL Editor and run supabase/migrations/013_supplement_inventory.sql, or run `supabase db push` from this repo."
+    )
+    this.name = "SupplementInventoryUnavailableError"
+  }
+}
+
+/** PGRST205: table not in PostgREST schema cache (often: migration not applied). */
+function isSupplementInventoryTableMissingError(error: unknown): boolean {
+  if (!error) return false
+  const o = error as { code?: string; message?: string }
+  const code = String(o.code ?? "")
+  const msg = String(o.message ?? "").toLowerCase()
+  if (code === "PGRST205") return true
+  if (msg.includes("pgrst205")) return true
+  if (msg.includes("supplement_inventory") && (msg.includes("could not find") || msg.includes("schema cache"))) {
+    return true
+  }
+  return false
+}
+
 /** Never strip these — they exist on every profiles row from the base schema. */
 const PROFILE_UPSERT_CORE_KEYS = new Set([
   "user_id",
@@ -474,6 +498,90 @@ export async function upsertProtocolMetrics(
   throwIfError(error)
 }
 
+/** ───────────────────────── Lab uploads (migration 022) ─────────────────────────
+ *
+ * These helpers are read-only facades over the lab upload tables created by
+ * migration 022_lab_uploads.sql. Writes happen on the server routes
+ * (/api/labs/extract, /api/labs/confirm) because they are consent-gated and
+ * coordinate with Supabase Storage. The dashboard only needs to read.
+ */
+
+export type LabUploadSessionRow = {
+  id: string
+  user_id: string
+  label: string
+  collected_at: string | null
+  status: "uploading" | "extracting" | "confirming" | "confirmed" | "discarded"
+  file_count: number
+  extraction_model: string
+  extraction_error: string
+  raw_deleted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type LabBiomarkerValueRow = {
+  id: string
+  user_id: string
+  session_id: string | null
+  biomarker_key: string
+  value: number
+  unit: string
+  collected_at: string | null
+  confidence: number | null
+  flag: string | null
+  created_at: string
+}
+
+export async function getLabSessions(userId: string, limit = 20): Promise<LabUploadSessionRow[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from("lab_upload_sessions")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(limit)
+  if (error) {
+    // Migration 022 may not be applied yet — return empty silently so the rest of the UI still renders.
+    const code = String((error as { code?: string }).code ?? "")
+    if (code === "PGRST205" || String(error.message ?? "").includes("lab_upload_sessions")) return []
+    throwIfError(error)
+  }
+  return (data ?? []) as LabUploadSessionRow[]
+}
+
+export async function getLatestLabBiomarkerValues(
+  userId: string,
+  sinceDays = 365
+): Promise<LabBiomarkerValueRow[]> {
+  if (!supabase) return []
+  const since = new Date(Date.now() - sinceDays * 24 * 3600 * 1000).toISOString()
+  const { data, error } = await supabase
+    .from("lab_biomarker_values")
+    .select("*")
+    .eq("user_id", userId)
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+  if (error) {
+    const code = String((error as { code?: string }).code ?? "")
+    if (code === "PGRST205" || String(error.message ?? "").includes("lab_biomarker_values")) return []
+    throwIfError(error)
+  }
+  return (data ?? []) as LabBiomarkerValueRow[]
+}
+
+/** Keep only the most recent value per biomarker_key. */
+export function collapseToLatestPerBiomarker(
+  rows: LabBiomarkerValueRow[]
+): Record<string, LabBiomarkerValueRow> {
+  const out: Record<string, LabBiomarkerValueRow> = {}
+  const sorted = [...rows].sort((a, b) => (b.created_at < a.created_at ? -1 : 1))
+  for (const r of sorted) {
+    if (!(r.biomarker_key in out)) out[r.biomarker_key] = r
+  }
+  return out
+}
+
 /** Get all supplement inventory rows for a user. */
 export async function getSupplementInventory(userId: string): Promise<SupplementInventoryRow[]> {
   if (!supabase) return []
@@ -481,6 +589,7 @@ export async function getSupplementInventory(userId: string): Promise<Supplement
     .from("supplement_inventory")
     .select("*")
     .eq("user_id", userId)
+  if (error && isSupplementInventoryTableMissingError(error)) return []
   throwIfError(error)
   return (data ?? []).map((row) => ({
     id: row.id,
@@ -512,5 +621,8 @@ export async function upsertSupplementInventory(
   const { error } = await supabase.from("supplement_inventory").upsert(payload, {
     onConflict: "user_id,supplement_name",
   })
+  if (error && isSupplementInventoryTableMissingError(error)) {
+    throw new SupplementInventoryUnavailableError()
+  }
   throwIfError(error)
 }

@@ -58,7 +58,7 @@ export function BiomarkerOverviewTeaser({
   }, [status])
 
   useEffect(() => {
-    if (status === "loading") setLoadingLineIndex(0)
+    if (status === "loading") queueMicrotask(() => setLoadingLineIndex(0))
   }, [status])
 
   /* Theme tokens only — no hardcoded cream (#faf9f6) or dark blocks that can lose the cascade. */

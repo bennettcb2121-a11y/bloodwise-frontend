@@ -19,26 +19,32 @@ export function useDashboardSkyCrossfade(targetMood: DashboardSkyMood, enabled: 
 
   useEffect(() => {
     if (!enabled) {
-      setBottom({ mood: targetMood, opacity: 1 })
-      setTop({ mood: targetMood, opacity: 0 })
       pendingMoodRef.current = targetMood
       first.current = true
+      queueMicrotask(() => {
+        setBottom({ mood: targetMood, opacity: 1 })
+        setTop({ mood: targetMood, opacity: 0 })
+      })
       return
     }
 
     if (first.current) {
       first.current = false
       pendingMoodRef.current = targetMood
-      setBottom({ mood: targetMood, opacity: 1 })
-      setTop({ mood: targetMood, opacity: 0 })
+      queueMicrotask(() => {
+        setBottom({ mood: targetMood, opacity: 1 })
+        setTop({ mood: targetMood, opacity: 0 })
+      })
       return
     }
 
     pendingMoodRef.current = targetMood
-    setTop({ mood: targetMood, opacity: 0 })
-    requestAnimationFrame(() => {
-      setTop({ mood: targetMood, opacity: 1 })
-      setBottom((b) => ({ ...b, opacity: 0 }))
+    queueMicrotask(() => {
+      setTop({ mood: targetMood, opacity: 0 })
+      requestAnimationFrame(() => {
+        setTop({ mood: targetMood, opacity: 1 })
+        setBottom((b) => ({ ...b, opacity: 0 }))
+      })
     })
   }, [targetMood, enabled])
 

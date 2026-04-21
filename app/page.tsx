@@ -873,7 +873,7 @@ function HomePageContent() {
     )
   }
 
-  function useRecommendedPanel() {
+  function applyRecommendedPanel() {
     setSelectedPanel(recommendedMarkers)
     // Don't set step here — child handleUseRecommended advances to lab step; parent must never set 6 (Step 7 panel) or we skip to "These markers matter most" on load
   }
@@ -954,44 +954,17 @@ function HomePageContent() {
     setShowReauthPrompt(false)
     lastSavedStepRef.current = -1
     blockStep6UntilRef.current = Date.now() + 2500
-    setCurrentStepRaw(0)
+    // Intentionally preserve existing profile/inputs/selectedPanel/supplements/etc.
+    // "Retake survey" means "walk through my answers again" — the user can change any field,
+    // but we must NEVER wipe their saved data (height, weight, supplements, metrics) on entry.
+    // Any blank they leave untouched keeps the existing DB value via upsertProfile's "?? existing" fallback.
     setAnalyzing(false)
-    setProfile({
-      age: "",
-      sex: "",
-      sport: "",
-      goal: "",
-      improvementPreference: "",
-      profileType: "",
-      heightCm: "",
-      weightKg: "",
-      supplementFormPreference: "any",
-      activityLevel: "",
-      sleepHours: "",
-      exerciseRegularly: "",
-      alcohol: "",
-      healthGoal: "",
-      trainingFocus: "",
-      symptoms: "",
-      dietPreference: "",
-      planTier: undefined,
-    })
-    setInputs((prev) => {
-      const next: BiomarkerInputMap = {}
-      biomarkerKeys.forEach((key) => {
-        next[key] = ""
-      })
-      return next
-    })
-    setSelectedPanel([])
-    setCurrentSupplementSpend("")
-    setCurrentSupplements("")
-    setShoppingPreference("Best value")
     setHasLoadedExample(false)
     setOpenScienceMarkers({})
     setOpenCompareCards({})
+    setCurrentStepRaw(0)
     router.replace("/", { scroll: false })
-  }, [biomarkerKeys, router])
+  }, [router])
 
   /** Go directly to blood-test options step (11) from "have labs?" (9) when user says No — bypasses step guard */
   const goToBloodTestStep = useCallback(() => setCurrentStepRaw(11), [])
@@ -1101,7 +1074,7 @@ function HomePageContent() {
       biomarkerKeys={biomarkerKeys}
       activePanel={activePanel}
       togglePanelMarker={togglePanelMarker}
-      useRecommendedPanel={useRecommendedPanel}
+      applyRecommendedPanel={applyRecommendedPanel}
       hasEnoughLabsFlag={hasEnoughLabsFlag}
       loadExampleData={loadExampleData}
       analysisResults={analysisResults}

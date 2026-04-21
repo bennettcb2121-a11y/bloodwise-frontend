@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef, useMemo } from "react"
 import Link from "next/link"
-import { Circle, Sun, Droplets, Fish, Pill, Leaf } from "lucide-react"
+import { Circle, Sun, Droplets, Fish, Pill, Leaf, Check } from "lucide-react"
 import { getProtocolLog, getProtocolLogHistory, upsertProtocolLog } from "@/src/lib/bloodwiseDb"
 import type { BloodworkSaveRow } from "@/src/lib/bloodwiseDb"
 import { supplementProtocolDisplay } from "@/src/lib/supplementDisplay"
@@ -49,6 +49,12 @@ function dayCompleted(checks: Record<string, boolean>): boolean {
 }
 
 const PLAN_LINK = "/dashboard/plan#stack"
+
+function streakCompletionLine(streakDays: number): string {
+  return streakDays > 0
+    ? `Logged ${streakDays} ${streakDays === 1 ? "day" : "days"} in a row.`
+    : "All steps logged for today."
+}
 
 function ProtocolGlyphIcon({ kind }: { kind: SupplementGlyphKind }) {
   const c = "dashboard-protocol-glyph-svg"
@@ -307,11 +313,13 @@ export function ProtocolTracker({
           onToggle={() => toggle(item)}
           stackHasVitaminC={vitCInStack}
           gamified
+          defaultCollapsedOnHome={dashboardHome}
           celebrateItem={celebrateItem}
           pointsPerLog={pointsForRow(vitRow)}
           staggerIndex={0}
           actionsSlot={renderStackRowActions?.({ row: vitRow, storageKey })}
           analysisResults={analysisResults}
+          inTimingGroup
           acquisitionSlot={
             onAcquisitionChange && acquisitionMap && userId ? (
               <div className="dashboard-protocol-acq" role="group" aria-label="Supply status">
@@ -341,7 +349,19 @@ export function ProtocolTracker({
         />
       )
     },
-    [todayLog, toggle, vitCInStack, celebrateItem, pointsForRow, onAcquisitionChange, acquisitionMap, userId, renderStackRowActions, analysisResults]
+    [
+      todayLog,
+      toggle,
+      vitCInStack,
+      celebrateItem,
+      pointsForRow,
+      onAcquisitionChange,
+      acquisitionMap,
+      userId,
+      renderStackRowActions,
+      analysisResults,
+      dashboardHome,
+    ]
   )
 
   if (!hasPersonalizedStack) {
@@ -448,6 +468,7 @@ export function ProtocolTracker({
                           onToggle={() => toggle(item)}
                           stackHasVitaminC={vitCInStack}
                           gamified
+                          defaultCollapsedOnHome={dashboardHome}
                           celebrateItem={celebrateItem}
                           pointsPerLog={pointsForRow(row)}
                           staggerIndex={si}
@@ -455,6 +476,7 @@ export function ProtocolTracker({
                           nestedVitaminCRows={nestCHere ? nestedVitaminC : undefined}
                           renderNestedProtocolRow={nestCHere ? renderNestedVitaminCRow : undefined}
                           analysisResults={analysisResults}
+                          inTimingGroup
                           acquisitionSlot={
                             onAcquisitionChange && acquisitionMap && userId ? (
                               <div className="dashboard-protocol-acq" role="group" aria-label="Supply status">
@@ -508,12 +530,17 @@ export function ProtocolTracker({
                 <div className={`dashboard-protocol-row ${done ? "dashboard-protocol-row--done" : ""}`}>
                   <button
                     type="button"
-                    className={`dashboard-protocol-check ${done ? "dashboard-protocol-check--on" : ""}`}
+                    data-checked={done}
+                    className={`dashboard-dose-check dashboard-protocol-check ${done ? "dashboard-protocol-check--on" : ""}`}
                     onClick={() => toggle(item)}
                     aria-pressed={done}
                     aria-label={done ? `Mark ${display.title} not done` : `Mark ${display.title} done`}
                   >
-                    <span className="dashboard-protocol-check-mark" aria-hidden />
+                    {done ? (
+                      <Check className="dashboard-dose-check__icon" size={22} strokeWidth={2.5} aria-hidden />
+                    ) : (
+                      <Circle className="dashboard-dose-check__icon dashboard-dose-check__icon--empty" size={22} strokeWidth={2} aria-hidden />
+                    )}
                   </button>
                   <div className="dashboard-protocol-row-main">
                     <span className="dashboard-protocol-glyph" aria-hidden>
@@ -564,19 +591,21 @@ export function ProtocolTracker({
 
       {groupByTiming ? (
         <>
-          <ProtocolDailySummary
-            dailyScore={combinedDailyScore}
-            completed={completed}
-            total={items.length}
-            streakDays={streakDays}
-            weekStrip={weekStrip}
-            pointsTotal={pointsTotal}
-            deltaFlash={dailyScoreDelta}
-            blendsSignals={blendsSignalsUi}
-          />
+          {dashboardHome ? null : (
+            <ProtocolDailySummary
+              dailyScore={combinedDailyScore}
+              completed={completed}
+              total={items.length}
+              streakDays={streakDays}
+              weekStrip={weekStrip}
+              pointsTotal={pointsTotal}
+              deltaFlash={dailyScoreDelta}
+              blendsSignals={blendsSignalsUi}
+            />
+          )}
           {allDone ? (
             <p className="dashboard-protocol-done-msg dashboard-protocol-done-msg--gamified">
-              {streakDays > 0 ? `Logged ${streakDays} days in a row.` : "All steps logged for today."}
+              {streakCompletionLine(streakDays)}
             </p>
           ) : null}
         </>
@@ -608,29 +637,31 @@ export function ProtocolTracker({
           </div>
           {allDone && (
             <p className="dashboard-protocol-done-msg">
-              {streakDays > 0 ? `Logged ${streakDays} days in a row.` : "All steps logged for today."}
+              {streakCompletionLine(streakDays)}
             </p>
           )}
         </div>
       )}
 
-      <div className="dashboard-protocol-footer">
-        <p className="dashboard-protocol-footer-hint">
-          Full instructions and reorder links on{" "}
-          <Link href={PLAN_LINK} className="dashboard-protocol-footer-hint-link">
-            Plan
-          </Link>
-          .
-          {pointsTotal != null && (
-            <>
-              {" "}
-              <Link href={finishTodayHref} className="dashboard-protocol-footer-inline-link">
-                Jump to protocol
-              </Link>
-            </>
-          )}
-        </p>
-      </div>
+      {!dashboardHome ? (
+        <div className="dashboard-protocol-footer">
+          <p className="dashboard-protocol-footer-hint">
+            Full instructions and reorder links on{" "}
+            <Link href={PLAN_LINK} className="dashboard-protocol-footer-hint-link">
+              Plan
+            </Link>
+            .
+            {pointsTotal != null && (
+              <>
+                {" "}
+                <Link href={finishTodayHref} className="dashboard-protocol-footer-inline-link">
+                  Jump to protocol
+                </Link>
+              </>
+            )}
+          </p>
+        </div>
+      ) : null}
     </div>
   )
 }

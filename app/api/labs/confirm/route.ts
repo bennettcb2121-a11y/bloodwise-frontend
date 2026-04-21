@@ -1,0 +1,198 @@
+/**
+ * Confirm extracted lab values: insert canonical biomarker rows, delete raw uploads, mark session.
+ *
+ * POST body: {
+ *   sessionId: string,
+ *   values: Array<{
+ *     biomarker_key: string,
+ *     value: number,
+ *     unit: string,
+ *     raw_name: string,
+ *     raw_value?: string,
+ *     raw_unit?: string,
+ *     range_low?: number | null,
+ *     range_high?: number | null,
+ *     flag?: string,
+ *     confidence?: number,
+ *   }>,
+ *   collected_at?: string,
+ * }
+ */
+
+import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/src/lib/supabase/server"
+import { createSlidingWindowRateLimiter, getClientIp } from "@/src/lib/apiRateLimit"
+import { ConsentError, requireConsents } from "@/src/lib/consentServer"
+
+export const runtime = "nodejs"
+
+const labConfirmRateLimiter = createSlidingWindowRateLimiter({ windowMs: 60_000, max: 30 })
+
+type ConfirmValue = {
+  biomarker_key: string
+  value: number
+  unit?: string
+  raw_name?: string
+  raw_value?: string
+  raw_unit?: string
+  range_low?: number | null
+  range_high?: number | null
+  flag?: string
+  confidence?: number
+}
+
+export async function POST(req: NextRequest) {
+  const ip = getClientIp(req)
+  if (!labConfirmRateLimiter.allow(ip)) {
+    return NextResponse.json(
+      { error: "Too many confirmations. Wait a minute.", code: "rate_limited" },
+      { status: 429 }
+    )
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return NextResponse.json({ error: "Not signed in", code: "unauthenticated" }, { status: 401 })
+  }
+
+  try {
+    await requireConsents(user.id, ["lab_processing"])
+  } catch (e) {
+    if (e instanceof ConsentError) {
+      return NextResponse.json(
+        { error: "Missing required consents.", code: "consent_required", missing: e.missing },
+        { status: 403 }
+      )
+    }
+    throw e
+  }
+
+  let body: { sessionId?: string; values?: ConfirmValue[]; collected_at?: string }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
+  }
+
+  const sessionId = String(body.sessionId ?? "").trim()
+  const values = Array.isArray(body.values) ? body.values : []
+  const collectedAt = typeof body.collected_at === "string" ? body.collected_at : null
+
+  if (!sessionId) {
+    return NextResponse.json({ error: "Missing sessionId" }, { status: 400 })
+  }
+  if (values.length === 0) {
+    return NextResponse.json({ error: "No values to save" }, { status: 400 })
+  }
+
+  // Verify session belongs to user
+  const { data: session, error: sessionErr } = await supabase
+    .from("lab_upload_sessions")
+    .select("id, user_id, status")
+    .eq("id", sessionId)
+    .eq("user_id", user.id)
+    .maybeSingle()
+  if (sessionErr || !session) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 })
+  }
+
+  const rows = values
+    .filter((v) => v && typeof v.biomarker_key === "string" && Number.isFinite(v.value))
+    .map((v) => ({
+      user_id: user.id,
+      session_id: sessionId,
+      biomarker_key: v.biomarker_key,
+      value: v.value,
+      unit: v.unit ?? "",
+      raw_name: v.raw_name ?? "",
+      raw_value: v.raw_value ?? "",
+      raw_unit: v.raw_unit ?? "",
+      range_low: v.range_low ?? null,
+      range_high: v.range_high ?? null,
+      flag: v.flag ?? "",
+      confidence: typeof v.confidence === "number" ? v.confidence : 1,
+      source: "ai_extracted",
+      collected_at: collectedAt,
+    }))
+
+  if (rows.length === 0) {
+    return NextResponse.json({ error: "All values invalid" }, { status: 400 })
+  }
+
+  const { error: insertErr } = await supabase.from("lab_biomarker_values").insert(rows)
+  if (insertErr) {
+    return NextResponse.json(
+      { error: "Could not save values", detail: insertErr.message },
+      { status: 500 }
+    )
+  }
+
+  // Mirror the confirmed values into `bloodwork_saves` so the existing trends, analysis,
+  // and home-score pipelines pick them up without changes. `bloodwork_saves` is
+  // append-only (insert, not upsert), which preserves every prior save — that is how
+  // progression over time works. Each confirmed upload becomes its own history entry.
+  const biomarkerInputs: Record<string, string | number> = {}
+  const selectedPanel: string[] = []
+  for (const r of rows) {
+    if (!biomarkerInputs[r.biomarker_key]) {
+      biomarkerInputs[r.biomarker_key] = r.value
+      selectedPanel.push(r.biomarker_key)
+    }
+  }
+  const nowIso = new Date().toISOString()
+  const { error: saveErr } = await supabase.from("bloodwork_saves").insert({
+    user_id: user.id,
+    selected_panel: selectedPanel,
+    biomarker_inputs: biomarkerInputs,
+    current_step: 13,
+    score: null,
+    detected_patterns: [],
+    key_flagged_biomarkers: [],
+    stack_snapshot: { source: "lab_upload", session_id: sessionId },
+    savings_snapshot: {},
+    created_at: nowIso,
+    updated_at: nowIso,
+  })
+  // Non-fatal: if the mirror fails we still return ok so the lab_biomarker_values
+  // write (source of truth for labs) is not blocked. We log and continue.
+  if (saveErr) {
+    console.warn("[labs/confirm] bloodwork_saves mirror failed:", saveErr.message)
+  }
+
+  // Delete raw uploaded files from storage (retention policy = immediate-after-confirm).
+  const { data: extractions } = await supabase
+    .from("lab_extractions")
+    .select("id, storage_path")
+    .eq("session_id", sessionId)
+    .eq("user_id", user.id)
+
+  const paths = (extractions ?? [])
+    .map((r) => r.storage_path as string | null)
+    .filter((p): p is string => typeof p === "string" && p.length > 0)
+
+  if (paths.length > 0) {
+    await supabase.storage.from("lab-uploads").remove(paths)
+    await supabase
+      .from("lab_extractions")
+      .update({ storage_path: null })
+      .eq("session_id", sessionId)
+      .eq("user_id", user.id)
+  }
+
+  await supabase
+    .from("lab_upload_sessions")
+    .update({
+      status: "confirmed",
+      raw_deleted_at: new Date().toISOString(),
+      collected_at: collectedAt,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", sessionId)
+    .eq("user_id", user.id)
+
+  return NextResponse.json({ ok: true, saved: rows.length })
+}

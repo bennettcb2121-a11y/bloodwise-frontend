@@ -13,9 +13,15 @@ export default function AuthErrorPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
-    setMessage(params.get("message") || DEFAULT_MESSAGE)
-    setRawError(params.get("error") || null)
-    setIsLocalhost(window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+    const msg = params.get("message") || DEFAULT_MESSAGE
+    const err = params.get("error") || null
+    const local =
+      window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    queueMicrotask(() => {
+      setMessage(msg)
+      setRawError(err)
+      setIsLocalhost(local)
+    })
   }, [])
 
   return (

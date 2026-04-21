@@ -1,11 +1,17 @@
 "use client"
 
-import React, { useCallback, useEffect, useState } from "react"
-import { BrowserMultiFormatReader } from "@zxing/browser"
-import { Camera, Link2, ScanBarcode, Sparkles, X } from "lucide-react"
+import React, { useCallback, useEffect, useRef, useState } from "react"
+import { Link2, ScanBarcode, Sparkles, X } from "lucide-react"
+import { BarcodeScannerSheet } from "@/src/components/BarcodeScannerSheet"
 import { CurrentSupplementsEditor } from "@/src/components/CurrentSupplementsEditor"
+import { DetectedSupplementsConfirm, type PhotoDetectionBatch } from "@/src/components/DetectedSupplementsConfirm"
 import { StackIntakeWizardModal } from "@/src/components/StackIntakeWizardModal"
-import { mergeSupplementNamesIntoSerialized } from "@/src/lib/supplementMetadata"
+import { WhatITakeSearchBar, type WhatITakeSearchBarHandle } from "@/src/components/WhatITakeSearchBar"
+import { resizeImageFileToJpeg } from "@/src/lib/imageResize"
+import {
+  mergeSupplementEntriesIntoSerialized,
+  parseCurrentSupplementsEntries,
+} from "@/src/lib/supplementMetadata"
 
 type Props = {
   open: boolean
@@ -14,6 +20,21 @@ type Props = {
   onChangeSupplements: (serialized: string) => void
   /** When the capture modal opens, jump straight into link → dose → lab fit wizard. */
   initialOpenGuidedWizard?: boolean
+}
+
+function batchId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID()
+  return `b-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function revokeBatchThumbs(batches: PhotoDetectionBatch[]) {
+  for (const b of batches) {
+    try {
+      if (b.thumbDataUrl.startsWith("blob:")) URL.revokeObjectURL(b.thumbDataUrl)
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 /**
@@ -27,11 +48,22 @@ export function CurrentSupplementsCaptureModal({
   initialOpenGuidedWizard = false,
 }: Props) {
   const [aiLoading, setAiLoading] = useState(false)
+  const [photoStage, setPhotoStage] = useState<"idle" | "upload" | "read" | "match">("idle")
   const [aiError, setAiError] = useState<string | null>(null)
-  const [barcodeBusy, setBarcodeBusy] = useState(false)
   const [barcodeHint, setBarcodeHint] = useState<string | null>(null)
   const [intakeWizardOpen, setIntakeWizardOpen] = useState(false)
+  const [wizardInitialUrl, setWizardInitialUrl] = useState<string | undefined>(undefined)
+  const [scannerOpen, setScannerOpen] = useState(false)
+  const [scannerSeedCode, setScannerSeedCode] = useState<string | undefined>(undefined)
+  /** Camera stream acquired in the same tap as "Scan barcode" so iOS Safari keeps user-gesture permission. */
+  const [scannerPrimedStream, setScannerPrimedStream] = useState<MediaStream | null>(null)
+  const [photoBatches, setPhotoBatches] = useState<PhotoDetectionBatch[]>([])
+  const [photoConfirmOpen, setPhotoConfirmOpen] = useState(false)
   const guidedOpenOnceRef = React.useRef(false)
+  const searchBarRef = useRef<WhatITakeSearchBarHandle>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
+  const cabinetEmpty = parseCurrentSupplementsEntries(currentSupplements).length === 0
 
   useEffect(() => {
     if (!open) return
@@ -58,9 +90,19 @@ export function CurrentSupplementsCaptureModal({
     }
     if (initialOpenGuidedWizard && !guidedOpenOnceRef.current) {
       guidedOpenOnceRef.current = true
+      setWizardInitialUrl(undefined)
       setIntakeWizardOpen(true)
     }
   }, [open, initialOpenGuidedWizard])
+
+  useEffect(() => {
+    if (open) return
+    setPhotoBatches((prev) => {
+      revokeBatchThumbs(prev)
+      return []
+    })
+    setPhotoConfirmOpen(false)
+  }, [open])
 
   const onPickPhoto = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,66 +110,164 @@ export function CurrentSupplementsCaptureModal({
       e.target.value = ""
       if (!file) return
       setAiError(null)
+      setBarcodeHint(null)
       setAiLoading(true)
+      setPhotoStage("upload")
+      const ac = new AbortController()
+      const timeoutId = window.setTimeout(() => ac.abort(), 30_000)
       try {
+        const blob = await resizeImageFileToJpeg(file)
+        setPhotoStage("read")
         const fd = new FormData()
-        fd.append("image", file)
+        fd.append("image", blob, "bottle.jpg")
         const res = await fetch("/api/supplements-from-image", {
           method: "POST",
           body: fd,
+          signal: ac.signal,
         })
-        const data = (await res.json()) as { supplements?: string[]; error?: string }
+        setPhotoStage("match")
+        const data = (await res.json()) as {
+          products?: Array<{
+            name: string
+            brand: string
+            dose: string
+            form: string
+            servingsPerContainer: number | null
+            confidence: number
+          }>
+          supplements?: string[]
+          error?: string
+          code?: string
+        }
         if (!res.ok) {
-          setAiError(data.error ?? "Could not read image")
+          if (res.status === 503 || data.code === "no_openai") {
+            setAiError(
+              "Photo reader isn't available here — scan the barcode or paste the product link instead."
+            )
+            setTimeout(() => searchBarRef.current?.focusSearch(), 50)
+          } else {
+            setAiError(data.error ?? "Could not read image")
+          }
           return
         }
-        const names = data.supplements ?? []
-        if (names.length === 0) {
-          setAiError("No supplements detected — try a clearer photo of the label, or add manually.")
+        const products = data.products ?? []
+        if (products.length === 0) {
+          const legacy = data.supplements?.filter(Boolean) ?? []
+          if (legacy.length === 0) {
+            setAiError("No supplements detected — try a clearer photo of the label, or add manually.")
+            return
+          }
+          const thumbDataUrl = URL.createObjectURL(blob)
+          setPhotoBatches((prev) => [
+            ...prev,
+            {
+              id: batchId(),
+              thumbDataUrl,
+              products: legacy.map((name) => ({
+                name,
+                brand: "",
+                dose: "",
+                form: "",
+                servingsPerContainer: null,
+                confidence: 0.6,
+                selected: true,
+                doseEdit: "",
+              })),
+            },
+          ])
+          setPhotoConfirmOpen(true)
           return
         }
-        onChangeSupplements(mergeSupplementNamesIntoSerialized(currentSupplements, names))
-        setBarcodeHint(`Added ${names.length} from photo`)
-      } catch {
-        setAiError("Network error — try again.")
+
+        const thumbDataUrl = URL.createObjectURL(blob)
+        const rows = products.map((p) => ({
+          name: p.name,
+          brand: p.brand || "",
+          dose: p.dose || "",
+          form: p.form || "",
+          servingsPerContainer: p.servingsPerContainer,
+          confidence: Math.min(1, Math.max(0, p.confidence)),
+          selected: p.confidence >= 0.5,
+          doseEdit: p.dose || "",
+        }))
+        setPhotoBatches((prev) => [...prev, { id: batchId(), thumbDataUrl, products: rows }])
+        setPhotoConfirmOpen(true)
+      } catch (err: unknown) {
+        const aborted = err instanceof Error && err.name === "AbortError"
+        setAiError(aborted ? "Timed out — try again with a smaller photo or better connection." : "Network error — try again.")
       } finally {
+        window.clearTimeout(timeoutId)
         setAiLoading(false)
+        setPhotoStage("idle")
       }
     },
-    [currentSupplements, onChangeSupplements]
+    []
   )
 
-  const onPickBarcode = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0]
-      e.target.value = ""
-      if (!file) return
-      setBarcodeBusy(true)
-      setBarcodeHint(null)
-      setAiError(null)
-      const url = URL.createObjectURL(file)
+  const openLinkWizard = useCallback((url?: string) => {
+    setWizardInitialUrl(url)
+    setIntakeWizardOpen(true)
+  }, [])
+
+  const openScanner = useCallback((seedCode?: string) => {
+    setScannerSeedCode(seedCode)
+    const digits = seedCode?.replace(/\D/g, "") ?? ""
+    if (digits.length >= 8) {
+      setScannerPrimedStream(null)
+      setScannerOpen(true)
+      return
+    }
+
+    void (async () => {
+      let stream: MediaStream | null = null
       try {
-        const reader = new BrowserMultiFormatReader()
-        const result = await reader.decodeFromImageUrl(url)
-        const text = result.getText().trim()
-        if (text) {
-          setBarcodeHint(`Barcode: ${text} — we’ll add it as a custom entry; you can edit the name to match the product.`)
-          onChangeSupplements(mergeSupplementNamesIntoSerialized(currentSupplements, [`Barcode ${text}`]))
-        }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err)
-        if (/not found|no multiformat/i.test(msg)) {
-          setAiError("Could not read a barcode from that image — try a straighter photo or use “Photo of bottles”.")
-        } else {
-          setAiError("Barcode scan failed — try again.")
-        }
-      } finally {
-        URL.revokeObjectURL(url)
-        setBarcodeBusy(false)
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false,
+        })
+      } catch {
+        /* Sheet falls back or shows camera error */
       }
-    },
-    [currentSupplements, onChangeSupplements]
-  )
+      setScannerPrimedStream(stream)
+      setScannerOpen(true)
+    })()
+  }, [])
+
+  const commitPhotoBatches = useCallback(() => {
+    const additions = photoBatches.flatMap((b) =>
+      b.products
+        .filter((p) => p.selected)
+        .map((p) => {
+          const dose = p.doseEdit.trim() || p.dose.trim()
+          return { name: p.name, ...(dose ? { dose } : {}) }
+        })
+    )
+    if (additions.length === 0) return
+    onChangeSupplements(mergeSupplementEntriesIntoSerialized(currentSupplements, additions))
+    revokeBatchThumbs(photoBatches)
+    setPhotoBatches([])
+    setPhotoConfirmOpen(false)
+    setBarcodeHint("Added from your photo. Review dose and timing in your cabinet.")
+  }, [currentSupplements, onChangeSupplements, photoBatches])
+
+  const retakeLastBatch = useCallback(() => {
+    let didRemove = false
+    setPhotoBatches((prev) => {
+      if (prev.length === 0) return prev
+      didRemove = true
+      const next = [...prev]
+      const removed = next.pop()
+      if (removed) revokeBatchThumbs([removed])
+      return next
+    })
+    queueMicrotask(() => {
+      if (didRemove) photoInputRef.current?.click()
+    })
+  }, [])
+
+  const requestAnotherPhoto = useCallback(() => {
+    photoInputRef.current?.click()
+  }, [])
 
   if (!open) return null
 
@@ -142,66 +282,138 @@ export function CurrentSupplementsCaptureModal({
       >
         <div className="current-supplements-capture-head">
           <h2 id="current-supplements-capture-title" className="current-supplements-capture-title">
-            What are you already taking?
+            What I take today
           </h2>
           <button type="button" className="current-supplements-capture-close" onClick={onClose} aria-label="Close">
             <X size={22} />
           </button>
         </div>
         <p className="current-supplements-capture-lead">
-          Add your current supplements so we can compare with Clarion&apos;s plan, spot upgrades, and avoid duplicates. Use a photo
-          for AI label reading, or scan a barcode.
+          Tell Clarion what&apos;s in your cabinet. We&apos;ll line it up against your labs — flag overlaps, surface gaps, and keep
+          today&apos;s doses honest.
         </p>
 
-        <div className="current-supplements-capture-tools">
+        <WhatITakeSearchBar
+          ref={searchBarRef}
+          idPrefix="capture-wit-search"
+          currentSupplements={currentSupplements}
+          cabinetEmpty={cabinetEmpty}
+          onSerializedChange={onChangeSupplements}
+          onOpenLinkWizard={(url) => openLinkWizard(url)}
+          onLookUpBarcode={(upc) => openScanner(upc)}
+        />
+
+        <p className="current-supplements-capture-pickhint">Camera shortcuts</p>
+        <div className="current-supplements-capture-tools current-supplements-capture-tools--row">
+          <label className="current-supplements-capture-tool current-supplements-capture-tool--compact">
+            <Sparkles size={18} aria-hidden />
+            <span>
+              <strong>Snap bottles</strong>
+              <small>Label in frame, good light</small>
+            </span>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="sr-only"
+              onChange={onPickPhoto}
+              disabled={aiLoading}
+            />
+          </label>
           <button
             type="button"
-            className="current-supplements-capture-tool"
-            onClick={() => setIntakeWizardOpen(true)}
+            className="current-supplements-capture-tool current-supplements-capture-tool--compact"
+            onClick={() => openScanner()}
           >
-            <Link2 size={18} aria-hidden />
-            <span>Product link + lab fit (guided)</span>
-          </button>
-          <label className="current-supplements-capture-tool">
-            <Sparkles size={18} aria-hidden />
-            <span>Photo of bottles / label</span>
-            <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={onPickPhoto} disabled={aiLoading} />
-          </label>
-          <label className="current-supplements-capture-tool">
             <ScanBarcode size={18} aria-hidden />
-            <span>Barcode image</span>
-            <input type="file" accept="image/*" className="sr-only" onChange={onPickBarcode} disabled={barcodeBusy} />
-          </label>
-          <span className="current-supplements-capture-tool current-supplements-capture-tool--muted">
-            <Camera size={18} aria-hidden />
-            <span>Camera uses your device picker — choose a live photo or library shot</span>
-          </span>
+            <span>
+              <strong>Scan barcode</strong>
+              <small>Live camera</small>
+            </span>
+          </button>
+          <button type="button" className="current-supplements-capture-tool current-supplements-capture-tool--compact" onClick={() => openLinkWizard()}>
+            <Link2 size={18} aria-hidden />
+            <span>
+              <strong>Paste link</strong>
+              <small>Lab fit check</small>
+            </span>
+          </button>
         </div>
-        {aiLoading ? <p className="current-supplements-capture-status">Reading labels…</p> : null}
-        {barcodeBusy ? <p className="current-supplements-capture-status">Scanning barcode…</p> : null}
+
+        {aiLoading ? (
+          <p className="current-supplements-capture-status" aria-live="polite">
+            {photoStage === "upload" ? "Uploading…" : photoStage === "read" ? "Reading label…" : "Matching to catalog…"}
+          </p>
+        ) : null}
         {aiError ? <p className="current-supplements-capture-error">{aiError}</p> : null}
         {barcodeHint && !aiError ? <p className="current-supplements-capture-hint">{barcodeHint}</p> : null}
 
+        <p className="current-supplements-capture-cabinet-label">Your cabinet</p>
         <CurrentSupplementsEditor
           idPrefix="capture-supplements"
           value={currentSupplements}
           onChange={onChangeSupplements}
           className="current-supplements-capture-editor"
+          hideIntro
+          variant="cabinet"
         />
 
         <div className="current-supplements-capture-actions">
           <button type="button" className="onboarding-primary-btn" onClick={onClose}>
-            Continue
+            Done
           </button>
         </div>
 
+        <DetectedSupplementsConfirm
+          open={photoConfirmOpen}
+          batches={photoBatches}
+          onClose={() => {
+            revokeBatchThumbs(photoBatches)
+            setPhotoBatches([])
+            setPhotoConfirmOpen(false)
+          }}
+          onChangeBatch={(batchId, products) => {
+            setPhotoBatches((prev) => prev.map((b) => (b.id === batchId ? { ...b, products } : b)))
+          }}
+          onAddAnotherPhoto={requestAnotherPhoto}
+          onRetakeLast={retakeLastBatch}
+          onCommit={commitPhotoBatches}
+        />
+
         <StackIntakeWizardModal
           open={intakeWizardOpen}
-          onClose={() => setIntakeWizardOpen(false)}
+          onClose={() => {
+            setWizardInitialUrl(undefined)
+            setIntakeWizardOpen(false)
+          }}
+          initialProductUrl={wizardInitialUrl}
           currentSupplements={currentSupplements}
           onComplete={(serialized) => {
             onChangeSupplements(serialized)
+            setWizardInitialUrl(undefined)
             setIntakeWizardOpen(false)
+          }}
+        />
+
+        <BarcodeScannerSheet
+          open={scannerOpen}
+          onClose={() => {
+            setScannerPrimedStream((prev) => {
+              prev?.getTracks().forEach((t) => t.stop())
+              return null
+            })
+            setScannerOpen(false)
+            setScannerSeedCode(undefined)
+          }}
+          primedVideoStream={scannerPrimedStream}
+          initialTypedCode={scannerSeedCode}
+          currentSupplements={currentSupplements}
+          onChangeSupplements={onChangeSupplements}
+          onQrProductLink={(url) => {
+            setScannerOpen(false)
+            setScannerSeedCode(undefined)
+            openLinkWizard(url)
           }}
         />
       </div>
@@ -279,31 +491,79 @@ export function CurrentSupplementsCaptureModal({
           line-height: 1.5;
           color: var(--color-text-secondary);
         }
+        .current-supplements-capture-pickhint {
+          margin: 0 0 8px;
+          font-size: 11px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          font-weight: 700;
+          color: var(--color-text-muted);
+        }
         .current-supplements-capture-tools {
-          display: flex;
-          flex-direction: column;
+          display: grid;
+          grid-template-columns: 1fr;
           gap: 8px;
           margin-bottom: 14px;
+        }
+        .current-supplements-capture-tools--row {
+          grid-template-columns: 1fr 1fr 1fr;
+          gap: 6px;
+        }
+        @media (max-width: 480px) {
+          .current-supplements-capture-tools--row {
+            grid-template-columns: 1fr;
+          }
         }
         .current-supplements-capture-tool {
           display: flex;
           align-items: flex-start;
           gap: 10px;
-          padding: 10px 12px;
+          padding: 12px 14px;
           border-radius: 12px;
-          border: 1px dashed color-mix(in srgb, var(--color-accent) 35%, transparent);
+          border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
           background: color-mix(in srgb, var(--color-accent) 6%, transparent);
           font-size: 13px;
-          font-weight: 600;
           cursor: pointer;
           color: var(--color-text-primary);
+          text-align: left;
         }
-        .current-supplements-capture-tool--muted {
-          cursor: default;
-          border-style: solid;
-          border-color: color-mix(in srgb, var(--color-text-muted) 25%, transparent);
-          background: color-mix(in srgb, var(--color-text-muted) 6%, transparent);
-          font-weight: 500;
+        .current-supplements-capture-tool--compact {
+          padding: 10px 12px;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 4px;
+        }
+        .current-supplements-capture-tool--compact > span {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .current-supplements-capture-tool:hover {
+          background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+          border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+        }
+        .current-supplements-capture-tool > span {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .current-supplements-capture-tool strong {
+          font-size: 13px;
+          font-weight: 700;
+          line-height: 1.25;
+        }
+        .current-supplements-capture-tool small {
+          font-size: 12px;
+          font-weight: 400;
+          line-height: 1.35;
+          color: var(--color-text-secondary);
+        }
+        .current-supplements-capture-cabinet-label {
+          margin: 0 0 8px;
+          font-size: 11px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          font-weight: 700;
           color: var(--color-text-muted);
         }
         .current-supplements-capture-status {

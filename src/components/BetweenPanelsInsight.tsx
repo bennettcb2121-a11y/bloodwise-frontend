@@ -52,7 +52,7 @@ export function BetweenPanelsInsight({ userId, bloodworkHistory, profile, sectio
             training_focus: profile.training_focus?.trim() || undefined,
           }
         : {},
-    [profile?.age, profile?.sex, profile?.sport, profile?.diet_preference]
+    [profile]
   )
 
   const deltas = useMemo(() => {
@@ -84,12 +84,16 @@ export function BetweenPanelsInsight({ userId, bloodworkHistory, profile, sectio
 
   useEffect(() => {
     if (!window || !userId) {
-      setLoading(false)
-      setAggState(null)
+      queueMicrotask(() => {
+        setLoading(false)
+        setAggState(null)
+      })
       return
     }
-    setLoading(true)
-    setError(false)
+    queueMicrotask(() => {
+      setLoading(true)
+      setError(false)
+    })
     getProtocolLogMetricsInRange(userId, window.startDate, window.endDate)
       .then((rows) => {
         setAggState(aggregateMetricsForWindow(rows))

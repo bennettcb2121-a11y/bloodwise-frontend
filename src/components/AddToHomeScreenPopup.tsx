@@ -2,6 +2,10 @@
 
 import React, { useEffect, useState } from "react"
 import { Smartphone } from "lucide-react"
+import {
+  FIRST_RUN_CHECKLIST_DONE_EVENT,
+  FIRST_RUN_CHECKLIST_DONE_KEY,
+} from "@/src/components/FirstRunChecklist"
 
 const STORAGE_KEY = "clarion_add_to_homescreen_dismissed"
 
@@ -10,17 +14,39 @@ function isIOS(): boolean {
   return /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
 }
 
+/**
+ * Shown on iOS only, and **only after** the first-run checklist is finished or dismissed, so it
+ * never stacks on top of the orientation flow a brand-new user is still working through.
+ */
 export function AddToHomeScreenPopup() {
   const [show, setShow] = useState(false)
 
   useEffect(() => {
     if (typeof window === "undefined") return
-    try {
-      if (isIOS() && !localStorage.getItem(STORAGE_KEY)) {
-        setShow(true)
+    if (!isIOS()) return
+
+    const evaluate = () => {
+      try {
+        if (localStorage.getItem(STORAGE_KEY)) {
+          setShow(false)
+          return
+        }
+        const firstRunDone = localStorage.getItem(FIRST_RUN_CHECKLIST_DONE_KEY) === "1"
+        setShow(firstRunDone)
+      } catch {
+        setShow(false)
       }
-    } catch {
-      setShow(false)
+    }
+
+    evaluate()
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === FIRST_RUN_CHECKLIST_DONE_KEY || e.key === STORAGE_KEY) evaluate()
+    }
+    window.addEventListener("storage", onStorage)
+    window.addEventListener(FIRST_RUN_CHECKLIST_DONE_EVENT, evaluate)
+    return () => {
+      window.removeEventListener("storage", onStorage)
+      window.removeEventListener(FIRST_RUN_CHECKLIST_DONE_EVENT, evaluate)
     }
   }, [])
 

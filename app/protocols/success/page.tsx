@@ -12,7 +12,7 @@ function ProtocolSuccessContent() {
     const sessionId = searchParams.get("session_id")
     const slug = searchParams.get("slug")
     if (!sessionId || !slug) {
-      setStatus("error")
+      queueMicrotask(() => setStatus("error"))
       return
     }
     fetch("/api/record-protocol-purchase", {

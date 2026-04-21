@@ -58,7 +58,7 @@ describe("buildHomeStatusLine", () => {
       hasStack: true,
       streakDays: 0,
     })
-    expect(line).toBe("Day 1 of your protocol.")
+    expect(line).toBe("Your stack is ready. First dose unlocks your streak.")
   })
 
   it("streak line shown when adherence >=85 AND streak >=3", () => {
@@ -101,6 +101,19 @@ describe("buildHomeStatusLine", () => {
   })
 
   it("last-resort fallback when no stack and no bloodwork", () => {
-    expect(buildHomeStatusLine(base)).toBe("Upload your labs when you're ready.")
+    expect(buildHomeStatusLine(base)).toBe("Starting today.")
+  })
+
+  it("when labs and stack exist but streak is 0, avoids generic Day-1 protocol copy", () => {
+    const line = buildHomeStatusLine({
+      ...base,
+      hasBloodwork: true,
+      hasStack: true,
+      streakDays: 0,
+      runningLowCount: 0,
+      adherencePct: 0,
+    })
+    expect(line).not.toBe("Day 1 of your protocol.")
+    expect(line.toLowerCase()).toMatch(/stack|ready|first/)
   })
 })

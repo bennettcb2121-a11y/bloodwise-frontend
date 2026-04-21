@@ -23,7 +23,7 @@ export function SubscribeButton({
 
   useEffect(() => {
     if (!user?.id) {
-      setSubscription(null)
+      queueMicrotask(() => setSubscription(null))
       return
     }
     let cancelled = false

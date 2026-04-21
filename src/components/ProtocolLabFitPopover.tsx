@@ -43,10 +43,11 @@ export function ProtocolLabFitPopover({ chipLabel, chipTone, rationale, contextL
 
   useLayoutEffect(() => {
     if (!open) {
-      setFixedPos(null)
+      queueMicrotask(() => setFixedPos(null))
       return
     }
-    updatePosition()
+    const id = requestAnimationFrame(() => updatePosition())
+    return () => cancelAnimationFrame(id)
   }, [open])
 
   useEffect(() => {

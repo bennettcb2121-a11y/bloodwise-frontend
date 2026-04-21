@@ -62,7 +62,7 @@ export function BiomarkerTrendChartView({
       const v = cs.getPropertyValue(`--chart-${k}`).trim()
       if (v) next[k] = v
     }
-    setColors(next)
+    queueMicrotask(() => setColors(next))
   }, [])
 
   const activeSeries = useMemo(() => SERIES.filter((s) => visible[s.key]), [visible])

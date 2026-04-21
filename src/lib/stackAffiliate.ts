@@ -45,6 +45,8 @@ function inferBiomarkerFromSupplementName(supplementName: string): string | null
   if (/\b(iron|ferritin|ferrous|bisglycinate)\b/.test(n) && !/\b(transferrin)\b/.test(n)) return "Ferritin"
   // Vitamin D
   if (/\b(vitamin\s*d|d3|cholecalciferol)\b/.test(n)) return "Vitamin D"
+  // Vitamin C (ascorbate) — returned as bio so storageKey can dedupe free-text rows like "500mg vitamin c evening" against lab row "Vitamin C 500 mg"
+  if (/(\bvitamin\s*c\b|\bvit\s*c\b|\bascorbic\b|\bascorbate\b|\bliposomal\s*c\b)/.test(n)) return "Vitamin C"
   // B12
   if (/\b(b12|b-12|cobalamin|methyl.*b\s*12|cyanocobalamin)\b/.test(n)) return "Vitamin B12"
   // Folate

@@ -28,6 +28,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
     icon: MoreHorizontal,
     children: [
       { href: "/dashboard/biomarkers", label: "Biomarkers" },
+      { href: "/labs/upload", label: "Upload labs" },
       { href: "/dashboard/trends", label: "Trends" },
       { href: "/dashboard/tracking", label: "Tracking" },
       { href: "/dashboard/shop", label: "Shop" },

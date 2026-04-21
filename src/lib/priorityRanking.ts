@@ -336,7 +336,7 @@ export function computeDriverPriorityScore(
     const pt = healthGoalToProfileType(gid)
     profileBoost = Math.max(profileBoost, getProfilePanelBoost(pt, resolved, raw))
   }
-  let boost =
+  const boost =
     profileBoost +
     symptomBoost(symptoms, resolved, raw) +
     sportBoost(ctx.sport, resolved, raw) +

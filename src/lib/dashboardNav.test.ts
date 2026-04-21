@@ -42,4 +42,10 @@ describe("dashboardNav", () => {
     expect(groupHasActiveChild("/dashboard/biomarkers", more)).toBe(true)
     expect(groupHasActiveChild("/settings", more)).toBe(true)
   })
+
+  it("More group contains Upload labs and activates on /labs/upload", () => {
+    const more = DASHBOARD_NAV_GROUPS.find((g) => g.id === "more")!
+    expect(more.children.some((c) => c.href === "/labs/upload" && c.label === "Upload labs")).toBe(true)
+    expect(groupHasActiveChild("/labs/upload", more)).toBe(true)
+  })
 })

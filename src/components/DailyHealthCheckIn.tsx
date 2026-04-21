@@ -43,10 +43,10 @@ export function DailyHealthCheckIn({ userId, anchorId, headingId, onMetricsChang
 
   const load = useCallback(() => {
     if (!userId) {
-      setLoading(false)
+      queueMicrotask(() => setLoading(false))
       return
     }
-    setLoading(true)
+    queueMicrotask(() => setLoading(true))
     Promise.all([getProtocolLogRow(userId, today), getProtocolLogHistory(userId, 14)])
       .then(([row, history]) => {
         setMetrics(row.metrics)
@@ -106,7 +106,7 @@ export function DailyHealthCheckIn({ userId, anchorId, headingId, onMetricsChang
   useEffect(() => {
     if (coreComplete && !wasCompleteRef.current) {
       wasCompleteRef.current = true
-      setCompleteBurst(true)
+      queueMicrotask(() => setCompleteBurst(true))
       const t = setTimeout(() => setCompleteBurst(false), 3200)
       return () => clearTimeout(t)
     }

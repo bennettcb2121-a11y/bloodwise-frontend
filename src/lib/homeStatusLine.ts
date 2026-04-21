@@ -47,8 +47,15 @@ export function buildHomeStatusLine(input: HomeStatusLineInput): string {
   }
 
   if (hasStack) {
+    if (hasBloodwork && streakDays === 0) {
+      return "Your stack is ready. First dose unlocks your streak."
+    }
     const day = protocolDay != null && protocolDay > 0 ? protocolDay : Math.max(streakDays, 1)
     return `Day ${day} of your protocol.`
+  }
+
+  if (!hasBloodwork && !hasStack) {
+    return "Starting today."
   }
 
   return "Upload your labs when you're ready."

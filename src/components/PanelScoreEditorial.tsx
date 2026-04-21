@@ -42,7 +42,7 @@ export function PanelScoreEditorial({
   useEffect(() => {
     if (typeof window === "undefined") return
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setDisplayScore(score)
+      queueMicrotask(() => setDisplayScore(score))
       return
     }
     const start = performance.now()

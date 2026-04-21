@@ -16,6 +16,35 @@ type Props = {
   popCharStaggerMs?: number
 }
 
+function TypewriterHeadingReveal({
+  text,
+  as: Tag = "h1",
+  className = "",
+}: Pick<Props, "as" | "className"> & { text: string }) {
+  const [visibleLength, setVisibleLength] = useState(0)
+
+  useEffect(() => {
+    if (!text) return
+    let i = 0
+    const id = setInterval(() => {
+      i += 1
+      setVisibleLength(i)
+      if (i >= text.length) clearInterval(id)
+    }, REVEAL_DELAY_MS)
+    return () => clearInterval(id)
+  }, [text])
+
+  const visible = text.slice(0, visibleLength)
+  const hidden = text.slice(visibleLength)
+
+  return (
+    <Tag className={className}>
+      {visible}
+      {hidden ? <span style={{ opacity: 0 }} aria-hidden>{hidden}</span> : null}
+    </Tag>
+  )
+}
+
 /** Heading with optional pop-in (per letter) or typewriter-style reveal. */
 export function TypewriterHeading({
   children,
@@ -46,27 +75,5 @@ export function TypewriterHeading({
     )
   }
 
-  const [visibleLength, setVisibleLength] = useState(0)
-
-  useEffect(() => {
-    setVisibleLength(0)
-    if (!text) return
-    let i = 0
-    const id = setInterval(() => {
-      i += 1
-      setVisibleLength(i)
-      if (i >= text.length) clearInterval(id)
-    }, REVEAL_DELAY_MS)
-    return () => clearInterval(id)
-  }, [text])
-
-  const visible = text.slice(0, visibleLength)
-  const hidden = text.slice(visibleLength)
-
-  return (
-    <Tag className={className}>
-      {visible}
-      {hidden ? <span style={{ opacity: 0 }} aria-hidden>{hidden}</span> : null}
-    </Tag>
-  )
+  return <TypewriterHeadingReveal key={text} text={text} as={Tag} className={className} />
 }

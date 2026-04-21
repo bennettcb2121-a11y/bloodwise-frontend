@@ -6,6 +6,7 @@ import { loadSavedState } from "@/src/lib/bloodwiseDb"
 import { analyzeBiomarkers } from "@/src/lib/analyzeBiomarkers"
 import type { BiomarkerResult } from "@/src/lib/analyzeBiomarkers"
 import Link from "next/link"
+import { decodeBarcodeFromImageFile, resolveBarcodeWithCache } from "@/src/lib/barcodeScan"
 
 type Props = {
   userId: string | null | undefined
@@ -52,23 +53,6 @@ function buildEducationalLine(productName: string, results: BiomarkerResult[]): 
   return `${name}: We couldn’t tie this label to a specific lab marker automatically. Barcode lookup is for convenience; Clarion doesn’t replace your clinician for new supplements.`
 }
 
-async function fetchProductNameFromBarcode(barcode: string): Promise<string | null> {
-  const clean = barcode.replace(/\D/g, "")
-  if (clean.length < 8) return null
-  try {
-    const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${clean}.json`, {
-      cache: "no-store",
-    })
-    if (!res.ok) return null
-    const data = (await res.json()) as { status?: number; product?: { product_name?: string; generic_name?: string } }
-    if (data.status !== 1 || !data.product) return null
-    const n = data.product.product_name || data.product.generic_name
-    return n?.trim() || null
-  } catch {
-    return null
-  }
-}
-
 function parseMoney(raw: string): number | undefined {
   const n = Number(String(raw).replace(/[^0-9.]/g, ""))
   if (!Number.isFinite(n) || n <= 0 || n > 50_000) return undefined
@@ -79,59 +63,6 @@ function parseServings(raw: string): number | undefined {
   const n = parseInt(String(raw).replace(/\D/g, ""), 10)
   if (!Number.isFinite(n) || n < 1 || n > 10_000) return undefined
   return n
-}
-
-/**
- * Chromium exposes `BarcodeDetector` (fast). Safari / Firefox do not — use ZXing on the same image.
- */
-async function decodeBarcodeFromImageFile(file: File): Promise<string | null> {
-  const BD =
-    typeof window !== "undefined"
-      ? (window as unknown as { BarcodeDetector?: BarcodeDetectorCtor }).BarcodeDetector
-      : undefined
-
-  if (BD) {
-    try {
-      const bitmap = await createImageBitmap(file)
-      try {
-        const detector = new BD({ formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128"] })
-        const codes = await detector.detect(bitmap)
-        const raw = codes[0]?.rawValue
-        if (raw) return raw
-      } finally {
-        bitmap.close()
-      }
-    } catch {
-      /* fall through to ZXing */
-    }
-  }
-
-  const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType, NotFoundException }] = await Promise.all([
-    import("@zxing/browser"),
-    import("@zxing/library"),
-  ])
-
-  const hints = new Map<number, unknown>()
-  hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-    BarcodeFormat.EAN_13,
-    BarcodeFormat.EAN_8,
-    BarcodeFormat.UPC_A,
-    BarcodeFormat.UPC_E,
-    BarcodeFormat.CODE_128,
-  ])
-  hints.set(DecodeHintType.TRY_HARDER, true)
-  const reader = new BrowserMultiFormatReader(hints)
-  const url = URL.createObjectURL(file)
-  try {
-    const result = await reader.decodeFromImageUrl(url)
-    const text = result.getText()?.trim()
-    return text || null
-  } catch (e) {
-    if (e instanceof NotFoundException) return null
-    throw e
-  } finally {
-    URL.revokeObjectURL(url)
-  }
 }
 
 export function SupplementCheckerSheet({ userId, onClose, onRequestSupplementsYouTake }: Props) {
@@ -218,7 +149,8 @@ export function SupplementCheckerSheet({ userId, onClose, onRequestSupplementsYo
           }
         }
 
-        const name = await fetchProductNameFromBarcode(trimmed)
+        const resolved = await resolveBarcodeWithCache(trimmed)
+        const name = resolved.name.trim()
         const display = name || `Barcode ${trimmed}`
         setProductName(display)
         const ruleLine = buildEducationalLine(name || trimmed, analysis)
@@ -420,8 +352,4 @@ export function SupplementCheckerSheet({ userId, onClose, onRequestSupplementsYo
       </div>
     </div>
   )
-}
-
-type BarcodeDetectorCtor = new (opts?: { formats?: string[] }) => {
-  detect: (source: ImageBitmap) => Promise<{ rawValue: string }[]>
 }

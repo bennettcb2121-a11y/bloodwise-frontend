@@ -28,7 +28,7 @@ export function DashboardSidebarNav({ onNavigate, idPrefix = "dash-nav" }: Props
     for (const g of DASHBOARD_NAV_GROUPS) {
       if (groupHasActiveChild(pathname, g)) next[g.id] = true
     }
-    setOpenSections((prev) => ({ ...prev, ...next }))
+    queueMicrotask(() => setOpenSections((prev) => ({ ...prev, ...next })))
   }, [pathname])
 
   const toggle = (id: string) => {

@@ -5,8 +5,7 @@ import type { NextRequest } from "next/server"
  * Security headers for all routes. CSP is intentionally not set here — Next.js + third-party scripts
  * need a tuned policy; add via next.config headers or report-only CSP when ready.
  */
-// NextRequest kept for future auth / routing; signature required by Next.js.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved for future use
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- signature required by Next.js
 export function proxy(_request: NextRequest) {
   const res = NextResponse.next()
   res.headers.set("X-Frame-Options", "DENY")

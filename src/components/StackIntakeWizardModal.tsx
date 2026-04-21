@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useCallback, useState } from "react"
+import React, { useCallback, useEffect, useState } from "react"
 import { X } from "lucide-react"
 import {
   parseCurrentSupplementsEntries,
@@ -19,6 +19,8 @@ type Props = {
   onClose: () => void
   currentSupplements: string
   onComplete: (serialized: string) => void
+  /** Prefill URL (e.g. from unified search or QR). */
+  initialProductUrl?: string
 }
 
 type Step = "url" | "dose" | "fit"
@@ -26,7 +28,7 @@ type Step = "url" | "dose" | "fit"
 /**
  * Guided flow: product URL → resolve name → dose → lab fit check → save to profile JSON.
  */
-export function StackIntakeWizardModal({ open, onClose, currentSupplements, onComplete }: Props) {
+export function StackIntakeWizardModal({ open, onClose, currentSupplements, onComplete, initialProductUrl }: Props) {
   const [step, setStep] = useState<Step>("url")
   const [productUrl, setProductUrl] = useState("")
   const [hintName, setHintName] = useState("")
@@ -39,6 +41,13 @@ export function StackIntakeWizardModal({ open, onClose, currentSupplements, onCo
   const [rationale, setRationale] = useState("")
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (open && initialProductUrl?.trim()) {
+      setProductUrl(initialProductUrl.trim())
+      setStep("url")
+    }
+  }, [open, initialProductUrl])
 
   const reset = useCallback(() => {
     setStep("url")
@@ -170,7 +179,7 @@ export function StackIntakeWizardModal({ open, onClose, currentSupplements, onCo
         {step === "url" ? (
           <>
             <p className="current-supplements-capture-lede">
-              Paste a link to the exact supplement you take (e.g. Amazon). We&apos;ll name it, then ask how much you take and compare it to your lab picture — for education only, not medical advice.
+              Paste the link to the exact bottle you take. We&apos;ll pull the product name, then ask your dose and compare it to your lab picture. Education only — not medical advice.
             </p>
             <label className="stack-intake-field">
               <span>Product URL</span>
@@ -206,7 +215,7 @@ export function StackIntakeWizardModal({ open, onClose, currentSupplements, onCo
         {step === "dose" ? (
           <>
             <p className="current-supplements-capture-lede">
-              <strong>{resolvedName}</strong>
+              How much of <strong>{resolvedName}</strong> do you take, and how often?
               {resolvedMarker ? (
                 <>
                   {" "}
@@ -215,7 +224,7 @@ export function StackIntakeWizardModal({ open, onClose, currentSupplements, onCo
               ) : null}
             </p>
             <label className="stack-intake-field">
-              <span>How much do you take? (dose / frequency)</span>
+              <span>Dose and frequency</span>
               <input
                 type="text"
                 className="settings-input"

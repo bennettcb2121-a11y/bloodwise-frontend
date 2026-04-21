@@ -23,19 +23,29 @@ function stackRowMatches(a: SavedSupplementStackItem, b: SavedSupplementStackIte
   return true
 }
 
-/** Remove one stack row from profile JSON and/or latest bloodwork snapshot. */
+/**
+ * Remove one stack row from profile JSON AND the latest bloodwork snapshot.
+ *
+ * We clear from both because the dashboard home page syncs the merged
+ * (lab + profile) stack back into `bloodwork.stack_snapshot`, so a profile-sourced
+ * row can also be cached in the snapshot. Deleting from profile alone let the
+ * snapshot copy re-appear as a "lab" row, which matched the user-reported
+ * "successfully deleted but it doesn't work" bug for duplicate rows.
+ */
 export async function deleteMergedStackItem(
   userId: string,
   row: SavedSupplementStackItem,
   profile: ProfileRow | null,
   bloodwork: BloodworkSaveRow | null
 ): Promise<void> {
-  if (isProfileSourcedStackRow(row) && profile) {
+  if (profile) {
     const entries = parseCurrentSupplementsEntries(profile.current_supplements ?? "")
     const next = entries.filter((e) => !entriesMatchProfileRow(e, row))
-    await upsertProfile(userId, { ...profile, current_supplements: serializeCurrentSupplementsEntries(next) })
+    if (next.length !== entries.length) {
+      await upsertProfile(userId, { ...profile, current_supplements: serializeCurrentSupplementsEntries(next) })
+    }
   }
-  if (!isProfileSourcedStackRow(row) && bloodwork?.stack_snapshot && "stack" in bloodwork.stack_snapshot) {
+  if (bloodwork?.stack_snapshot && "stack" in bloodwork.stack_snapshot) {
     const stack = (bloodwork.stack_snapshot as BloodworkStackSnapshot).stack
     const filtered = stack.filter((s) => !stackRowMatches(s, row))
     if (filtered.length !== stack.length) {
@@ -78,8 +88,10 @@ export async function updateMergedStackItem(
         ...(productUrl !== undefined ? { productUrl: productUrl || undefined } : {}),
       }
     })
-    await upsertProfile(userId, { ...profile, current_supplements: serializeCurrentSupplementsEntries(next) })
-    return
+    if (JSON.stringify(next) !== JSON.stringify(entries)) {
+      await upsertProfile(userId, { ...profile, current_supplements: serializeCurrentSupplementsEntries(next) })
+    }
+    // Fall through so a cached snapshot copy of this profile row gets updated too.
   }
 
   if (!bloodwork?.stack_snapshot || !("stack" in bloodwork.stack_snapshot)) return

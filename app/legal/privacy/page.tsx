@@ -4,8 +4,8 @@
   ============================================================
   This privacy policy is a plain-English starting point for Clarion Labs.
   It reflects the current stack (Supabase, Stripe, Resend, OpenAI, Vercel
-  Analytics) and a US-only, 18+, non-HIPAA-covered posture. Replace
-  [YOUR_EMAIL] and the "Last updated" date before publishing.
+  Analytics) and a US-only, 18+, non-HIPAA-covered posture. Contact email in
+  the policy body is support@clarionlabs.tech; update the "Last updated" date before publishing.
 */}
 
 import Link from "next/link";
@@ -38,6 +38,14 @@ export default function PrivacyPage() {
             Clarion Labs is <strong>not</strong> a HIPAA-covered entity, and we are
             not your doctor. We treat your data carefully anyway—because we would
             want the same.
+          </p>
+          <p className="terms-body">
+            For specifics on how we handle biomarker values, uploaded lab reports,
+            and other health information, see our separate{" "}
+            <Link href="/legal/health-data-privacy">
+              Consumer Health Data Privacy Policy
+            </Link>
+            .
           </p>
         </section>
 
@@ -211,7 +219,7 @@ export default function PrivacyPage() {
             worse service for exercising your privacy rights.
           </p>
           <p className="terms-body">
-            To use any of these rights, email us at <strong>[YOUR_EMAIL]</strong>.
+            To use any of these rights, email us at <strong>support@clarionlabs.tech</strong>.
             We will respond within 45 days (or the window your state law requires,
             if shorter). We may ask you to verify your identity before we act on a
             request—usually just by confirming from the email on your Clarion
@@ -248,7 +256,7 @@ export default function PrivacyPage() {
             Clarion is built for adults. You must be <strong>18 or older</strong> to
             create an account. We do not knowingly collect information from anyone
             under 18. If you believe a child has given us their information, email
-            <strong> [YOUR_EMAIL]</strong> and we will delete it.
+            <strong> support@clarionlabs.tech</strong> and we will delete it.
           </p>
         </section>
 
@@ -265,7 +273,7 @@ export default function PrivacyPage() {
           <h2 id="contact-heading" className="terms-heading">Contact us</h2>
           <p className="terms-body">
             Questions about privacy, a request about your data, or something that
-            just feels off? Email us at <strong>[YOUR_EMAIL]</strong>. A real person
+            just feels off? Email us at <strong>support@clarionlabs.tech</strong>. A real person
             on the Clarion team will get back to you.
           </p>
         </section>

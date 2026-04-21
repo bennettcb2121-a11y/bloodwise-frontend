@@ -104,8 +104,8 @@ export function ClarionAssistant() {
       <style jsx>{`
         .clarion-assistant-fab {
           position: fixed;
-          bottom: 24px;
-          right: 24px;
+          bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+          right: max(24px, env(safe-area-inset-right, 0px));
           z-index: 9998;
           width: 56px;
           height: 56px;
@@ -133,7 +133,7 @@ export function ClarionAssistant() {
         .clarion-assistant-panel {
           position: fixed;
           bottom: 90px;
-          right: 24px;
+          right: max(24px, env(safe-area-inset-right, 0px));
           z-index: 9997;
           width: 360px;
           max-width: calc(100vw - 48px);
@@ -234,6 +234,13 @@ export function ClarionAssistant() {
         .clarion-assistant-send:disabled {
           opacity: 0.6;
           cursor: not-allowed;
+        }
+        @media (max-width: 899px) {
+          .clarion-assistant-panel {
+            /* Log (+) FAB stacked above this button — keep chat above both */
+            bottom: calc(24px + 56px + 12px + 56px + 16px + env(safe-area-inset-bottom, 0px));
+            max-height: min(480px, calc(100dvh - 220px));
+          }
         }
       `}</style>
     </>

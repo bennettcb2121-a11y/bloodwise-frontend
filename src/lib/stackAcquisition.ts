@@ -55,6 +55,8 @@ export function stackItemStorageKey(item: SavedSupplementStackItem): string {
   if (resolved) {
     return resolved.trim().toLowerCase().replace(/\s+/g, " ")
   }
+  // Fallback to the inferred biomarker (e.g. "Vitamin C") so free-text + lab rows dedupe.
+  if (bio) return bio.trim().toLowerCase().replace(/\s+/g, " ")
   const n = (item.supplementName ?? "").trim().toLowerCase()
   return n || "unknown"
 }

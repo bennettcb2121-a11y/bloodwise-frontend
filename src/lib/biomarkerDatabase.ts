@@ -1059,4 +1059,725 @@ export const biomarkerDatabase: Record<string, BiomarkerDatabaseEntry> = {
     researchSummary: "Bilirubin elevations are sorted by the direct (conjugated) fraction: indirect-predominant patterns suggest hemolysis or Gilbert's syndrome (common and benign), while direct-predominant patterns point to hepatocellular or biliary disease.",
     ranges: { general: { optimalMin: 0.1, optimalMax: 1.2, high: 1.5 } },
   },
+
+  // ——— Tier 1: finish cross-references already present in other entries ———
+  Homocysteine: {
+    description:
+      "Homocysteine is a sulfur-containing amino acid produced during methionine metabolism; it is normally cleared by B12-, folate-, and B6-dependent pathways.",
+    whyItMatters:
+      "Elevated homocysteine is associated with cardiovascular risk, cognitive decline in older adults, and neural tube defects in pregnancy. It is most often raised by inadequate B12, folate, or B6 status, by kidney dysfunction, or by specific genetic variants in methylation enzymes.",
+    whatItDoes: [
+      "Intermediate in methionine/methylation cycle",
+      "Consumed in SAMe synthesis",
+      "Remethylated using B12 and folate",
+      "Transsulfurated using B6",
+    ],
+    symptomsLow: [],
+    symptomsHigh: ["Often asymptomatic", "Cardiovascular risk marker", "Cognitive symptoms in older adults"],
+    foods:
+      "Folate-rich leafy greens, legumes, and fortified grains; B12-rich fish, meat, dairy, or fortified plant milks; B6 from poultry, potatoes, and bananas. An overall plant-forward pattern with adequate B12 typically normalizes elevations.",
+    lifestyle:
+      "Confirm B12, folate, and B6 status before supplementing. Review kidney function (eGFR) in older adults. Smoking, high coffee intake, and hypothyroidism all push it up.",
+    supplementNotes:
+      "First-line is correcting an underlying vitamin gap: 400–800 mcg/day folate (methylfolate in MTHFR variants), 500–1000 mcg/day B12 (methylcobalamin or cyanocobalamin), and 25–50 mg/day B6. Retest in 8–12 weeks. Large trials lowering homocysteine with B-vitamins have not consistently reduced cardiovascular events, so treat it as a repair-the-cause marker rather than an independent target.",
+    retest: "Retest in 8–12 weeks after repleting B-vitamins.",
+    recommendedTests: ["Vitamin B12", "Folate", "Creatinine"],
+    researchSummary:
+      "Homocysteine above about 15 µmol/L is epidemiologically linked to cardiovascular and cognitive risk, but randomized trials of B-vitamin lowering have been mixed for hard outcomes. It is most useful as a sensitive screen for functional B12/folate/B6 deficiency.",
+    ranges: {
+      general: {
+        optimalMin: 5,
+        optimalMax: 9,
+        suboptimalMin: 9,
+        high: 15,
+        labReference: { min: 0, max: 15, source: "typical µmol/L reference" },
+      },
+      masters: { optimalMax: 10, high: 15 },
+    },
+  },
+
+  PTH: {
+    description:
+      "Intact parathyroid hormone (PTH) regulates calcium and phosphate by acting on bone, kidney, and indirectly on the gut via vitamin D activation.",
+    whyItMatters:
+      "PTH must always be interpreted together with calcium and vitamin D. High PTH with low or normal calcium often indicates secondary hyperparathyroidism driven by vitamin D deficiency or chronic kidney disease; high PTH with high calcium suggests primary hyperparathyroidism and needs surgical evaluation.",
+    whatItDoes: [
+      "Raises serum calcium",
+      "Lowers phosphate via renal excretion",
+      "Activates 25-OH vitamin D to 1,25-OH (calcitriol)",
+      "Stimulates bone resorption",
+    ],
+    symptomsLow: ["Tingling", "Muscle cramps", "Rare when cause is surgical"],
+    symptomsHigh: ["Bone aches", "Kidney stones", "Fatigue", "Mood changes in chronic elevation"],
+    foods: "—",
+    lifestyle:
+      "If PTH is high, correct any vitamin D deficiency first and re-check. Persistent elevation with high calcium is a surgical/endocrine evaluation.",
+    supplementNotes:
+      "Do not self-treat PTH abnormalities. Restoring 25-OH vitamin D into the optimal range often normalizes secondary elevations over 8–12 weeks; true primary hyperparathyroidism is a referral diagnosis.",
+    retest: "Retest with calcium and 25-OH vitamin D in 8–12 weeks.",
+    recommendedTests: ["Calcium", "Vitamin D", "Phosphate"],
+    researchSummary:
+      "Secondary hyperparathyroidism driven by vitamin D deficiency is common in northern latitudes and resolves with repletion. Primary hyperparathyroidism typically presents with a calcium above the upper reference and a non-suppressed PTH — a combination that warrants parathyroid imaging and endocrinology referral.",
+    ranges: {
+      general: {
+        optimalMin: 15,
+        optimalMax: 55,
+        suboptimalMin: 15,
+        high: 65,
+        labReference: { min: 15, max: 65, source: "LabCorp intact PTH" },
+      },
+    },
+  },
+
+  LH: {
+    description:
+      "Luteinizing hormone (LH) is a pituitary gonadotropin; in men it drives testicular testosterone production, in women it triggers ovulation and supports the corpus luteum.",
+    whyItMatters:
+      "LH is essential context for any testosterone or fertility workup. Low testosterone with a low or normal LH points to a central (pituitary/hypothalamic) problem; low testosterone with a high LH points to primary testicular failure. Interpretation in women is cycle-day dependent.",
+    whatItDoes: [
+      "Stimulates Leydig-cell testosterone in men",
+      "Triggers ovulation mid-cycle in women",
+      "Supports corpus luteum progesterone",
+    ],
+    symptomsLow: ["Infertility", "Hypogonadism symptoms", "Amenorrhea"],
+    symptomsHigh: ["In men: primary testicular failure", "In women post-menopause, physiologically elevated"],
+    foods: "—",
+    lifestyle:
+      "Under-fueling, over-training, and chronic stress can suppress LH (functional hypogonadotropic hypogonadism). In women of reproductive age, interpret alongside cycle day and FSH.",
+    supplementNotes: "Do not self-treat. LH abnormalities are an endocrinology referral.",
+    retest: "As advised by provider, typically with FSH and sex hormones.",
+    recommendedTests: ["FSH", "Testosterone", "Estradiol", "Prolactin"],
+    researchSummary:
+      "The LH:FSH ratio and the response to GnRH stimulation distinguish primary (gonadal) from secondary (central) hypogonadism. In female athletes with amenorrhea, a low LH with low estradiol is the classical signature of functional hypothalamic amenorrhea from low energy availability.",
+    ranges: {
+      general: {
+        optimalMin: 1.5,
+        optimalMax: 9.0,
+        high: 12,
+        labReference: { min: 1.7, max: 8.6, source: "LabCorp adult male LH" },
+      },
+      female: { optimalMin: 2, optimalMax: 12 },
+      masters: { optimalMax: 12 },
+    },
+  },
+
+  FSH: {
+    description:
+      "Follicle-stimulating hormone (FSH) is a pituitary gonadotropin; in men it supports spermatogenesis via Sertoli cells, in women it drives follicular development.",
+    whyItMatters:
+      "In men, a high FSH with low testosterone points to primary testicular failure. In women, a persistently elevated FSH is a hallmark of ovarian insufficiency or menopause. It is a required companion to LH in any hypogonadism or fertility workup.",
+    whatItDoes: [
+      "Stimulates spermatogenesis (men)",
+      "Drives ovarian follicle maturation (women)",
+      "Negatively fed back by inhibin B and estradiol",
+    ],
+    symptomsLow: ["Infertility", "Hypogonadism"],
+    symptomsHigh: ["Primary gonadal failure", "Post-menopause (physiologic)"],
+    foods: "—",
+    lifestyle: "Interpret with LH and sex hormones. In reproductive-age women, cycle day matters.",
+    supplementNotes: "Do not self-treat.",
+    retest: "As advised.",
+    recommendedTests: ["LH", "Testosterone", "Estradiol"],
+    researchSummary:
+      "FSH rises years before menstrual changes as ovarian reserve declines; an early follicular FSH above 10–15 IU/L signals diminished ovarian reserve relevant to fertility planning.",
+    ranges: {
+      general: {
+        optimalMin: 1.5,
+        optimalMax: 12,
+        high: 15,
+        labReference: { min: 1.5, max: 12.4, source: "LabCorp adult male FSH" },
+      },
+      female: { optimalMin: 3, optimalMax: 10 },
+      masters: { optimalMax: 20 },
+    },
+  },
+
+  eGFR: {
+    description:
+      "Estimated glomerular filtration rate (eGFR) calculated from serum creatinine, age, and sex using the 2021 CKD-EPI equation. Reports glomerular filtering capacity of the kidneys.",
+    whyItMatters:
+      "eGFR is the standard readout of kidney function. Values under 60 mL/min/1.73m² sustained for ≥3 months define chronic kidney disease. Very muscular or very low-muscle users can be misclassified — cystatin-C eGFR is a better second test when creatinine seems off.",
+    whatItDoes: [
+      "Reports glomerular filtration in mL/min/1.73m²",
+      "Stages CKD (G1–G5)",
+      "Adjusts drug dosing",
+    ],
+    symptomsLow: ["Often asymptomatic early", "Fatigue", "Edema in advanced CKD"],
+    symptomsHigh: [],
+    foods: "Adequate hydration; avoid very high protein intakes if CKD is suspected.",
+    lifestyle:
+      "Control blood pressure and glucose; avoid nephrotoxic OTCs (chronic NSAIDs) if eGFR is borderline. Hydration affects acute readings; persistently low values need a second confirmatory test.",
+    supplementNotes:
+      "Creatine supplementation can raise serum creatinine and modestly lower calculated eGFR without changing true kidney function. Note recent creatine use when interpreting. Avoid high-dose nephrotoxic herbs (aristolochia).",
+    retest: "With CMP; repeat in 3 months to distinguish acute vs chronic changes.",
+    recommendedTests: ["Creatinine", "BUN", "Urine albumin/creatinine ratio"],
+    researchSummary:
+      "The 2021 CKD-EPI equation removed race-based coefficients and is now the ACP/NKF-recommended eGFR. Cystatin-C-based eGFR is used when creatinine-based estimates are confounded by muscle mass or recent creatine intake.",
+    ranges: {
+      general: {
+        deficient: 45,
+        suboptimalMin: 60,
+        optimalMin: 90,
+        optimalMax: 140,
+        high: 150,
+        labReference: { min: 60, max: 140, source: "KDIGO normal adult" },
+      },
+      masters: { suboptimalMin: 60, optimalMin: 75, optimalMax: 140 },
+    },
+  },
+
+  GGT: {
+    description:
+      "Gamma-glutamyl transferase (GGT) is a liver enzyme sensitive to biliary tract disease, alcohol, medications, and metabolic liver disease.",
+    whyItMatters:
+      "GGT is the most alcohol-sensitive routine liver enzyme and often rises before ALT in metabolic dysfunction-associated steatotic liver disease (MASLD). Paired with alkaline phosphatase, a high GGT localizes an ALP elevation to the liver rather than bone.",
+    whatItDoes: ["Hepatobiliary glutathione metabolism"],
+    symptomsLow: [],
+    symptomsHigh: ["Usually asymptomatic", "Fatigue or right upper-quadrant discomfort in advanced liver disease"],
+    foods:
+      "Mediterranean-style pattern; reduce refined carbohydrates, sugar-sweetened beverages, and alcohol — all lower GGT within weeks in controlled trials.",
+    lifestyle:
+      "Alcohol reduction is the highest-leverage single change; even moderate habitual use can raise GGT by 30–50%. Weight loss reduces it further in MASLD.",
+    supplementNotes:
+      "No supplement reliably lowers GGT on its own. Avoid high-dose niacin, amiodarone-like agents, and concentrated green tea extract in liver-vulnerable users.",
+    retest: "8–12 weeks after lifestyle change.",
+    recommendedTests: ["ALT", "AST", "Alkaline phosphatase"],
+    researchSummary:
+      "GGT above about 50 U/L in otherwise well adults is epidemiologically linked to cardiovascular mortality and MASLD progression independent of ALT. It responds within two to four weeks to alcohol cessation.",
+    ranges: {
+      general: {
+        optimalMin: 5,
+        optimalMax: 30,
+        suboptimalMin: 30,
+        high: 50,
+        labReference: { min: 3, max: 70, source: "LabCorp GGT adult" },
+      },
+      female: { optimalMax: 25, high: 40 },
+    },
+  },
+
+  // ——— Tier 2: panel completeness ———
+  "Free T3": {
+    description:
+      "Free triiodothyronine (Free T3) is the active thyroid hormone at the tissue receptor; about 80% of circulating T3 is made by peripheral T4→T3 conversion.",
+    whyItMatters:
+      "Free T3 is used when TSH and Free T4 don't match symptoms, in nonthyroidal illness syndrome, and to assess T4-to-T3 conversion quality. A low Free T3 with normal Free T4 and rising TSH often precedes subclinical hypothyroidism or reflects low selenium, caloric restriction, or stress.",
+    whatItDoes: ["Primary active thyroid hormone", "Drives basal metabolic rate", "Regulates lipid metabolism"],
+    symptomsLow: ["Fatigue", "Cold intolerance", "Constipation", "Hair thinning"],
+    symptomsHigh: ["Palpitations", "Tremor", "Heat intolerance", "Weight loss"],
+    foods:
+      "Adequate iodine (seafood, dairy, iodized salt) and selenium (Brazil nuts, seafood) support T4→T3 conversion. Chronic severe caloric restriction lowers Free T3 as a physiologic adaptation.",
+    lifestyle:
+      "Under-fueling and overtraining both lower Free T3. Correct any energy-availability gap before chasing the number.",
+    supplementNotes:
+      "Selenium at 100–200 mcg/day can support conversion when intake is low; routine high-dose supplementation is not helpful and can lower conversion. Do not self-treat thyroid.",
+    retest: "As advised, with TSH and Free T4.",
+    recommendedTests: ["TSH", "Free T4", "Reverse T3", "TPO antibodies"],
+    researchSummary:
+      "Free T3 is preferentially measured over total T3 because binding-protein status confounds total measurements. In hospitalized or severely ill patients, a low Free T3 is usually a nonthyroidal illness pattern that does not benefit from thyroid hormone replacement.",
+    ranges: {
+      general: {
+        optimalMin: 3.0,
+        optimalMax: 4.0,
+        high: 4.4,
+        labReference: { min: 2.0, max: 4.4, source: "LabCorp Free T3 pg/mL" },
+      },
+    },
+  },
+
+  "TPO antibodies": {
+    description:
+      "Thyroid peroxidase antibodies (anti-TPO) target the enzyme that iodinates thyroglobulin during thyroid hormone synthesis.",
+    whyItMatters:
+      "Positive TPO antibodies are the first-line serologic marker of Hashimoto thyroiditis. Present in a majority of cases of autoimmune hypothyroidism and in a meaningful fraction of Graves disease. High TPO with an upper-normal TSH foreshadows progression to overt hypothyroidism.",
+    whatItDoes: ["Autoantibody against thyroid peroxidase", "Marker of autoimmune thyroid disease"],
+    symptomsLow: [],
+    symptomsHigh: ["Often asymptomatic until thyroid function shifts"],
+    foods:
+      "A Mediterranean pattern with adequate selenium is prudent. Gluten restriction only if coexisting celiac serology; routine elimination is not evidence-supported for isolated TPO positivity.",
+    lifestyle:
+      "Repeat the test — titers fluctuate. Close-follow TSH every 6–12 months if TSH is creeping into the upper-normal range.",
+    supplementNotes:
+      "Selenium 200 mcg/day has been studied as an anti-TPO lowering adjunct in Hashimoto with mixed but promising results; do not exceed this chronically.",
+    retest: "Antibody positivity is usually persistent; repeat TSH every 6–12 months instead.",
+    recommendedTests: ["TSH", "Free T4", "Free T3", "Thyroglobulin antibodies"],
+    researchSummary:
+      "A positive anti-TPO with a high-normal TSH more than doubles the annual rate of progression to overt hypothyroidism. Selenium supplementation has shown modest reductions in antibody titers in some trials, without consistent clinical benefit.",
+    ranges: {
+      general: {
+        optimalMin: 0,
+        optimalMax: 34,
+        high: 35,
+        labReference: { min: 0, max: 34, source: "LabCorp IU/mL anti-TPO" },
+      },
+    },
+  },
+
+  "Uric acid": {
+    description:
+      "Uric acid is the end product of purine metabolism; excreted by the kidneys.",
+    whyItMatters:
+      "Elevated uric acid is a cause of gout and a contributor to cardiometabolic risk and fatty liver disease. Very low uric acid (from specific medications or Fanconi syndrome) is rare but clinically significant.",
+    whatItDoes: ["End-stage purine metabolism", "Antioxidant in plasma", "Crystal-forming when saturated"],
+    symptomsLow: [],
+    symptomsHigh: ["Acute gout flares", "Kidney stones", "Often silent before first flare"],
+    foods:
+      "High-fructose corn syrup and beer raise uric acid more than red meat does. Vitamin C (500 mg/day) and coffee are modestly uric-acid-lowering. Cherries/tart cherry juice have reduced flare frequency in small trials.",
+    lifestyle:
+      "Weight loss, fewer sugar-sweetened beverages, and hydration are first-line. Avoid aspirin at low doses during an active flare (can raise uric acid).",
+    supplementNotes:
+      "Vitamin C 500 mg/day is evidence-supported for modest lowering. Tart cherry may reduce flare frequency. Do not substitute supplements for allopurinol when urate-lowering therapy is medically indicated.",
+    retest: "8–12 weeks after lifestyle change.",
+    recommendedTests: ["Creatinine", "eGFR"],
+    researchSummary:
+      "Serum uric acid above 6.8 mg/dL is near the saturation threshold for monosodium urate crystals at physiologic pH. Epidemiologic links to hypertension and fatty liver are consistent; randomized lowering of asymptomatic hyperuricemia has not reliably reduced cardiovascular events.",
+    ranges: {
+      general: {
+        optimalMin: 3.5,
+        optimalMax: 6.0,
+        high: 6.8,
+        labReference: { min: 3.4, max: 7.0, source: "LabCorp uric acid adult male" },
+      },
+      female: { optimalMin: 2.5, optimalMax: 5.5, high: 6.0 },
+    },
+  },
+
+  "Non-HDL cholesterol": {
+    description:
+      "Non-HDL cholesterol = total cholesterol minus HDL-C; captures LDL plus all other atherogenic (ApoB-containing) particles in a single number.",
+    whyItMatters:
+      "Non-HDL is a better risk marker than LDL-C in patients with high triglycerides or metabolic syndrome because LDL-C underestimates particle burden in those settings. It is a recognized secondary target in ACC/AHA and ESC lipid guidelines.",
+    whatItDoes: ["Aggregate atherogenic particle proxy", "Easy to calculate from any lipid panel"],
+    symptomsLow: [],
+    symptomsHigh: ["Atherosclerotic cardiovascular disease risk"],
+    foods:
+      "The same levers as LDL-C plus triglyceride-lowering moves: less alcohol, fewer refined carbs, more soluble fiber, more omega-3 fatty fish, replace butter with olive oil.",
+    lifestyle: "Weight management, aerobic + resistance training, smoking cessation.",
+    supplementNotes:
+      "Soluble fiber (psyllium 10 g/day), plant sterols (1.5–2 g/day), and omega-3 for the TG contribution. Clinician-prescribed statins remain first-line when risk is elevated.",
+    retest: "With lipid panel in 8–12 weeks.",
+    recommendedTests: ["ApoB", "LDL-C", "HDL-C", "Triglycerides"],
+    researchSummary:
+      "Non-HDL cholesterol predicts cardiovascular events as well as or better than LDL-C, especially in diabetes and hypertriglyceridemia, and is recommended as a co-primary or secondary target in major guidelines.",
+    ranges: {
+      general: {
+        optimalMin: 0,
+        optimalMax: 130,
+        high: 160,
+        labReference: { min: 0, max: 130, source: "ACC/AHA non-HDL secondary target" },
+      },
+    },
+  },
+
+  "DHEA-S": {
+    description:
+      "Dehydroepiandrosterone sulfate (DHEA-S) is the sulfated, long-half-life adrenal androgen, precursor to testosterone and estradiol in peripheral tissues.",
+    whyItMatters:
+      "DHEA-S declines with age and falls further with chronic stress, overtraining, and adrenal insufficiency. Very high values suggest adrenal pathology or PCOS context in women. It is the best single screen for adrenal androgen output.",
+    whatItDoes: ["Precursor to sex steroids in peripheral tissues", "Stress axis marker", "Declines with age"],
+    symptomsLow: ["Fatigue", "Low libido", "Loss of well-being in older adults"],
+    symptomsHigh: ["Acne", "Hirsutism", "Irregular cycles in women"],
+    foods: "—",
+    lifestyle:
+      "Sleep, recovery, and avoiding chronic under-fueling support DHEA-S. Very low values in an unwell person warrant adrenal workup.",
+    supplementNotes:
+      "DHEA supplementation 25–50 mg/day in older women (or men with low DHEA-S and symptoms) is used off-label; evidence for quality-of-life improvement is modest and it can raise downstream estradiol or testosterone unpredictably. Not recommended routinely in young adults or athletes subject to banned-substance testing.",
+    retest: "8–12 weeks.",
+    recommendedTests: ["Cortisol (AM)", "Testosterone", "Estradiol"],
+    researchSummary:
+      "DHEA-S peaks in the 20s and halves every two decades thereafter. Replacement in primary adrenal insufficiency is evidence-supported; replacement in age-related decline alone is not.",
+    ranges: {
+      general: {
+        optimalMin: 200,
+        optimalMax: 500,
+        high: 650,
+        labReference: { min: 89, max: 457, source: "LabCorp DHEA-S adult male 30s" },
+      },
+      female: { optimalMin: 100, optimalMax: 350, high: 450 },
+      masters: { optimalMin: 80, optimalMax: 300 },
+    },
+  },
+
+  Prolactin: {
+    description:
+      "Prolactin is a pituitary hormone that stimulates lactation and, when pathologically elevated, suppresses the HPG axis.",
+    whyItMatters:
+      "Hyperprolactinemia is a classical cause of secondary hypogonadism in men (low LH, low testosterone) and oligomenorrhea or galactorrhea in women. It is mandatory workup for unexplained low testosterone or amenorrhea. Common causes include medications (dopamine antagonists), hypothyroidism, and prolactinomas.",
+    whatItDoes: ["Drives lactation", "Negatively feedbacks GnRH/LH when elevated"],
+    symptomsLow: [],
+    symptomsHigh: ["Galactorrhea", "Amenorrhea", "Decreased libido", "Erectile dysfunction"],
+    foods: "—",
+    lifestyle:
+      "Stress, recent breast exam, and sleep disruption can transiently raise prolactin; a markedly elevated fasting AM value warrants repeat + endocrinology referral.",
+    supplementNotes: "Do not self-treat. Pharmacologic dopamine agonists are the evidence-based treatment.",
+    retest: "As advised.",
+    recommendedTests: ["TSH", "LH", "Testosterone"],
+    researchSummary:
+      "Prolactin above about 200 ng/mL almost always indicates a prolactinoma; intermediate elevations are more often medication-induced (antipsychotics, metoclopramide) or stress-related.",
+    ranges: {
+      general: {
+        optimalMin: 2,
+        optimalMax: 18,
+        high: 25,
+        labReference: { min: 4, max: 15.2, source: "LabCorp adult male prolactin" },
+      },
+      female: { optimalMin: 3, optimalMax: 25, high: 30 },
+    },
+  },
+
+  Progesterone: {
+    description:
+      "Progesterone is the principal corpus luteum hormone in women and is produced in small amounts by the adrenal cortex in both sexes.",
+    whyItMatters:
+      "In women, a day-21 (luteal) progesterone confirms ovulation. Low luteal progesterone signals anovulation or luteal phase dysfunction, often driven by low energy availability, thyroid disease, or hyperprolactinemia. In men, levels are physiologically low and rarely clinically useful.",
+    whatItDoes: ["Supports endometrium after ovulation", "Raises basal body temperature in luteal phase"],
+    symptomsLow: ["Short luteal phase", "Irregular cycles", "Early pregnancy loss context"],
+    symptomsHigh: ["Normal mid-luteal peak or pregnancy"],
+    foods: "—",
+    lifestyle:
+      "Correct under-fueling and overtraining before pursuing supplementation; restore energy availability first.",
+    supplementNotes:
+      "Vitex (chasteberry) has modest evidence for cycle regularity in luteal phase defect; clinician-guided bioidentical progesterone is used in assisted reproduction.",
+    retest: "As advised (mid-luteal, roughly cycle day 21 in a 28-day cycle).",
+    recommendedTests: ["Estradiol", "LH", "FSH", "TSH"],
+    researchSummary:
+      "A mid-luteal progesterone above 10 ng/mL confirms ovulation in most women; values below 3 ng/mL indicate anovulation. Interpretation requires accurate cycle timing.",
+    ranges: {
+      general: {
+        optimalMin: 0.2,
+        optimalMax: 1.4,
+        high: 2.0,
+      },
+      female: { optimalMin: 5, optimalMax: 20, high: 25 },
+    },
+  },
+
+  PSA: {
+    description:
+      "Prostate-specific antigen (PSA) is a serine protease produced by prostate tissue; serum levels rise with benign hyperplasia, prostatitis, recent ejaculation, and prostate cancer.",
+    whyItMatters:
+      "PSA is the primary screening test for prostate cancer in men over 50 (over 40 with family history or Black race). Sustained elevations or rapid rises warrant urology evaluation. Acute elevations from prostatitis or recent ejaculation are common and confound single readings.",
+    whatItDoes: ["Prostate tissue serine protease"],
+    symptomsLow: [],
+    symptomsHigh: ["Often asymptomatic", "Urinary symptoms in BPH", "Bone pain in advanced disease"],
+    foods: "—",
+    lifestyle:
+      "Avoid ejaculation 48 hours before the draw. Vigorous cycling can transiently raise PSA. Repeat borderline values before referral.",
+    supplementNotes:
+      "Saw palmetto evidence for BPH symptoms is mixed; do not use finasteride-like agents without urology guidance (they halve PSA and complicate screening).",
+    retest: "As advised by USPSTF / clinician, typically every 1–2 years if in screening program.",
+    recommendedTests: ["Free PSA (if total is borderline)"],
+    researchSummary:
+      "USPSTF recommends individualized shared decision-making for PSA screening ages 55–69, and against routine screening after 70. Very low PSA velocity and low free-to-total ratios refine the cancer vs BPH distinction.",
+    ranges: {
+      general: {
+        optimalMin: 0,
+        optimalMax: 2.5,
+        suboptimalMin: 2.5,
+        high: 4.0,
+        labReference: { min: 0, max: 4, source: "LabCorp PSA total" },
+      },
+      masters: { optimalMax: 3.5, high: 4.5 },
+    },
+  },
+
+  // ——— Tier 3: nutrient depth ———
+  Zinc: {
+    description:
+      "Serum zinc reflects body zinc status; marginal intake is common in restrictive diets, heavy training, and chronic GI disease.",
+    whyItMatters:
+      "Zinc is a cofactor in 300+ enzymes, central to immune function, wound healing, taste, and testosterone biosynthesis. Deficiency presents as recurrent URIs, poor wound healing, dysgeusia, and in men, lowered testosterone.",
+    whatItDoes: ["Immune signaling", "Wound healing", "Taste and smell", "Testosterone biosynthesis"],
+    symptomsLow: ["Frequent colds", "Slow wound healing", "Loss of taste", "Hair loss"],
+    symptomsHigh: ["Nausea", "Copper deficiency with chronic high intake"],
+    foods:
+      "Oysters (highest), red meat, pumpkin seeds, cashews, chickpeas. Phytate in whole grains and legumes reduces absorption; soaking, fermenting, and sprouting help.",
+    lifestyle:
+      "Vegetarians and vegans, endurance athletes, and users with GI disorders should check status if symptoms match.",
+    supplementNotes:
+      "15–25 mg/day for repletion, typically as zinc picolinate or citrate; not with calcium or iron at the same time. Do not exceed 40 mg/day chronically without monitoring copper status.",
+    retest: "8–12 weeks.",
+    recommendedTests: ["Copper", "Alkaline phosphatase"],
+    researchSummary:
+      "A 2017 Cochrane review supports zinc lozenges for reducing cold duration when started within 24 hours. Serum zinc has meaningful assay variability; trends matter more than a single value.",
+    ranges: {
+      general: {
+        deficient: 60,
+        suboptimalMin: 70,
+        optimalMin: 80,
+        optimalMax: 120,
+        high: 150,
+        labReference: { min: 60, max: 120, source: "LabCorp serum zinc µg/dL" },
+      },
+    },
+  },
+
+  Selenium: {
+    description:
+      "Serum selenium reflects dietary selenium status; required for glutathione peroxidases and thyroid deiodinases.",
+    whyItMatters:
+      "Selenium supports antioxidant defenses and T4→T3 conversion. Regional dietary intake varies enormously: US intake is usually adequate (Brazil nuts, seafood), while much of Europe and parts of Asia are chronically low. Both deficiency and excess have consequences.",
+    whatItDoes: ["Glutathione peroxidase cofactor", "Thyroid hormone deiodination", "Sperm motility"],
+    symptomsLow: ["Cardiomyopathy in severe deficiency (Keshan disease)", "Impaired T4→T3 conversion"],
+    symptomsHigh: ["Selenosis: hair/nail brittleness, garlic breath, GI upset"],
+    foods:
+      "Two Brazil nuts per day provide approximately the RDA; seafood, organ meats, and whole grains contribute.",
+    lifestyle: "Don't stack high-dose multivitamins with chronic Brazil nut intake.",
+    supplementNotes:
+      "100–200 mcg/day is the evidence-supported range; above 400 mcg/day chronically is associated with selenosis and higher type-2 diabetes risk in a large RCT (SELECT).",
+    retest: "8–12 weeks.",
+    recommendedTests: ["TSH", "Free T3"],
+    researchSummary:
+      "The SELECT trial found selenium supplementation did not reduce prostate cancer incidence and hinted at increased diabetes risk at the 200 mcg dose, informing current caution against routine high-dose use.",
+    ranges: {
+      general: {
+        deficient: 70,
+        suboptimalMin: 95,
+        optimalMin: 110,
+        optimalMax: 170,
+        high: 200,
+        labReference: { min: 63, max: 160, source: "LabCorp selenium µg/L" },
+      },
+    },
+  },
+
+  Iodine: {
+    description:
+      "Urinary iodine (spot or 24-hour) is the standard measure of recent iodine intake; required for thyroid hormone synthesis.",
+    whyItMatters:
+      "Low iodine is a classical cause of goiter and hypothyroidism; it is rising in women avoiding iodized salt or on restrictive diets. Excessive iodine (kelp supplements, amiodarone) can paradoxically trigger hypothyroidism or hyperthyroidism.",
+    whatItDoes: ["Substrate for T4 and T3 synthesis"],
+    symptomsLow: ["Goiter", "Hypothyroidism", "Cognitive effects in pregnancy"],
+    symptomsHigh: ["Thyroiditis from iodine excess"],
+    foods: "Iodized salt, dairy, seaweed, seafood, eggs. A single kelp dose can overshoot the upper intake limit.",
+    lifestyle: "Pregnant and lactating women need higher intake (220–290 mcg/day); discuss with clinician.",
+    supplementNotes:
+      "150 mcg/day (RDA) covers most adults. Avoid kelp supplements without monitoring; they are highly variable and can deliver 10–100x the RDA per dose.",
+    retest: "As advised.",
+    recommendedTests: ["TSH", "Free T4"],
+    researchSummary:
+      "Median urinary iodine concentration below 100 mcg/L defines population-level deficiency per WHO; pregnancy targets are higher (150–249 mcg/L).",
+    ranges: {
+      general: {
+        deficient: 100,
+        suboptimalMin: 100,
+        optimalMin: 100,
+        optimalMax: 199,
+        high: 300,
+        labReference: { min: 100, max: 199, source: "WHO adequate urinary iodine mcg/L" },
+      },
+    },
+  },
+
+  "Omega-3 Index": {
+    description:
+      "Percentage of EPA + DHA in red blood cell membranes; a direct, long-window measure of omega-3 status (reflects prior ~4 months).",
+    whyItMatters:
+      "A low Omega-3 Index is an independent cardiovascular risk marker and is typically the dietary biomarker most easily improved. Targets above 8% are associated with lowest cardiovascular mortality in large cohorts.",
+    whatItDoes: ["Membrane phospholipid EPA+DHA reserve", "Anti-inflammatory eicosanoid substrate"],
+    symptomsLow: ["Often silent", "Dry skin", "Mood shifts in low-intake populations"],
+    symptomsHigh: ["Bruising at very high intake"],
+    foods: "Salmon, sardines, mackerel, herring, anchovies twice weekly is sufficient for most adults.",
+    lifestyle: "Plant ALA from flax and chia contributes minimally to EPA/DHA status due to poor conversion.",
+    supplementNotes:
+      "1–2 g/day EPA+DHA raises the Omega-3 Index to >8% in most adults over 3–4 months. Prescription icosapent ethyl (4 g/day) is used after MI in specific populations. Avoid above 3 g/day with anticoagulants without clinician awareness.",
+    retest: "Retest in 4 months; membrane turnover is slow.",
+    recommendedTests: ["Triglycerides", "hs-CRP"],
+    researchSummary:
+      "The Framingham Offspring and other cohorts show 8–12% Omega-3 Index is associated with lowest all-cause mortality. Landmark RCTs (VITAL, REDUCE-IT) clarify that benefit is dose- and population-dependent.",
+    ranges: {
+      general: {
+        deficient: 4,
+        suboptimalMin: 6,
+        optimalMin: 8,
+        optimalMax: 12,
+        high: 15,
+        labReference: { min: 8, max: 12, source: "Harris/von Schacky target range" },
+      },
+    },
+  },
+
+  "RBC folate": {
+    description:
+      "Red blood cell folate reflects tissue folate status over the prior 2–4 months, insensitive to recent meals.",
+    whyItMatters:
+      "RBC folate is more reliable than serum folate for diagnosing true tissue deficiency and is preferred in pregnancy and when serum folate is equivocal. Always pair with B12 — high folate can mask the anemia of B12 deficiency while neurologic damage progresses.",
+    whatItDoes: ["DNA synthesis", "Methylation via 5-MTHF", "Homocysteine remethylation"],
+    symptomsLow: ["Fatigue", "Macrocytic anemia", "Elevated homocysteine"],
+    symptomsHigh: ["High serum folate with low RBC folate suggests active repletion rather than storage"],
+    foods: "Leafy greens, legumes, asparagus, fortified grains.",
+    lifestyle: "Check B12 first before any folic acid repletion.",
+    supplementNotes:
+      "400–800 mcg/day; prefer 5-MTHF (methylfolate) in confirmed MTHFR variants. Avoid chronic doses above 1 mg/day without clinician guidance — unmetabolized folic acid accumulates in the circulation at high intakes.",
+    retest: "12–16 weeks (RBC turnover).",
+    recommendedTests: ["Vitamin B12", "Homocysteine"],
+    researchSummary:
+      "RBC folate is the preferred marker for preconception folate status; ≥400 ng/mL reduces neural tube defect risk at the population level.",
+    ranges: {
+      general: {
+        deficient: 280,
+        suboptimalMin: 340,
+        optimalMin: 400,
+        optimalMax: 1100,
+        high: 1500,
+        labReference: { min: 280, max: 1100, source: "LabCorp RBC folate ng/mL" },
+      },
+    },
+  },
+
+  MMA: {
+    description:
+      "Methylmalonic acid (MMA) accumulates when B12-dependent methylmalonyl-CoA mutase activity falls; a functional marker of B12 adequacy.",
+    whyItMatters:
+      "MMA is the most sensitive early marker of functional B12 deficiency and is often elevated before serum B12 drops below the reference range. It is preferred over serum B12 in older adults, strict vegans, and anyone on long-term PPI or metformin.",
+    whatItDoes: ["Byproduct of branched-chain amino acid and odd-chain fatty acid metabolism"],
+    symptomsLow: [],
+    symptomsHigh: ["Tingling", "Fatigue", "Cognitive symptoms", "May precede serum B12 changes"],
+    foods: "Same as B12.",
+    lifestyle: "Review PPI, H2 blocker, and metformin use; all reduce B12 absorption.",
+    supplementNotes: "Treat the underlying B12 gap: 1000 mcg/day oral or per-clinician IM.",
+    retest: "8–12 weeks after starting B12 repletion.",
+    recommendedTests: ["Vitamin B12", "Holotranscobalamin", "Homocysteine"],
+    researchSummary:
+      "MMA elevates at serum B12 values still within the traditional reference range (200–400 pg/mL), identifying the functional-deficiency band that serum B12 alone misses.",
+    ranges: {
+      general: {
+        optimalMin: 0.05,
+        optimalMax: 0.27,
+        high: 0.4,
+        labReference: { min: 0, max: 0.4, source: "LabCorp MMA serum µmol/L" },
+      },
+    },
+  },
+
+  "Active B12": {
+    description:
+      "Holotranscobalamin (Active B12) is the fraction of serum B12 bound to transcobalamin and therefore available for cellular uptake.",
+    whyItMatters:
+      "Active B12 is more sensitive than total serum B12 for early deficiency because it drops before the total does. Used in equivocal serum B12 results.",
+    whatItDoes: ["Delivers B12 to peripheral tissues via transcobalamin receptors"],
+    symptomsLow: ["As for B12 deficiency, often before anemia"],
+    symptomsHigh: [],
+    foods: "Same as B12.",
+    lifestyle: "Same as B12.",
+    supplementNotes: "Treat the underlying gap: 1000 mcg/day oral.",
+    retest: "8–12 weeks.",
+    recommendedTests: ["Vitamin B12", "MMA", "Homocysteine"],
+    researchSummary:
+      "Holotranscobalamin below ~35 pmol/L has a higher positive predictive value for B12 deficiency than total B12 below the reference range.",
+    ranges: {
+      general: {
+        deficient: 25,
+        suboptimalMin: 35,
+        optimalMin: 50,
+        optimalMax: 150,
+        high: 200,
+        labReference: { min: 35, max: 150, source: "typical holoTC pmol/L" },
+      },
+    },
+  },
+
+  // ——— Tier 4: niche markers ———
+  Fibrinogen: {
+    description:
+      "Fibrinogen is a liver-synthesized acute phase protein and the terminal clot-forming fibrin precursor.",
+    whyItMatters:
+      "Elevated fibrinogen reflects chronic low-grade inflammation and is epidemiologically linked to cardiovascular risk. Very low values are rare and reflect liver failure or inherited disorders.",
+    whatItDoes: ["Converted by thrombin to fibrin to form clots", "Acute phase reactant"],
+    symptomsLow: ["Bleeding in severe deficiency"],
+    symptomsHigh: ["Often asymptomatic"],
+    foods: "Same as hs-CRP lifestyle.",
+    lifestyle: "Smoking cessation, regular aerobic exercise, and weight loss all lower fibrinogen by 10–20%.",
+    supplementNotes: "Omega-3 1–2 g/day; Mediterranean pattern. Do not self-treat with anticoagulants.",
+    retest: "8–12 weeks.",
+    recommendedTests: ["hs-CRP"],
+    researchSummary:
+      "Meta-analyses link fibrinogen >400 mg/dL with increased cardiovascular mortality independent of other risk factors.",
+    ranges: {
+      general: {
+        optimalMin: 200,
+        optimalMax: 400,
+        high: 450,
+        labReference: { min: 175, max: 425, source: "LabCorp fibrinogen mg/dL" },
+      },
+    },
+  },
+
+  "C-peptide": {
+    description:
+      "C-peptide is cleaved from proinsulin in equimolar amounts; a marker of endogenous insulin secretion with a longer half-life than insulin itself.",
+    whyItMatters:
+      "C-peptide distinguishes endogenous from exogenous insulin and characterizes beta-cell reserve. Useful in unclear diabetes typing, suspected insulinoma, or on insulin therapy.",
+    whatItDoes: ["Byproduct of insulin synthesis", "Indirect marker of beta-cell activity"],
+    symptomsLow: ["Type 1 diabetes", "Late type 2 diabetes"],
+    symptomsHigh: ["Insulin resistance", "Insulinoma (rare)"],
+    foods: "Same metabolic levers as insulin.",
+    lifestyle: "Fasting draw required.",
+    supplementNotes: "Not a direct supplement target.",
+    retest: "As advised.",
+    recommendedTests: ["Fasting insulin", "Glucose", "HbA1c"],
+    researchSummary:
+      "A low fasting C-peptide in a newly diagnosed adult diabetes case supports type 1 or LADA; very high values with hypoglycemia suggest insulinoma.",
+    ranges: {
+      general: {
+        optimalMin: 0.8,
+        optimalMax: 3.1,
+        high: 4.0,
+        labReference: { min: 1.1, max: 4.4, source: "LabCorp fasting C-peptide ng/mL" },
+      },
+    },
+  },
+
+  CoQ10: {
+    description:
+      "Coenzyme Q10 (ubiquinone) is a lipid-soluble electron carrier in the mitochondrial electron transport chain; measured in plasma as total Q10.",
+    whyItMatters:
+      "Statins reduce endogenous CoQ10 synthesis; symptomatic statin users with muscle complaints sometimes improve on supplementation. Age-related decline is modest but measurable.",
+    whatItDoes: ["Mitochondrial electron transport", "Lipid-phase antioxidant"],
+    symptomsLow: ["Fatigue", "Exercise intolerance", "Statin-associated muscle symptoms"],
+    symptomsHigh: [],
+    foods: "Organ meats, fatty fish, whole grains — generally low dietary contribution.",
+    lifestyle: "Statin users: if myalgias, discuss a 2–3 month CoQ10 trial with your clinician.",
+    supplementNotes:
+      "100–200 mg/day ubiquinol or ubiquinone with a fat-containing meal; effect sizes on statin myopathy are small but consistent across small trials.",
+    retest: "As advised.",
+    recommendedTests: [],
+    researchSummary:
+      "CoQ10 for statin-associated muscle symptoms: modest benefit in pooled analyses. Not a substitute for statin dose adjustment or switching.",
+    ranges: {
+      general: {
+        deficient: 0.5,
+        suboptimalMin: 0.7,
+        optimalMin: 0.8,
+        optimalMax: 2.5,
+        high: 4.0,
+        labReference: { min: 0.4, max: 1.9, source: "typical CoQ10 µg/mL" },
+      },
+    },
+  },
+
+  sTfR: {
+    description:
+      "Soluble transferrin receptor (sTfR) is shed from cells in proportion to cellular iron demand; rises in true iron deficiency and is not suppressed by inflammation.",
+    whyItMatters:
+      "sTfR disambiguates iron deficiency from anemia of chronic disease when ferritin is confounded by inflammation (high CRP). The sTfR/log-ferritin index is the most sensitive combined marker.",
+    whatItDoes: ["Reflects cellular iron demand"],
+    symptomsLow: [],
+    symptomsHigh: ["True iron deficiency"],
+    foods: "Same as iron.",
+    lifestyle: "Use when ferritin and CRP both appear elevated.",
+    supplementNotes: "Iron repletion per ferritin/iron studies.",
+    retest: "With iron panel in 8–12 weeks.",
+    recommendedTests: ["Ferritin", "Serum iron", "Transferrin saturation", "hs-CRP"],
+    researchSummary:
+      "Meta-analyses show sTfR/log-ferritin index is the most sensitive iron-status marker in inflammatory states, outperforming ferritin alone.",
+    ranges: {
+      general: {
+        optimalMin: 2.2,
+        optimalMax: 5.0,
+        high: 5.5,
+        labReference: { min: 2.2, max: 5.0, source: "LabCorp sTfR mg/L" },
+      },
+    },
+  },
 }

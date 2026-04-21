@@ -2000,15 +2000,24 @@ body.pitch-deck-active .clarion-global-footer {
 }
 /* Clarion dashboard + sky: glassy bar that picks up page atmosphere (not flat green) */
 .dashboard-app-shell--clarion .dashboard-top-bar {
-  background: color-mix(in srgb, var(--color-bg) 72%, transparent);
-  backdrop-filter: blur(14px) saturate(1.08);
-  -webkit-backdrop-filter: blur(14px) saturate(1.08);
-  border-bottom-color: color-mix(in srgb, var(--color-border) 65%, transparent);
+  background: color-mix(in srgb, var(--color-bg) 94%, transparent);
+  backdrop-filter: blur(18px) saturate(1.1);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+  border-bottom-color: color-mix(in srgb, var(--color-border) 80%, transparent);
   box-shadow: 0 1px 0 color-mix(in srgb, #fff 4%, transparent) inset;
 }
 [data-theme="light"] .dashboard-app-shell--clarion .dashboard-top-bar {
-  background: color-mix(in srgb, var(--color-surface-elevated) 82%, transparent);
+  background: color-mix(in srgb, var(--color-surface-elevated) 96%, transparent);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.65) inset;
+}
+/* Graceful fallback when the browser doesn't support backdrop-filter — keep the bar fully opaque so content scrolling beneath never shows through. */
+@supports not (backdrop-filter: blur(1px)) {
+  .dashboard-app-shell--clarion .dashboard-top-bar {
+    background: var(--color-bg);
+  }
+  [data-theme="light"] .dashboard-app-shell--clarion .dashboard-top-bar {
+    background: var(--color-surface-elevated);
+  }
 }
 
 /* Light UI + night/storm sky: sidebar & toolbar sit outside the sky layer — pull chrome down so it isn’t paper-white on a starfield */
@@ -2147,6 +2156,41 @@ body[data-dashboard-sky="storm"][data-theme="light"] .dashboard-sidebar-group-to
   .dashboard-top-bar {
     padding-left: max(10px, env(safe-area-inset-left, 0px));
     padding-right: max(10px, env(safe-area-inset-right, 0px));
+    align-items: center;
+    gap: 8px;
+  }
+  .dashboard-app-shell--clarion .dashboard-top-bar-start {
+    flex-shrink: 0;
+    max-width: 52%;
+  }
+  .dashboard-app-shell--clarion .dashboard-top-tabs-actions {
+    flex: 1;
+    min-width: 0;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    gap: 4px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .dashboard-app-shell--clarion .dashboard-top-tabs-actions::-webkit-scrollbar {
+    display: none;
+  }
+  .dashboard-app-shell--clarion .dashboard-support-link {
+    display: none;
+  }
+  .dashboard-app-shell--clarion .dashboard-top-logout {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  .dashboard-app-shell--clarion .dashboard-member-badge {
+    font-size: 11px;
+    padding: 4px 8px;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .dashboard-sidebar {
     position: fixed;
@@ -2341,9 +2385,11 @@ body[data-dashboard-sky="storm"][data-theme="light"] .dashboard-sidebar-group-to
   opacity: 0.85;
 }
 
-.dashboard-route-sky-wrap[data-sky="night"] .dashboard-app-content--over-sky > *,
-.dashboard-route-sky-wrap[data-sky="calm"] .dashboard-app-content--over-sky > *,
-.dashboard-route-sky-wrap[data-sky="sunset"] .dashboard-app-content--over-sky > * {
+/* Full-viewport overlays are also direct children of --over-sky; do not force them to
+   position:relative + z-index:1 or they lose fixed stacking and “Edit what I take” / capture modals look broken. */
+.dashboard-route-sky-wrap[data-sky="night"] .dashboard-app-content--over-sky > *:not(.dashboard-log-sheet-root):not(.current-supplements-capture-root):not(.stack-item-modal-overlay),
+.dashboard-route-sky-wrap[data-sky="calm"] .dashboard-app-content--over-sky > *:not(.dashboard-log-sheet-root):not(.current-supplements-capture-root):not(.stack-item-modal-overlay),
+.dashboard-route-sky-wrap[data-sky="sunset"] .dashboard-app-content--over-sky > *:not(.dashboard-log-sheet-root):not(.current-supplements-capture-root):not(.stack-item-modal-overlay) {
   position: relative;
   z-index: 1;
 }
@@ -2505,6 +2551,12 @@ body[data-dashboard-sky="storm"][data-theme="light"] .dashboard-sidebar-group-to
   margin-bottom: 10px;
 }
 .current-supplements-editor-hint {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+  margin: 0 0 12px;
+}
+.current-supplements-editor-capture-empty {
   font-size: 13px;
   color: var(--color-text-secondary);
   line-height: 1.45;
@@ -2711,6 +2763,65 @@ body[data-dashboard-sky="storm"][data-theme="light"] .dashboard-sidebar-group-to
   color: var(--color-accent-contrast);
   cursor: pointer;
   font-family: inherit;
+}
+.current-supplements-editor-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.current-supplements-editor-paste {
+  margin-bottom: 12px;
+}
+.current-supplements-editor-paste-toggle {
+  background: transparent;
+  border: 1px dashed color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+}
+.current-supplements-editor-paste-toggle:hover {
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+  color: var(--color-text-primary);
+}
+.current-supplements-editor-paste-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+.current-supplements-editor-paste-area {
+  width: 100%;
+  min-height: 96px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+}
+.current-supplements-editor-paste-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.current-supplements-editor-paste-cancel {
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 6px 8px;
+  font-family: inherit;
+}
+.current-supplements-editor-row-dose {
+  font-weight: 400;
+  color: var(--color-text-secondary);
+  font-size: 13px;
 }
 .current-supplements-editor-list {
   list-style: none;
@@ -3082,13 +3193,14 @@ body[data-dashboard-sky="storm"][data-theme="light"] .dashboard-sidebar-group-to
   }
 }
 
-/* ─── Dashboard: floating log menu (+) — bottom RIGHT, above Ask Clarion (Help stays bottom-left) ─── */
+/* ─── Dashboard: floating log menu (+) — bottom RIGHT, stacked above Ask Clarion (same corner; Help is bottom-left) ─── */
 .dashboard-log-fab {
   position: fixed;
   z-index: 10001;
   left: auto;
   right: max(24px, env(safe-area-inset-right, 0px));
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  /* Ask Clarion FAB is 56px + 24px inset; +12px gap so both stay tappable */
+  bottom: calc(24px + 56px + 12px + env(safe-area-inset-bottom, 0px));
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -3121,9 +3233,14 @@ body[data-dashboard-sky="storm"][data-theme="light"] .dashboard-sidebar-group-to
   margin: 0;
   padding: 0;
   border: none;
-  background: rgba(0, 0, 0, 0.42);
+  background: rgba(0, 0, 0, 0.55);
   cursor: pointer;
   appearance: none;
+}
+@media (max-width: 899px) {
+  .dashboard-log-fab-backdrop {
+    background: rgba(0, 0, 0, 0.72);
+  }
 }
 .dashboard-log-fab-panel {
   position: fixed;
@@ -3139,11 +3256,17 @@ body[data-dashboard-sky="storm"][data-theme="light"] .dashboard-sidebar-group-to
   border-radius: 20px 20px 0 0;
   box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.18);
 }
+@media (max-width: 899px) {
+  .dashboard-log-fab-panel {
+    background: var(--color-bg-elevated, var(--color-surface-elevated));
+  }
+}
 @media (min-width: 900px) {
   .dashboard-log-fab-panel {
     left: auto;
     right: max(24px, env(safe-area-inset-right, 0px));
-    bottom: calc(100px + max(12px, env(safe-area-inset-bottom, 0px)));
+    /* Popover sits above stacked FABs (log + Ask Clarion) */
+    bottom: calc(24px + 56px + 12px + 56px + 20px + env(safe-area-inset-bottom, 0px));
     width: min(380px, calc(100vw - 32px));
     max-height: min(85vh, 560px);
     border-radius: 16px;
@@ -3542,4 +3665,364 @@ button.dashboard-supplement-checker-link:hover {
 .dashboard-log-sheet-root .dashboard-supplement-checker-title {
   font-size: 19px;
   letter-spacing: -0.02em;
+}
+
+/* -------------------------------------------------------------------------- */
+/* First-run checklist modal (Home) — global classes; avoids styled-jsx scope */
+/* bugs on dashboard routes. Overlay z-index above shell FABs, below barcode sheet. */
+/* -------------------------------------------------------------------------- */
+
+@keyframes clarion-firstrun-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.clarion-firstrun-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 14000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px))
+    max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  pointer-events: auto;
+}
+
+.clarion-firstrun-backdrop {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.clarion-firstrun-card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 460px;
+  max-height: min(92vh, 640px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  padding: 24px 22px 20px;
+  box-shadow: var(--shadow-md);
+  animation: clarion-firstrun-fade-in 0.18s ease;
+}
+
+.clarion-firstrun-close {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top, 0px));
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-surface) 80%, transparent);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.clarion-firstrun-close:hover {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.clarion-firstrun-eyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+
+.clarion-firstrun-heading {
+  margin: 0 40px 6px 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--color-text-primary);
+}
+
+.clarion-firstrun-lede {
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.clarion-firstrun-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.clarion-firstrun-progress-track {
+  flex: 1;
+  min-width: 0;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-text-muted) 22%, transparent);
+  overflow: hidden;
+}
+
+.clarion-firstrun-progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: inherit;
+  transition: width 0.3s ease;
+}
+
+.clarion-firstrun-progress-label {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.clarion-firstrun-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.clarion-firstrun-item {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.clarion-firstrun-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  width: 100%;
+  padding: 12px 12px;
+  border-radius: 12px;
+  text-align: left;
+  text-decoration: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: transparent;
+  box-sizing: border-box;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.clarion-firstrun-row:hover:not(.clarion-firstrun-row--done) {
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  border-color: var(--color-border);
+}
+
+.clarion-firstrun-row--done {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.clarion-firstrun-row--done:hover {
+  background: transparent;
+  border-color: transparent;
+}
+
+.clarion-firstrun-bullet {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--color-text-muted) 45%, transparent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  line-height: 1;
+}
+
+.clarion-firstrun-bullet--done {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border-color: var(--color-accent);
+}
+
+.clarion-firstrun-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.clarion-firstrun-title-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.clarion-firstrun-row-icon {
+  display: inline-flex;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.clarion-firstrun-row-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+}
+
+.clarion-firstrun-row-title--done {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.clarion-firstrun-row-desc {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-text-muted);
+  padding-left: 0;
+  margin: 0;
+}
+
+.clarion-firstrun-action {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--color-accent);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.clarion-firstrun-action-label {
+  display: inline-block;
+}
+
+.clarion-firstrun-action-chevron {
+  flex-shrink: 0;
+}
+
+.clarion-firstrun-done-chip {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+  margin-top: 4px;
+}
+
+.clarion-firstrun-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+  padding-top: 4px;
+}
+
+.clarion-firstrun-skip {
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 10px 12px;
+  border-radius: 10px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.clarion-firstrun-skip:hover {
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.clarion-firstrun-pill {
+  position: fixed;
+  z-index: 9990;
+  /* Below sticky Clarion top bar (~56px + safe area) so it doesn’t collide with nav */
+  top: calc(52px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 24px);
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-elevated);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+@media (min-width: 900px) {
+  .clarion-firstrun-pill {
+    top: max(16px, env(safe-area-inset-top, 0px));
+    left: auto;
+    right: max(20px, env(safe-area-inset-right, 0px));
+    transform: none;
+  }
+}
+
+.clarion-firstrun-pill:hover {
+  background: var(--color-surface);
+  border-color: var(--color-border-strong);
+}
+
+@media (max-width: 480px) {
+  .clarion-firstrun-card {
+    padding: 20px 16px 18px;
+    border-radius: 16px;
+  }
+
+  .clarion-firstrun-row {
+    flex-wrap: wrap;
+  }
+
+  .clarion-firstrun-action {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 50px;
+    margin-top: 4px;
+    white-space: normal;
+  }
+
+  .clarion-firstrun-row--done .clarion-firstrun-done-chip {
+    margin-left: 50px;
+    margin-top: 0;
+  }
 }

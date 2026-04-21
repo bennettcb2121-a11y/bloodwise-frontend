@@ -339,6 +339,70 @@ export function mergeSupplementNamesIntoSerialized(current: string, names: strin
   return serializeCurrentSupplementsEntries(entries)
 }
 
+function newEntryClientId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID()
+  return `cid-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+}
+
+/**
+ * Append structured rows (e.g. photo/barcode confirm with dose + fit). Dedupes by name (case-insensitive).
+ * Applies the same preset resolution rules as mergeSupplementNamesIntoSerialized when `id` is absent.
+ */
+export function mergeSupplementEntriesIntoSerialized(current: string, additions: CurrentSupplementEntry[]): string {
+  const entries = parseCurrentSupplementsEntries(current)
+  const existing = new Set(entries.map((e) => e.name.toLowerCase()))
+
+  for (const add of additions) {
+    const t = add.name.trim()
+    if (!t) continue
+    if (existing.has(t.toLowerCase())) continue
+
+    const clientId = add.clientId?.trim() || newEntryClientId()
+    const base: CurrentSupplementEntry = {
+      clientId,
+      name: t,
+      ...(add.productUrl?.trim() ? { productUrl: add.productUrl.trim() } : {}),
+      ...(add.dose?.trim() ? { dose: add.dose.trim() } : {}),
+      ...(add.fitStatus ? { fitStatus: add.fitStatus } : {}),
+      ...(add.userChoseKeepProduct ? { userChoseKeepProduct: true } : {}),
+    }
+
+    if (add.id && getSupplementPreset(add.id)) {
+      const preset = getSupplementPreset(add.id)!
+      entries.push({ ...base, id: preset.id, name: preset.displayName })
+      existing.add(preset.displayName.toLowerCase())
+      continue
+    }
+
+    const presetId = resolveSupplementToPresetId(t)
+    if (presetId) {
+      const preset = getSupplementPreset(presetId)
+      if (preset) {
+        if (
+          (presetId === "electrolytes" || presetId === "protein_powder") &&
+          !isExplicitLifestylePresetLabel(presetId, t)
+        ) {
+          entries.push(base)
+          existing.add(t.toLowerCase())
+        } else {
+          entries.push({
+            ...base,
+            id: preset.id,
+            name: preset.displayName,
+          })
+          existing.add(preset.displayName.toLowerCase())
+        }
+        continue
+      }
+    }
+
+    entries.push(base)
+    existing.add(t.toLowerCase())
+  }
+
+  return serializeCurrentSupplementsEntries(entries)
+}
+
 /** Serialize list to string for DB/state (array of preset ids + custom names). */
 export function serializeCurrentSupplementsList(list: string[]): string {
   if (list.length === 0) return ""

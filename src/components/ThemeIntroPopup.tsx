@@ -15,14 +15,14 @@ export function ThemeIntroPopup() {
   useEffect(() => {
     if (typeof window === "undefined" || loading) return
     if (user) {
-      setShow(false)
+      queueMicrotask(() => setShow(false))
       return
     }
     try {
       if (localStorage.getItem(STORAGE_KEY)) return
       timeoutRef.current = setTimeout(() => setShow(true), DELAY_MS)
     } catch {
-      setShow(false)
+      queueMicrotask(() => setShow(false))
     }
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
@@ -30,7 +30,7 @@ export function ThemeIntroPopup() {
   }, [loading, user])
 
   useEffect(() => {
-    if (user) setShow(false)
+    if (user) queueMicrotask(() => setShow(false))
   }, [user])
 
   const dismiss = () => {

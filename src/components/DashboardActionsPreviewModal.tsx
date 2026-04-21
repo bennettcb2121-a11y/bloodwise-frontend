@@ -26,23 +26,22 @@ export function DashboardActionsPreviewModal() {
   const [profile, setProfile] = useState<ProfileRow | null>(null)
   const [bloodwork, setBloodwork] = useState<BloodworkSaveRow | null>(null)
 
+  /**
+   * Loads data for gating decision; modal opens only if we have actual priorities to preview.
+   * This prevents blocking brand-new users (no bloodwork) with an empty "action plan" modal.
+   */
+  const [dataLoaded, setDataLoaded] = useState(false)
+
   useEffect(() => {
     if (pathname !== "/dashboard") return
     if (typeof window === "undefined" || window.self !== window.top) return
+    if (!user?.id) return
     try {
       if (localStorage.getItem(PREVIEW_SEEN_KEY)) return
-      setOpen(true)
     } catch {
       // ignore
     }
-  }, [pathname])
-
-  useEffect(() => {
-    if (!open || !user?.id) {
-      setLoading(false)
-      return
-    }
-    setLoading(true)
+    queueMicrotask(() => setLoading(true))
     loadSavedState(user.id)
       .then(({ profile: p, bloodwork: b }) => {
         setProfile(p ?? null)
@@ -52,23 +51,30 @@ export function DashboardActionsPreviewModal() {
         setProfile(null)
         setBloodwork(null)
       })
-      .finally(() => setLoading(false))
-  }, [open, user?.id])
+      .finally(() => {
+        setLoading(false)
+        setDataLoaded(true)
+      })
+  }, [pathname, user?.id])
 
-  const profileForAnalysis = profile
-    ? {
-        age: profile.age,
-        sex: profile.sex,
-        sport: profile.sport,
-        training_focus: profile.training_focus?.trim() || undefined,
-      }
-    : {}
+  const profileForAnalysis = useMemo(
+    () =>
+      profile
+        ? {
+            age: profile.age,
+            sex: profile.sex,
+            sport: profile.sport,
+            training_focus: profile.training_focus?.trim() || undefined,
+          }
+        : {},
+    [profile]
+  )
   const analysisResults = useMemo(
     () =>
       bloodwork?.biomarker_inputs && Object.keys(bloodwork.biomarker_inputs).length > 0
         ? analyzeBiomarkers(bloodwork.biomarker_inputs, profileForAnalysis)
         : [],
-    [bloodwork?.biomarker_inputs, profileForAnalysis]
+    [bloodwork, profileForAnalysis]
   )
 
   const priorityContext = useMemo(() => buildPriorityContextFromProfile(profile ?? {}), [profile])
@@ -80,6 +86,31 @@ export function DashboardActionsPreviewModal() {
 
   const previewTop = useMemo(() => orderedDrivers.slice(0, PREVIEW_COUNT), [orderedDrivers])
 
+  const hasBiomarkerInputs =
+    bloodwork?.biomarker_inputs &&
+    typeof bloodwork.biomarker_inputs === "object" &&
+    Object.keys(bloodwork.biomarker_inputs).length > 0
+
+  /**
+   * Only open this modal when we actually have drivers to show. Silently mark as seen
+   * for users without bloodwork or whose markers are all steady, so we don't interrupt
+   * the first-run orientation experience with empty copy.
+   */
+  useEffect(() => {
+    if (!dataLoaded || loading) return
+    if (open) return
+    const shouldShow = Boolean(hasBiomarkerInputs) && previewTop.length > 0
+    if (shouldShow) {
+      queueMicrotask(() => setOpen(true))
+    } else {
+      try {
+        localStorage.setItem(PREVIEW_SEEN_KEY, "1")
+      } catch {
+        // ignore
+      }
+    }
+  }, [dataLoaded, loading, open, hasBiomarkerInputs, previewTop.length])
+
   const close = () => {
     try {
       localStorage.setItem(PREVIEW_SEEN_KEY, "1")
@@ -90,16 +121,6 @@ export function DashboardActionsPreviewModal() {
   }
 
   if (!open) return null
-
-  const hasBiomarkerInputs =
-    bloodwork?.biomarker_inputs &&
-    typeof bloodwork.biomarker_inputs === "object" &&
-    Object.keys(bloodwork.biomarker_inputs).length > 0
-  const hasSavedLabContext =
-    Boolean(hasBiomarkerInputs) ||
-    bloodwork?.score != null ||
-    (Array.isArray(bloodwork?.selected_panel) && (bloodwork?.selected_panel?.length ?? 0) > 0)
-  const noBloodwork = !hasSavedLabContext
 
   return (
     <div
@@ -132,14 +153,6 @@ export function DashboardActionsPreviewModal() {
               </div>
               <p className="dashboard-actions-preview-loading-text">Loading priorities…</p>
             </div>
-          ) : noBloodwork ? (
-            <p className="dashboard-actions-preview-empty">
-              Add bloodwork to see your personalized action list. You can continue from Home anytime.
-            </p>
-          ) : previewTop.length === 0 ? (
-            <p className="dashboard-actions-preview-empty">
-              No urgent actions right now — your markers look steady. Open Actions for the full view.
-            </p>
           ) : (
             <ol className="dashboard-actions-preview-list">
               {previewTop.map((driver, idx) => {

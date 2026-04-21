@@ -21,6 +21,12 @@ type Props = {
   idPrefix?: string
   /** Optional class for outer wrapper */
   className?: string
+  /** Hide the catalog intro when the parent surface already explains context (e.g. capture modal). */
+  hideIntro?: boolean
+  /** Empty-state line for capture modal — search shortcuts + chips. */
+  showCaptureEmptyHint?: boolean
+  /** List + paste + custom only (search/chips/Amazon live in the capture modal). */
+  variant?: "full" | "cabinet"
 }
 
 function genClientId(): string {
@@ -50,14 +56,26 @@ const SUGGEST_LIMIT = 8
 /** Presets surfaced as one-click Amazon searches (tagged). SiteStripe picks up on the product page. */
 const AMAZON_QUICK_PRESETS = SUPPLEMENT_PRESETS
 
-export function CurrentSupplementsEditor({ value, onChange, idPrefix = "current-supplements", className = "" }: Props) {
+export function CurrentSupplementsEditor({
+  value,
+  onChange,
+  idPrefix = "current-supplements",
+  className = "",
+  hideIntro = false,
+  showCaptureEmptyHint = false,
+  variant = "full",
+}: Props) {
+  const isCabinet = variant === "cabinet"
   const [entries, setEntries] = useState<CurrentSupplementEntry[]>(() => parseCurrentSupplementsEntries(value))
   const [presetSearch, setPresetSearch] = useState("")
   const [suggestOpen, setSuggestOpen] = useState(false)
   const [highlightIdx, setHighlightIdx] = useState(0)
   const blurCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [customName, setCustomName] = useState("")
+  const [customDose, setCustomDose] = useState("")
   const [customUrl, setCustomUrl] = useState("")
+  const [pasteOpen, setPasteOpen] = useState(false)
+  const [pasteText, setPasteText] = useState("")
   const [addBusy, setAddBusy] = useState(false)
   const [resolveIdx, setResolveIdx] = useState<number | null>(null)
   const [editOpen, setEditOpen] = useState(false)
@@ -134,6 +152,7 @@ export function CurrentSupplementsEditor({ value, onChange, idPrefix = "current-
     const name = customName.trim()
     if (!name) return
     const url = customUrl.trim()
+    const dose = customDose.trim()
     const clientId = genClientId()
     setAddBusy(true)
     try {
@@ -142,12 +161,58 @@ export function CurrentSupplementsEditor({ value, onChange, idPrefix = "current-
         const resolved = await resolveProductFromUrl(url, name)
         if (resolved) displayName = resolved.displayName
       }
-      pushSerialized([...entries, { name: displayName, productUrl: url || undefined, clientId }])
+      pushSerialized([
+        ...entries,
+        {
+          name: displayName,
+          productUrl: url || undefined,
+          dose: dose || undefined,
+          clientId,
+        },
+      ])
       setCustomName("")
+      setCustomDose("")
       setCustomUrl("")
     } finally {
       setAddBusy(false)
     }
+  }
+
+  /**
+   * "Paste your list" — quick capture for desktop. Each non-empty line becomes one entry.
+   * Accepted shapes (matched leniently, all pieces optional except name):
+   *   - "4000 IU vitamin D3 gummies — morning"
+   *   - "Magnesium glycinate, 4 caps at night"
+   *   - "Ferrous sulfate liquid iron (1 tbsp)"
+   * We split on dashes/colons/parentheses to lift a dose/timing phrase into the dose field
+   * so it shows up in Today and on the supply rows without the user having to edit each one.
+   */
+  const addPasteList = () => {
+    const lines = pasteText
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0)
+    if (lines.length === 0) return
+    const additions: CurrentSupplementEntry[] = lines.map((raw) => {
+      // Pull "(stuff)" at the end as dose, or split on ' — ' / ' - ' / ':' / ','.
+      let name = raw
+      let dose: string | undefined
+      const paren = raw.match(/^(.*?)\s*\(([^)]+)\)\s*$/)
+      if (paren) {
+        name = paren[1].trim()
+        dose = paren[2].trim()
+      } else {
+        const m = raw.match(/^(.*?)(?:\s+[—–-]\s+|\s*:\s+|,\s+)(.+)$/)
+        if (m) {
+          name = m[1].trim()
+          dose = m[2].trim()
+        }
+      }
+      return { name: name || raw, dose: dose || undefined, clientId: genClientId() }
+    })
+    pushSerialized([...entries, ...additions])
+    setPasteText("")
+    setPasteOpen(false)
   }
 
   const removeAt = (idx: number) => {
@@ -203,9 +268,12 @@ export function CurrentSupplementsEditor({ value, onChange, idPrefix = "current-
 
   return (
     <div className={`current-supplements-editor ${className}`.trim()}>
-      <p className="current-supplements-editor-hint">
-        Search our catalog and tap to add. Quick Amazon links open Clarion&apos;s curated product when we have one; use custom search or SiteStripe for other bottles, then paste the product link — we can tidy the name from the URL.
-      </p>
+      {!isCabinet && !hideIntro ? (
+        <p className="current-supplements-editor-hint">
+          Search our catalog to add, paste a product link on a row to tidy the name, or use custom add below — SiteStripe on Amazon works for bottles we don&apos;t curate yet.
+        </p>
+      ) : null}
+      {!isCabinet ? (
       <div className="current-supplements-editor-search-wrap">
         <label htmlFor={`${idPrefix}-search`} className="current-supplements-editor-sr-label">
           Search supplements
@@ -215,7 +283,7 @@ export function CurrentSupplementsEditor({ value, onChange, idPrefix = "current-
           type="search"
           autoComplete="off"
           className="settings-input current-supplements-editor-search"
-          placeholder="Search (e.g. magnesium, fish oil, B12)…"
+          placeholder="Search a supplement, or paste a link…"
           value={presetSearch}
           onChange={(e) => {
             setPresetSearch(e.target.value)
@@ -285,11 +353,18 @@ export function CurrentSupplementsEditor({ value, onChange, idPrefix = "current-
           </ul>
         ) : null}
       </div>
-      {noPresetMatches ? (
+      ) : null}
+      {!isCabinet && showCaptureEmptyHint && entries.length === 0 && !presetSearch.trim() ? (
+        <p className="current-supplements-editor-capture-empty">
+          Not sure where to start? Snap a bottle, scan a barcode, or tap one of your common ones below.
+        </p>
+      ) : null}
+      {!isCabinet && noPresetMatches ? (
         <p className="current-supplements-editor-nomatch">
           No match in our catalog for &ldquo;{presetSearch.trim()}&rdquo; — add it as a custom name below, or clear search to see all presets.
         </p>
       ) : null}
+      {!isCabinet ? (
       <div className="current-supplements-editor-chips" role="group" aria-label="Supplement presets">
         {filteredPresets.map((p) => (
           <button
@@ -303,6 +378,8 @@ export function CurrentSupplementsEditor({ value, onChange, idPrefix = "current-
           </button>
         ))}
       </div>
+      ) : null}
+      {!isCabinet ? (
       <div className="current-supplements-editor-amazon current-supplements-editor-amazon--sitestripe">
         <div className="current-supplements-editor-amazon-head">
           <span className="current-supplements-editor-amazon-title">Amazon (SiteStripe)</span>
@@ -357,6 +434,7 @@ export function CurrentSupplementsEditor({ value, onChange, idPrefix = "current-
         </div>
         <p className="current-supplements-editor-amazon-disclosure">{AFFILIATE_DISCLOSURE}</p>
       </div>
+      ) : null}
       <div className="current-supplements-editor-custom">
         <label htmlFor={`${idPrefix}-name`} className="current-supplements-editor-sr-label">
           Add supplement name
@@ -365,9 +443,26 @@ export function CurrentSupplementsEditor({ value, onChange, idPrefix = "current-
           id={`${idPrefix}-name`}
           type="text"
           className="settings-input current-supplements-editor-input"
-          placeholder="Other (e.g. ashwagandha)"
+          placeholder="Name (e.g. Vitamin D3 gummies)"
           value={customName}
           onChange={(e) => setCustomName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault()
+              void addCustom()
+            }
+          }}
+        />
+        <label htmlFor={`${idPrefix}-dose`} className="current-supplements-editor-sr-label">
+          Dose / timing (optional)
+        </label>
+        <input
+          id={`${idPrefix}-dose`}
+          type="text"
+          className="settings-input current-supplements-editor-input"
+          placeholder="Dose / timing (e.g. 4000 IU, morning)"
+          value={customDose}
+          onChange={(e) => setCustomDose(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault()
@@ -382,7 +477,7 @@ export function CurrentSupplementsEditor({ value, onChange, idPrefix = "current-
           id={`${idPrefix}-url`}
           type="url"
           className="settings-input current-supplements-editor-input"
-          placeholder="https://… (optional)"
+          placeholder="Product link — https://… (optional)"
           value={customUrl}
           onChange={(e) => setCustomUrl(e.target.value)}
         />
@@ -390,11 +485,61 @@ export function CurrentSupplementsEditor({ value, onChange, idPrefix = "current-
           {addBusy ? "Adding…" : "Add"}
         </button>
       </div>
+      <div className="current-supplements-editor-paste">
+        {!pasteOpen ? (
+          <button
+            type="button"
+            className="current-supplements-editor-paste-toggle"
+            onClick={() => setPasteOpen(true)}
+          >
+            Have a list? Paste it once — we&apos;ll split it into rows.
+          </button>
+        ) : (
+          <div className="current-supplements-editor-paste-box">
+            <label htmlFor={`${idPrefix}-paste`} className="current-supplements-editor-sr-label">
+              Paste your list
+            </label>
+            <textarea
+              id={`${idPrefix}-paste`}
+              className="settings-input current-supplements-editor-paste-area"
+              rows={4}
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+              placeholder={"One per line — we read the bit after —, (), : or , as dose / timing.\n4000 IU vitamin D3 gummies — morning\nMagnesium glycinate, 4 caps at night\n500 mg vitamin C — with iron\nFerrous sulfate liquid iron (1 tbsp)"}
+            />
+            <div className="current-supplements-editor-paste-row">
+              <button
+                type="button"
+                className="current-supplements-editor-add-btn"
+                onClick={addPasteList}
+                disabled={!pasteText.trim()}
+              >
+                Add all
+              </button>
+              <button
+                type="button"
+                className="current-supplements-editor-paste-cancel"
+                onClick={() => {
+                  setPasteOpen(false)
+                  setPasteText("")
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
       {entries.length > 0 && (
         <ul className="current-supplements-editor-list" aria-label="Your supplements">
           {entries.map((e, idx) => (
             <li key={`${e.clientId ?? e.id ?? e.name}-${idx}`} className="current-supplements-editor-row">
-              <span className="current-supplements-editor-name">{e.name}</span>
+              <span className="current-supplements-editor-name">
+                {e.name}
+                {e.dose ? (
+                  <span className="current-supplements-editor-row-dose"> · {e.dose}</span>
+                ) : null}
+              </span>
               <input
                 type="url"
                 className="settings-input current-supplements-editor-url"
