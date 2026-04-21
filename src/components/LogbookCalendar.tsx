@@ -133,13 +133,13 @@ export function LogbookCalendar({
         </span>
         <span className="logbook-cal__legend-item">
           <span className="logbook-cal__legend-badge logbook-cal__legend-badge--lab">
-            <FlaskConical size={11} aria-hidden />
+            <FlaskConical size={12} strokeWidth={2.2} aria-hidden />
           </span>
           Lab tested
         </span>
         <span className="logbook-cal__legend-item">
           <span className="logbook-cal__legend-badge logbook-cal__legend-badge--retest">
-            <CalendarClock size={11} aria-hidden />
+            <CalendarClock size={12} strokeWidth={2.2} aria-hidden />
           </span>
           Retest due
         </span>
@@ -161,12 +161,17 @@ function DayCell({
   onKeyDown: (e: React.KeyboardEvent<HTMLButtonElement>, iso: string) => void
 }) {
   // Dot row: cap at 3 dots to stay readable. More than 3 checks in a day is
-  // common for stacks; we still show 3 to signal "full". A 4+ state could be
-  // added later with a different treatment if we want to distinguish.
+  // common for stacks; we still show 3 to signal "full". We only render dots
+  // at all when the day has at least one check AND belongs to the current
+  // month — placeholder dots on empty days read as "things I missed" and
+  // make the grid feel noisy.
+  const showDots = day.inMonth && day.checksCompleted > 0
   const filledDots = Math.min(3, day.checksCompleted)
-  const dots = [0, 1, 2].map((i) =>
-    i < filledDots ? "logbook-cal__dot logbook-cal__dot--filled" : "logbook-cal__dot"
-  )
+  const dots = showDots
+    ? [0, 1, 2].map((i) =>
+        i < filledDots ? "logbook-cal__dot logbook-cal__dot--filled" : "logbook-cal__dot"
+      )
+    : []
 
   const classes = [
     "logbook-cal__cell",
@@ -206,19 +211,21 @@ function DayCell({
       tabIndex={selected || (day.isToday && !selected) ? 0 : -1}
     >
       <span className="logbook-cal__cell-num">{day.dayOfMonth}</span>
-      <span className="logbook-cal__cell-dots" aria-hidden>
-        {dots.map((cls, i) => (
-          <span key={i} className={cls} />
-        ))}
-      </span>
+      {dots.length > 0 ? (
+        <span className="logbook-cal__cell-dots" aria-hidden>
+          {dots.map((cls, i) => (
+            <span key={i} className={cls} />
+          ))}
+        </span>
+      ) : null}
       {day.hasLab ? (
         <span className="logbook-cal__badge logbook-cal__badge--lab" aria-hidden>
-          <FlaskConical size={11} />
+          <FlaskConical size={13} strokeWidth={2.2} />
         </span>
       ) : null}
       {day.isRetestDay ? (
         <span className="logbook-cal__badge logbook-cal__badge--retest" aria-hidden>
-          <CalendarClock size={11} />
+          <CalendarClock size={13} strokeWidth={2.2} />
         </span>
       ) : null}
     </button>

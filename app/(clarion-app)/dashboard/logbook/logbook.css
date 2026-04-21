@@ -53,12 +53,16 @@
   color: var(--color-accent);
 }
 
-/* Top-of-page stats strip. */
+/* Top-of-page stats strip.
+   Stats are left-aligned as a tight horizontal flow rather than a stretched
+   3-column grid — they read as a caption for the calendar instead of three
+   disconnected boxes. Dividers between stats provide rhythm without extra
+   borders. */
 .logbook-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
-  padding: 0.85rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 2rem;
+  padding: 0.85rem 1.1rem;
   background: var(--clarion-card-bg);
   border: 1px solid var(--clarion-card-border);
   border-radius: 14px;
@@ -67,24 +71,36 @@
 .logbook-summary__stat {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.1rem;
   min-width: 0;
+  padding: 0.1rem 0;
+  position: relative;
+}
+
+.logbook-summary__stat + .logbook-summary__stat::before {
+  content: "";
+  position: absolute;
+  left: -1rem;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: var(--color-border);
 }
 
 .logbook-summary__num {
   font-family: var(--font-heading);
-  font-size: 1.6rem;
+  font-size: 1.45rem;
   font-weight: 600;
   color: var(--color-text-primary);
   line-height: 1.1;
 }
 
 .logbook-summary__num--small {
-  font-size: 1.25rem;
+  font-size: 1.15rem;
 }
 
 .logbook-summary__label {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--color-text-muted);
   line-height: 1.3;
 }
@@ -280,19 +296,25 @@
 }
 
 /* Cell-level badges (top-right corner). */
+/* Badges sit on tinted cells and need to be legible at a glance.
+   The inner 2px ring (via box-shadow inset) separates them from any cell
+   background color; the outer shadow lifts them slightly. 20px is the
+   smallest size where a lucide icon at 13px reads as itself, not a smear. */
 .logbook-cal__badge {
   position: absolute;
   top: 4px;
   right: 4px;
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   line-height: 1;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 0 0 2px var(--clarion-card-bg),
+    0 1px 3px rgba(0, 0, 0, 0.14);
 }
 
 .logbook-cal__badge--lab {
@@ -325,8 +347,8 @@
   gap: 2px;
 }
 .logbook-cal__legend-badge {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
@@ -425,14 +447,14 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.3rem;
 }
 
 .logbook-detail__item {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.65rem;
-  padding: 0.55rem 0.65rem;
+  gap: 0.6rem;
+  padding: 0.4rem 0.6rem;
   border-radius: 10px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -568,10 +590,10 @@
 /* Mobile tweaks. */
 @media (max-width: 640px) {
   .logbook-summary {
-    grid-template-columns: repeat(2, 1fr);
+    gap: 0 1.25rem;
   }
-  .logbook-summary__stat:last-child {
-    grid-column: 1 / -1;
+  .logbook-summary__stat + .logbook-summary__stat::before {
+    left: -0.625rem;
   }
   .logbook-cal {
     padding: 0.8rem 0.75rem;
@@ -586,6 +608,12 @@
   .logbook-cal__dot {
     width: 5px;
     height: 5px;
+  }
+  .logbook-cal__badge {
+    width: 17px;
+    height: 17px;
+    top: 3px;
+    right: 3px;
   }
   .logbook-detail {
     position: static;
