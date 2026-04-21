@@ -62,16 +62,23 @@ const CATALOG: Catalog = {
   vitamin_d3_2000iu: {
     name: "Vitamin D3 2000–4000 IU",
     forms: ["softgel", "liquid", "gummy"],
-    defaultDose: "2000–4000 IU/day with a fatty meal",
+    // 4000 IU is the NIH ODS adult UL; the range tops out at the ceiling, so anyone using the
+    // upper end should re-check 25-OH D and serum calcium after ~12 weeks before continuing.
+    defaultDose:
+      "2000–4000 IU/day with a fatty meal. If using the upper end, retest 25-OH vitamin D and serum calcium after 12 weeks before continuing.",
     evidence: "strong",
     biomarkerKey: "Vitamin D",
     reasonTemplate: (i) => `Your 25-OH vitamin D is ${i.value} ${i.unit} — below our target range.`,
     cautionWhen: ["hypercalcemia", "sarcoidosis"],
   },
   magnesium_glycinate: {
-    name: "Magnesium glycinate 300–400 mg",
+    name: "Magnesium glycinate 200–350 mg",
     forms: ["powder", "capsule"],
-    defaultDose: "300–400 mg elemental, 1 hour before bed",
+    // NIH ODS sets the UL for *supplemental* magnesium (not dietary) at 350 mg/day for adults,
+    // chosen to avoid osmotic diarrhea. Glycinate is the gentlest form and is well-tolerated above
+    // that, but the on-label recommendation should respect the UL and back off if stools loosen.
+    defaultDose:
+      "Start 200 mg elemental 1 hour before bed; titrate up to 350 mg as tolerated. Back off if stools loosen.",
     evidence: "strong",
     biomarkerKey: "Magnesium",
     reasonTemplate: (i) => `Your magnesium is ${i.value} ${i.unit} — the glycinate form has the best absorption profile.`,
@@ -119,6 +126,12 @@ const CATALOG: Catalog = {
     evidence: "moderate",
     biomarkerKey: "Zinc",
     reasonTemplate: (i) => `Zinc at ${i.value} ${i.unit} is suboptimal — common in plant-forward eaters and hard trainers.`,
+    // Chronic zinc supplementation above the RDA suppresses copper absorption. Standard practice
+    // is to cycle off after 8–12 weeks or co-supplement a small amount of copper.
+    interactsWith: [
+      "Calcium / iron (separate by 2h)",
+      "Long-term use (>12 weeks) may lower copper — cycle off or add 1–2 mg copper",
+    ],
   },
   coq10_ubiquinol: {
     name: "Ubiquinol 100–200 mg",

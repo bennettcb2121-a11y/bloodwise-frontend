@@ -5,6 +5,7 @@
  * Throws ConsentError when the user is missing a required current-version consent.
  */
 
+import { createHash } from "crypto"
 import { createClient } from "@/src/lib/supabase/server"
 import { CONSENT_VERSIONS, type ConsentType } from "@/src/lib/consent"
 
@@ -43,16 +44,15 @@ export async function requireConsents(
   if (missing.length > 0) throw new ConsentError(missing)
 }
 
-/** Hash IP + user-agent for consent records — we never store raw values. */
+/**
+ * Hash IP + user-agent for consent records — we never store raw values.
+ *
+ * Uses SHA-256 with a server-side salt. The salt MUST be set in production via
+ * `CONSENT_HASH_SALT` so two environments can't trivially correlate their hashes.
+ * Output is a hex digest prefixed so it's obviously a hash when inspected in the DB.
+ */
 export function hashForConsent(value: string): string {
-  // Non-cryptographic but stable fingerprint. We deliberately keep it non-reversible
-  // without wiring in a Node crypto dep in edge-safe code paths. For audit we can still
-  // correlate two events from the same IP because the salt is stable.
-  const salt = process.env.CONSENT_HASH_SALT || "clarion-consent-salt"
-  const input = `${salt}::${value}`
-  let h = 0
-  for (let i = 0; i < input.length; i++) {
-    h = (h * 31 + input.charCodeAt(i)) | 0
-  }
-  return `h_${(h >>> 0).toString(16)}`
+  const salt = process.env.CONSENT_HASH_SALT || "clarion-consent-salt-dev-only"
+  const digest = createHash("sha256").update(`${salt}::${value}`).digest("hex")
+  return `sha256:${digest}`
 }

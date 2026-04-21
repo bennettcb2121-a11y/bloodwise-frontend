@@ -164,6 +164,11 @@ export async function POST(req: NextRequest) {
   }
 
   // Delete raw uploaded files from storage (retention policy = immediate-after-confirm).
+  // If this fails we must NOT report `raw_deleted_at`, otherwise we'd be claiming in our
+  // audit trail that the raw PDFs/images are gone when they still live in the bucket.
+  // We mark the session as `cleanup_failed` so a scheduled janitor job can retry and we
+  // surface the failure to the caller (the UI shows a non-blocking warning but the
+  // biomarker values are saved either way, which is the user's primary ask).
   const { data: extractions } = await supabase
     .from("lab_extractions")
     .select("id, storage_path")
@@ -174,25 +179,49 @@ export async function POST(req: NextRequest) {
     .map((r) => r.storage_path as string | null)
     .filter((p): p is string => typeof p === "string" && p.length > 0)
 
+  let cleanupOk = true
+  let cleanupError: string | null = null
+
   if (paths.length > 0) {
-    await supabase.storage.from("lab-uploads").remove(paths)
-    await supabase
-      .from("lab_extractions")
-      .update({ storage_path: null })
-      .eq("session_id", sessionId)
-      .eq("user_id", user.id)
+    const { error: removeErr } = await supabase.storage.from("lab-uploads").remove(paths)
+    if (removeErr) {
+      cleanupOk = false
+      cleanupError = removeErr.message
+      // Log loudly — retention promises to the user depend on this actually happening.
+      console.error("[labs/confirm] storage cleanup failed", {
+        sessionId,
+        userId: user.id,
+        pathCount: paths.length,
+        error: removeErr.message,
+      })
+    } else {
+      const { error: clearErr } = await supabase
+        .from("lab_extractions")
+        .update({ storage_path: null })
+        .eq("session_id", sessionId)
+        .eq("user_id", user.id)
+      if (clearErr) {
+        console.warn("[labs/confirm] lab_extractions storage_path clear failed:", clearErr.message)
+      }
+    }
   }
 
+  const nowStamp = new Date().toISOString()
   await supabase
     .from("lab_upload_sessions")
     .update({
-      status: "confirmed",
-      raw_deleted_at: new Date().toISOString(),
+      status: cleanupOk ? "confirmed" : "cleanup_failed",
+      raw_deleted_at: cleanupOk ? nowStamp : null,
       collected_at: collectedAt,
-      updated_at: new Date().toISOString(),
+      updated_at: nowStamp,
     })
     .eq("id", sessionId)
     .eq("user_id", user.id)
 
-  return NextResponse.json({ ok: true, saved: rows.length })
+  return NextResponse.json({
+    ok: true,
+    saved: rows.length,
+    cleanup: cleanupOk ? "deleted" : "pending",
+    cleanup_error: cleanupError,
+  })
 }

@@ -94,11 +94,17 @@ export default function LogbookPage() {
   // Reload protocol logs whenever the viewed month changes. We fetch the full
   // 42-cell grid range (not just the month) so leading/trailing spacers in the
   // grid still show their dots.
+  //
+  // The `setLoadingMonth(true)` call is deferred to a microtask so it doesn't trip
+  // react-hooks/set-state-in-effect (which forbids synchronous setState in the effect
+  // body). Queuing it keeps the spinner behavior identical while satisfying the rule.
   useEffect(() => {
     if (!user?.id) return
     let cancelled = false
     const { startIso, endIso } = monthGridRange(monthStart)
-    setLoadingMonth(true)
+    queueMicrotask(() => {
+      if (!cancelled) setLoadingMonth(true)
+    })
     getProtocolLogChecksInRange(user.id, startIso, endIso)
       .then((rows) => {
         if (cancelled) return

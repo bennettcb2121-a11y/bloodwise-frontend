@@ -587,11 +587,17 @@ function HomeBlock7_More() {
  * calm "keep your panel current"; 6+ weeks reads as a gentle nudge.
  */
 function HomeBlock_UpdateLabs({ lastSavedAt }: { lastSavedAt: string | null | undefined }) {
+  // Capture "now" once per mount via a lazy useState initializer rather than calling
+  // Date.now() during render. Calling Date.now() in the render body is flagged by
+  // react-hooks/purity because the render would produce different output on a
+  // re-render even when props haven't changed — bad for idempotency. For "days since
+  // last save" copy, a mount-time snapshot is correct.
+  const [nowTs] = useState(() => Date.now())
   const daysSince = (() => {
     if (!lastSavedAt) return null
     const t = Date.parse(lastSavedAt)
     if (!Number.isFinite(t)) return null
-    return Math.floor((Date.now() - t) / (1000 * 60 * 60 * 24))
+    return Math.floor((nowTs - t) / (1000 * 60 * 60 * 24))
   })()
   const isStale = daysSince != null && daysSince >= 42
   const lastSavedLabel = (() => {

@@ -11,6 +11,196 @@ import { PROFILE_TYPE_OPTIONS } from "@/src/lib/clarionProfiles"
 import { SYMPTOM_OPTIONS } from "@/src/lib/priorityRanking"
 import { CurrentSupplementsEditor } from "@/src/components/CurrentSupplementsEditor"
 
+type SubscriptionStatus = {
+  hasSubscription: boolean
+  status: string
+  cancel_at_period_end: boolean
+  current_period_end: string | null
+  trial_end: string | null
+  analysis_purchased_at: string | null
+}
+
+function formatDateHuman(iso: string | null): string {
+  if (!iso) return ""
+  const t = Date.parse(iso)
+  if (!Number.isFinite(t)) return ""
+  return new Date(t).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  })
+}
+
+/** Reusable badge pill for subscription status. */
+function StatusBadge({ tone, children }: { tone: "active" | "warn" | "neutral"; children: React.ReactNode }) {
+  return <span className={`settings-sub-badge settings-sub-badge--${tone}`}>{children}</span>
+}
+
+function SubscriptionSummary({
+  sub,
+  busy,
+  onCancel,
+  onResume,
+  error,
+  showCancelConfirm,
+  onAbortCancel,
+  onConfirmCancel,
+}: {
+  sub: SubscriptionStatus
+  busy: boolean
+  onCancel: () => void
+  onResume: () => Promise<void>
+  error: string | null
+  showCancelConfirm: boolean
+  onAbortCancel: () => void
+  onConfirmCancel: () => Promise<void>
+}) {
+  const status = sub.status
+  const isTrial = status === "trialing"
+  const isActive = status === "active"
+  const isPastDue = status === "past_due"
+  const isCanceled = status === "canceled" || status === "incomplete_expired"
+  const pendingCancel = sub.cancel_at_period_end && (isTrial || isActive || isPastDue)
+
+  // Line 1: what state are we in?
+  let badge: React.ReactNode = null
+  let headline = ""
+  if (pendingCancel) {
+    badge = <StatusBadge tone="warn">Canceling</StatusBadge>
+    headline = `Clarion+ ends ${formatDateHuman(sub.current_period_end)}`
+  } else if (isTrial) {
+    badge = <StatusBadge tone="active">Free trial</StatusBadge>
+    headline = `Clarion+ free through ${formatDateHuman(sub.trial_end ?? sub.current_period_end)}`
+  } else if (isActive) {
+    badge = <StatusBadge tone="active">Active</StatusBadge>
+    headline = `Clarion+ renews ${formatDateHuman(sub.current_period_end)} — $29 every 2 months`
+  } else if (isPastDue) {
+    badge = <StatusBadge tone="warn">Payment failed</StatusBadge>
+    headline = "Clarion+ payment didn't go through. Update your card in Stripe."
+  } else if (isCanceled) {
+    badge = <StatusBadge tone="neutral">Canceled</StatusBadge>
+    headline = "Clarion+ is no longer active."
+  } else {
+    badge = <StatusBadge tone="neutral">{status}</StatusBadge>
+    headline = "Clarion+ subscription"
+  }
+
+  return (
+    <div className="settings-sub">
+      <div className="settings-sub-row">
+        <span className="settings-sub-headline">{headline}</span>
+        {badge}
+      </div>
+      <p className="settings-hint" style={{ margin: "4px 0 12px" }}>
+        Your $49 analysis is permanent — canceling only stops the $29 / 2-month Clarion+ add-on.
+        Your report, biomarkers, and history always stay in your account.
+      </p>
+
+      {isTrial && !pendingCancel && (
+        <p className="settings-sub-note">
+          We included 2 months of Clarion+ with your analysis. You won&apos;t be charged until{" "}
+          <strong>{formatDateHuman(sub.trial_end ?? sub.current_period_end)}</strong>. Cancel any
+          time before then and you&apos;ll never be billed.
+        </p>
+      )}
+
+      {error && <p className="settings-sub-error">{error}</p>}
+
+      {!isCanceled && !pendingCancel && !showCancelConfirm && (
+        <button
+          type="button"
+          className="settings-sub-btn settings-sub-btn--ghost"
+          onClick={onCancel}
+          disabled={busy}
+        >
+          Cancel Clarion+ subscription
+        </button>
+      )}
+
+      {!isCanceled && !pendingCancel && showCancelConfirm && (
+        <div className="settings-sub-confirm">
+          <p className="settings-sub-confirm-body">
+            {isTrial ? (
+              <>
+                Cancel now and Clarion+ will end on{" "}
+                <strong>{formatDateHuman(sub.trial_end ?? sub.current_period_end)}</strong> — you
+                keep access until then and we never charge your card.
+              </>
+            ) : (
+              <>
+                Cancel and Clarion+ will end on{" "}
+                <strong>{formatDateHuman(sub.current_period_end)}</strong>. You keep access until
+                then.
+              </>
+            )}
+          </p>
+          <div className="settings-sub-confirm-actions">
+            <button
+              type="button"
+              className="settings-sub-btn settings-sub-btn--ghost"
+              onClick={onAbortCancel}
+              disabled={busy}
+            >
+              Keep subscription
+            </button>
+            <button
+              type="button"
+              className="settings-sub-btn settings-sub-btn--danger"
+              onClick={onConfirmCancel}
+              disabled={busy}
+            >
+              {busy ? "Canceling…" : "Yes, cancel"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {pendingCancel && (
+        <button
+          type="button"
+          className="settings-sub-btn"
+          onClick={() => { void onResume() }}
+          disabled={busy}
+        >
+          {busy ? "Working…" : "Keep Clarion+ (undo cancel)"}
+        </button>
+      )}
+    </div>
+  )
+}
+
+function NoSubscriptionSummary({
+  analysisPurchasedAt,
+  error,
+}: {
+  analysisPurchasedAt: string | null
+  error: string | null
+}) {
+  const hasAnalysis = Boolean(analysisPurchasedAt)
+  return (
+    <div className="settings-sub">
+      <div className="settings-sub-row">
+        <span className="settings-sub-headline">
+          {hasAnalysis ? "No Clarion+ subscription" : "No purchase yet"}
+        </span>
+        <StatusBadge tone="neutral">{hasAnalysis ? "Analysis only" : "Inactive"}</StatusBadge>
+      </div>
+      {hasAnalysis ? (
+        <p className="settings-hint" style={{ margin: 0 }}>
+          You bought the one-time $49 analysis — that&apos;s permanent. Clarion+ ($29 every 2 months) is
+          the optional add-on for ongoing retests, priority AI, and deeper trend reports.
+        </p>
+      ) : (
+        <p className="settings-hint" style={{ margin: 0 }}>
+          To get your personalized Clarion analysis, start with the $49 one-time purchase. That
+          unlocks your report and includes 2 months of Clarion+ free.
+        </p>
+      )}
+      {error && <p className="settings-sub-error" style={{ marginTop: 10 }}>{error}</p>}
+    </div>
+  )
+}
+
 export default function SettingsPage() {
   const router = useRouter()
   const { user, loading: authLoading, signOut } = useAuth()
@@ -24,12 +214,109 @@ export default function SettingsPage() {
   const [notifyReorderEmail, setNotifyReorderEmail] = useState(true)
   const [notifyReorderDays, setNotifyReorderDays] = useState(7)
   const [heightWeightUnits, setHeightWeightUnits] = useState<"imperial" | "metric">("imperial")
+  const [sub, setSub] = useState<SubscriptionStatus | null>(null)
+  const [subLoading, setSubLoading] = useState(true)
+  const [subBusy, setSubBusy] = useState(false)
+  const [subError, setSubError] = useState<string | null>(null)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState("")
+  const [deleteBusy, setDeleteBusy] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.replace("/login")
     }
   }, [authLoading, user, router])
+
+  const loadSubscription = useCallback(async () => {
+    setSubLoading(true)
+    setSubError(null)
+    try {
+      const res = await fetch("/api/subscription/status", { cache: "no-store" })
+      if (!res.ok) throw new Error(`status_${res.status}`)
+      const data = (await res.json()) as SubscriptionStatus
+      setSub(data)
+    } catch {
+      setSub(null)
+      setSubError("Could not load subscription details.")
+    } finally {
+      setSubLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!user?.id) return
+    void loadSubscription()
+  }, [user?.id, loadSubscription])
+
+  const handleCancelSubscription = useCallback(async () => {
+    setSubBusy(true)
+    setSubError(null)
+    try {
+      const res = await fetch("/api/subscription/cancel", { method: "POST" })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(
+          typeof data?.error === "string" ? data.error : `Cancel failed (${res.status})`
+        )
+      }
+      setShowCancelConfirm(false)
+      await loadSubscription()
+    } catch (e) {
+      setSubError(e instanceof Error ? e.message : "Cancel failed")
+    } finally {
+      setSubBusy(false)
+    }
+  }, [loadSubscription])
+
+  const handleResumeSubscription = useCallback(async () => {
+    setSubBusy(true)
+    setSubError(null)
+    try {
+      const res = await fetch("/api/subscription/resume", { method: "POST" })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(
+          typeof data?.error === "string" ? data.error : `Resume failed (${res.status})`
+        )
+      }
+      await loadSubscription()
+    } catch (e) {
+      setSubError(e instanceof Error ? e.message : "Resume failed")
+    } finally {
+      setSubBusy(false)
+    }
+  }, [loadSubscription])
+
+  const handleDeleteAccount = useCallback(async () => {
+    if (deleteConfirmText !== "DELETE") {
+      setDeleteError('Type DELETE (all caps) to confirm.')
+      return
+    }
+    setDeleteBusy(true)
+    setDeleteError(null)
+    try {
+      const res = await fetch("/api/account/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: "DELETE" }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(
+          typeof data?.error === "string" ? data.error : `Delete failed (${res.status})`
+        )
+      }
+      // Auth row is gone. Clear local session and send user home.
+      await signOut().catch(() => {})
+      router.replace("/?account_deleted=1")
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "Delete failed")
+      setDeleteBusy(false)
+    }
+  }, [deleteConfirmText, signOut, router])
 
   useEffect(() => {
     if (!user?.id) {
@@ -408,6 +695,38 @@ export default function SettingsPage() {
               </div>
             </section>
 
+            <section className="settings-section" aria-labelledby="settings-billing-heading">
+              <h2 id="settings-billing-heading" className="settings-section-title">Subscription</h2>
+              <div className="settings-card">
+                {/*
+                  Product rule:
+                    $49 one-time analysis is permanent. You cannot get the analysis by
+                    paying $29/month. After $49 we auto-start a 2-month free period of
+                    Clarion+ ($29 every 2 months); you can cancel at any time. Canceling
+                    Clarion+ NEVER removes your analysis, report, or historical data.
+                */}
+                {subLoading ? (
+                  <p className="settings-hint" style={{ margin: 0 }}>Loading subscription…</p>
+                ) : sub && sub.hasSubscription ? (
+                  <SubscriptionSummary
+                    sub={sub}
+                    busy={subBusy}
+                    onCancel={() => setShowCancelConfirm(true)}
+                    onResume={handleResumeSubscription}
+                    error={subError}
+                    showCancelConfirm={showCancelConfirm}
+                    onAbortCancel={() => setShowCancelConfirm(false)}
+                    onConfirmCancel={handleCancelSubscription}
+                  />
+                ) : (
+                  <NoSubscriptionSummary
+                    analysisPurchasedAt={sub?.analysis_purchased_at ?? null}
+                    error={subError}
+                  />
+                )}
+              </div>
+            </section>
+
             <section className="settings-section" aria-labelledby="settings-account-heading">
               <h2 id="settings-account-heading" className="settings-section-title">Account</h2>
               <div className="settings-card">
@@ -418,9 +737,81 @@ export default function SettingsPage() {
                 <p className="settings-hint">Use the sun/moon icon above to switch light and dark mode.</p>
               </div>
             </section>
+
+            <section className="settings-section" aria-labelledby="settings-danger-heading">
+              <h2 id="settings-danger-heading" className="settings-section-title settings-danger-title">Danger zone</h2>
+              <div className="settings-card settings-card--danger">
+                <p className="settings-hint" style={{ margin: "0 0 12px" }}>
+                  Permanently delete your account and all associated data — profile, bloodwork,
+                  protocol logs, supplement tracking, and any uploaded lab files. Any active
+                  Clarion+ subscription will be canceled immediately in Stripe. This cannot be
+                  undone.
+                </p>
+                <button
+                  type="button"
+                  className="settings-danger-btn"
+                  onClick={() => {
+                    setShowDeleteModal(true)
+                    setDeleteConfirmText("")
+                    setDeleteError(null)
+                  }}
+                >
+                  Delete my account…
+                </button>
+              </div>
+            </section>
           </>
         )}
       </div>
+
+      {showDeleteModal && (
+        <div className="settings-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="delete-account-title">
+          <div className="settings-modal">
+            <h3 id="delete-account-title" className="settings-modal-title">Delete your Clarion account?</h3>
+            <p className="settings-modal-body">
+              This permanently deletes your profile, bloodwork, protocol logs, supplements, and any
+              uploaded lab files. Any active Clarion+ subscription is canceled immediately (no more
+              charges). <strong>This cannot be undone.</strong>
+            </p>
+            <label className="settings-modal-label">
+              <span>Type <code>DELETE</code> to confirm:</span>
+              <input
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="settings-input"
+                aria-label="Type DELETE to confirm"
+                disabled={deleteBusy}
+              />
+            </label>
+            {deleteError && <p className="settings-modal-error">{deleteError}</p>}
+            <div className="settings-modal-actions">
+              <button
+                type="button"
+                className="settings-modal-btn settings-modal-btn--ghost"
+                onClick={() => {
+                  setShowDeleteModal(false)
+                  setDeleteConfirmText("")
+                  setDeleteError(null)
+                }}
+                disabled={deleteBusy}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="settings-modal-btn settings-modal-btn--danger"
+                onClick={handleDeleteAccount}
+                disabled={deleteBusy || deleteConfirmText !== "DELETE"}
+              >
+                {deleteBusy ? "Deleting…" : "Delete my account"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .settings-shell {
@@ -621,6 +1012,212 @@ export default function SettingsPage() {
           margin-bottom: 8px;
         }
         .settings-account-label { font-size: 14px; font-weight: 500; color: var(--color-text-primary); }
+
+        /* Subscription card */
+        .settings-sub { display: flex; flex-direction: column; gap: 0; }
+        .settings-sub-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .settings-sub-headline {
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--color-text-primary);
+        }
+        .settings-sub-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 3px 10px;
+          border-radius: 9999px;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          border: 1px solid transparent;
+        }
+        .settings-sub-badge--active {
+          background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+          color: var(--color-accent);
+          border-color: color-mix(in srgb, var(--color-accent) 28%, transparent);
+        }
+        .settings-sub-badge--warn {
+          background: rgba(200, 140, 40, 0.12);
+          color: #a8752a;
+          border-color: rgba(200, 140, 40, 0.3);
+        }
+        .settings-sub-badge--neutral {
+          background: var(--color-surface-elevated);
+          color: var(--color-text-muted);
+          border-color: var(--clarion-card-border);
+        }
+        .settings-sub-note {
+          margin: 0 0 12px;
+          padding: 10px 12px;
+          background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+          border: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
+          border-radius: 10px;
+          font-size: 13px;
+          color: var(--color-text-primary);
+          line-height: 1.45;
+        }
+        .settings-sub-error {
+          margin: 0 0 10px;
+          padding: 8px 10px;
+          border-radius: 8px;
+          background: rgba(200, 60, 60, 0.08);
+          border: 1px solid rgba(200, 60, 60, 0.25);
+          color: #b24646;
+          font-size: 13px;
+        }
+        .settings-sub-btn {
+          padding: 9px 16px;
+          border-radius: 10px;
+          font-size: 13px;
+          font-weight: 600;
+          background: var(--color-accent);
+          border: 1px solid var(--color-accent);
+          color: var(--color-accent-contrast);
+          cursor: pointer;
+          align-self: flex-start;
+        }
+        .settings-sub-btn:hover:not(:disabled) { background: var(--color-accent-hover); }
+        .settings-sub-btn:disabled { opacity: 0.55; cursor: default; }
+        .settings-sub-btn--ghost {
+          background: transparent;
+          border: 1px solid var(--clarion-card-border);
+          color: var(--color-text-secondary);
+        }
+        .settings-sub-btn--ghost:hover:not(:disabled) {
+          background: var(--color-surface-elevated);
+          color: var(--color-text-primary);
+        }
+        .settings-sub-btn--danger {
+          background: #b24646;
+          border-color: #b24646;
+          color: #fff;
+        }
+        .settings-sub-btn--danger:hover:not(:disabled) { background: #963a3a; }
+        .settings-sub-confirm {
+          margin-top: 2px;
+          padding: 12px 14px;
+          background: rgba(200, 60, 60, 0.05);
+          border: 1px solid rgba(200, 60, 60, 0.2);
+          border-radius: 10px;
+        }
+        .settings-sub-confirm-body {
+          margin: 0 0 10px;
+          font-size: 13px;
+          color: var(--color-text-primary);
+          line-height: 1.45;
+        }
+        .settings-sub-confirm-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        /* Danger zone card */
+        .settings-danger-title { color: #b24646 !important; }
+        .settings-card--danger {
+          border-color: rgba(200, 60, 60, 0.3);
+          background: color-mix(in srgb, #b24646 4%, var(--clarion-card-bg));
+        }
+        .settings-danger-btn {
+          padding: 9px 16px;
+          border-radius: 10px;
+          font-size: 13px;
+          font-weight: 600;
+          background: transparent;
+          border: 1px solid #b24646;
+          color: #b24646;
+          cursor: pointer;
+        }
+        .settings-danger-btn:hover { background: rgba(200, 60, 60, 0.08); }
+
+        /* Delete account modal */
+        .settings-modal-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.45);
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }
+        .settings-modal {
+          max-width: 440px;
+          width: 100%;
+          background: var(--clarion-card-bg);
+          border: 1px solid var(--clarion-card-border);
+          border-radius: 14px;
+          padding: 22px 24px;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        .settings-modal-title {
+          margin: 0 0 10px;
+          font-size: 18px;
+          font-weight: 600;
+          color: var(--color-text-primary);
+        }
+        .settings-modal-body {
+          margin: 0 0 16px;
+          font-size: 14px;
+          color: var(--color-text-secondary);
+          line-height: 1.5;
+        }
+        .settings-modal-label {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          margin-bottom: 12px;
+          font-size: 13px;
+          color: var(--color-text-secondary);
+        }
+        .settings-modal-label code {
+          padding: 1px 6px;
+          border-radius: 4px;
+          background: var(--color-surface-elevated);
+          font-family: var(--font-mono, ui-monospace, "SFMono-Regular", monospace);
+          font-size: 12px;
+        }
+        .settings-modal-error {
+          margin: -4px 0 10px;
+          font-size: 13px;
+          color: #b24646;
+        }
+        .settings-modal-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .settings-modal-btn {
+          padding: 9px 16px;
+          border-radius: 10px;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+        }
+        .settings-modal-btn--ghost {
+          background: transparent;
+          border: 1px solid var(--clarion-card-border);
+          color: var(--color-text-secondary);
+        }
+        .settings-modal-btn--ghost:hover:not(:disabled) {
+          background: var(--color-surface-elevated);
+          color: var(--color-text-primary);
+        }
+        .settings-modal-btn--danger {
+          background: #b24646;
+          border: 1px solid #b24646;
+          color: #fff;
+        }
+        .settings-modal-btn--danger:hover:not(:disabled) { background: #963a3a; }
+        .settings-modal-btn:disabled { opacity: 0.55; cursor: default; }
       `}</style>
     </main>
   )
