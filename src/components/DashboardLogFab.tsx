@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Plus, X, ListChecks, Droplets, ScanLine, Pill, FileText } from "lucide-react"
+import { Plus, X, ListChecks, Droplets, ScanLine, Pill, FileText, BookOpen } from "lucide-react"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { SupplementCheckerSheet } from "@/src/components/SupplementCheckerSheet"
 import { WhatITakeSheet } from "@/src/components/WhatITakeSheet"
@@ -124,6 +124,19 @@ export function DashboardLogFab() {
                   <span>
                     <strong>Upload labs</strong>
                     <small>PDF or photos — AI reads them</small>
+                  </span>
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/dashboard/logbook"
+                  className="dashboard-log-fab-item"
+                  onClick={() => setMenuOpen(false)}
+                >
+                  <BookOpen size={20} strokeWidth={2} aria-hidden />
+                  <span>
+                    <strong>Open logbook</strong>
+                    <small>See your month at a glance</small>
                   </span>
                 </Link>
               </li>

@@ -568,6 +568,7 @@ function HomeBlock7_More() {
       <span className="home-v2-more__label">More:</span>
       <Link href="/dashboard/biomarkers">Biomarkers</Link>
       <Link href="/dashboard/trends">Trends</Link>
+      <Link href="/dashboard/logbook">Logbook</Link>
       <Link href="/labs/upload">Update labs</Link>
     </nav>
   )

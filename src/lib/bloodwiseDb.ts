@@ -421,6 +421,28 @@ export async function getProtocolLogHistory(
   }))
 }
 
+/** Protocol checks + metrics for an inclusive date range (used by the Logbook calendar). */
+export async function getProtocolLogChecksInRange(
+  userId: string,
+  startDate: string,
+  endDate: string
+): Promise<{ log_date: string; checks: Record<string, boolean> }[]> {
+  if (!supabase) return []
+  const { data, error } = await supabase
+    .from("protocol_log")
+    .select("log_date, checks")
+    .eq("user_id", userId)
+    .gte("log_date", startDate)
+    .lte("log_date", endDate)
+    .order("log_date", { ascending: true })
+  throwIfError(error)
+  if (!Array.isArray(data)) return []
+  return data.map((row) => ({
+    log_date: row.log_date,
+    checks: (row.checks as Record<string, boolean>) || {},
+  }))
+}
+
 /** Daily metrics rows in an inclusive date range (for between-panel habit averages). */
 export async function getProtocolLogMetricsInRange(
   userId: string,

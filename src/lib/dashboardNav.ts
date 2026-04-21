@@ -30,6 +30,7 @@ export const DASHBOARD_NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/biomarkers", label: "Biomarkers" },
       { href: "/labs/upload", label: "Upload labs" },
       { href: "/dashboard/trends", label: "Trends" },
+      { href: "/dashboard/logbook", label: "Logbook" },
       { href: "/dashboard/tracking", label: "Tracking" },
       { href: "/dashboard/shop", label: "Shop" },
       { href: "/guides", label: "Guides" },

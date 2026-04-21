@@ -1,0 +1,593 @@
+/* Logbook — calendar + day detail.
+   Goals:
+     - Feel like a Moleskine, not a spreadsheet. Warm surfaces, generous
+       padding, soft borders.
+     - Encode state (logged / today / lab / retest / selected) with small,
+       composable visual tokens (dots, badges, ring) rather than wholesale
+       color changes, so days remain readable when multiple states overlap
+       (e.g. "today AND it's the retest window").
+     - Responsive: side-by-side on desktop, stacked on narrow screens. The
+       detail panel is always visible (below the grid on mobile) so the user
+       never has to hunt for what a day meant. */
+
+.logbook-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.logbook-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.logbook-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.3rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.logbook-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.logbook-back:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* Top-of-page stats strip. */
+.logbook-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: var(--clarion-card-bg);
+  border: 1px solid var(--clarion-card-border);
+  border-radius: 14px;
+}
+
+.logbook-summary__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.logbook-summary__num {
+  font-family: var(--font-heading);
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.1;
+}
+
+.logbook-summary__num--small {
+  font-size: 1.25rem;
+}
+
+.logbook-summary__label {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  line-height: 1.3;
+}
+
+.logbook-summary__link {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Layout: calendar + detail side-by-side. Detail is a narrower column. */
+.logbook-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 1.25rem;
+  align-items: start;
+}
+.logbook-body[data-loading="1"] {
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+
+@media (max-width: 880px) {
+  .logbook-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ——————————————————— Calendar grid ——————————————————— */
+
+.logbook-cal {
+  background: var(--clarion-card-bg);
+  border: 1px solid var(--clarion-card-border);
+  border-radius: 16px;
+  padding: 1rem 1rem 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.logbook-cal__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.logbook-cal__label {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-family: var(--font-heading);
+  flex: 1 1 auto;
+  text-align: center;
+}
+
+.logbook-cal__nav {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.logbook-cal__nav:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.logbook-cal__weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  padding: 0 0.1rem;
+}
+.logbook-cal__weekday {
+  text-align: center;
+}
+
+.logbook-cal__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.logbook-cal__row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.3rem;
+}
+
+/* Day cell.
+   Base: neutral square. Tokens layer on top:
+     - --logged: accent tint + stronger border
+     - --today: accent ring outline
+     - --lab / --retest-day: badge in top-right + subtle tint
+     - --selected: stronger ring + deeper bg
+   Outside-the-month spacers are muted but still clickable so a user can
+   explore neighboring months without needing to hit the arrow. */
+.logbook-cal__cell {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  min-height: 54px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.35rem 0.4rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.08s ease;
+}
+.logbook-cal__cell:hover {
+  border-color: var(--color-border-strong);
+}
+.logbook-cal__cell:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.logbook-cal__cell:active {
+  transform: translateY(1px);
+}
+
+.logbook-cal__cell--out {
+  color: var(--color-text-muted);
+  background: transparent;
+  border-color: transparent;
+}
+
+.logbook-cal__cell--logged {
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+}
+
+.logbook-cal__cell--today {
+  box-shadow: inset 0 0 0 2px var(--color-accent);
+}
+
+.logbook-cal__cell--selected {
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+.logbook-cal__cell--lab {
+  border-color: color-mix(in srgb, var(--color-info, var(--color-accent)) 55%, var(--color-border));
+}
+
+.logbook-cal__cell--retest-day {
+  border-color: color-mix(in srgb, var(--color-warning) 55%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 14%, var(--color-surface));
+}
+
+.logbook-cal__cell--retest-window {
+  background: color-mix(in srgb, var(--color-warning) 7%, var(--color-surface));
+}
+
+.logbook-cal__cell-num {
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.logbook-cal__cell-dots {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+
+.logbook-cal__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-text-muted) 30%, transparent);
+  transition: background 0.15s ease;
+}
+.logbook-cal__dot--filled {
+  background: var(--color-accent);
+}
+
+/* Cell-level badges (top-right corner). */
+.logbook-cal__badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.logbook-cal__badge--lab {
+  background: var(--color-info, var(--color-accent));
+}
+
+.logbook-cal__badge--retest {
+  background: var(--color-warning);
+}
+
+/* Legend under the grid. */
+.logbook-cal__legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.8rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  padding-top: 0.25rem;
+  border-top: 1px dashed var(--color-border);
+  margin-top: 0.25rem;
+}
+.logbook-cal__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.logbook-cal__legend-dots {
+  display: inline-flex;
+  gap: 2px;
+}
+.logbook-cal__legend-badge {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+.logbook-cal__legend-badge--lab {
+  background: var(--color-info, var(--color-accent));
+}
+.logbook-cal__legend-badge--retest {
+  background: var(--color-warning);
+}
+
+/* ——————————————————— Day detail panel ——————————————————— */
+
+.logbook-detail {
+  background: var(--clarion-card-bg);
+  border: 1px solid var(--clarion-card-border);
+  border-radius: 16px;
+  padding: 1rem 1.1rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+  position: sticky;
+  top: 1rem;
+}
+
+.logbook-detail--empty {
+  color: var(--color-text-muted);
+}
+
+.logbook-detail__empty {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.logbook-detail__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.logbook-detail__eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.logbook-detail__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.35;
+}
+
+.logbook-detail__protocol-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.logbook-detail__subtitle {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.logbook-detail__ratio {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.logbook-detail__empty-protocol {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.logbook-detail__link {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.logbook-detail__items {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.logbook-detail__item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.65rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.logbook-detail__item--done {
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+}
+
+.logbook-detail__item-icon {
+  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+}
+
+.logbook-detail__item--done .logbook-detail__item-icon {
+  color: var(--color-accent);
+}
+
+.logbook-detail__item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.logbook-detail__item-body strong {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.logbook-detail__item-body small {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+.logbook-detail__item-archived {
+  color: color-mix(in srgb, var(--color-warning) 80%, var(--color-text-muted));
+  font-style: italic;
+}
+
+.logbook-detail__future-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+/* Lab + retest callouts in the detail panel. */
+.logbook-detail__lab,
+.logbook-detail__retest {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.65rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+}
+
+.logbook-detail__lab {
+  background: color-mix(in srgb, var(--color-info, var(--color-accent)) 12%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-info, var(--color-accent)) 35%, var(--color-border));
+}
+
+.logbook-detail__retest {
+  background: color-mix(in srgb, var(--color-warning) 12%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-warning) 35%, var(--color-border));
+}
+
+.logbook-detail__lab-icon,
+.logbook-detail__retest-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: #fff;
+}
+
+.logbook-detail__lab-icon {
+  background: var(--color-info, var(--color-accent));
+}
+
+.logbook-detail__retest-icon {
+  background: var(--color-warning);
+}
+
+.logbook-detail__lab-body,
+.logbook-detail__retest-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.logbook-detail__lab-body strong,
+.logbook-detail__retest-body strong {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.logbook-detail__lab-body small,
+.logbook-detail__retest-body small {
+  font-size: 0.76rem;
+  color: var(--color-text-secondary);
+}
+
+.logbook-detail__lab-link,
+.logbook-detail__retest-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  background: transparent;
+  border: 1px solid currentColor;
+  text-decoration: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.logbook-detail__lab-link {
+  color: var(--color-info, var(--color-accent));
+}
+.logbook-detail__retest-link {
+  color: color-mix(in srgb, var(--color-warning) 75%, var(--color-text-primary));
+}
+
+/* Mobile tweaks. */
+@media (max-width: 640px) {
+  .logbook-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .logbook-summary__stat:last-child {
+    grid-column: 1 / -1;
+  }
+  .logbook-cal {
+    padding: 0.8rem 0.75rem;
+  }
+  .logbook-cal__cell {
+    min-height: 44px;
+    padding: 0.25rem 0.3rem;
+  }
+  .logbook-cal__cell-num {
+    font-size: 0.75rem;
+  }
+  .logbook-cal__dot {
+    width: 5px;
+    height: 5px;
+  }
+  .logbook-detail {
+    position: static;
+  }
+}

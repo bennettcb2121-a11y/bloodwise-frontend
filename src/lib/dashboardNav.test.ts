@@ -48,4 +48,10 @@ describe("dashboardNav", () => {
     expect(more.children.some((c) => c.href === "/labs/upload" && c.label === "Upload labs")).toBe(true)
     expect(groupHasActiveChild("/labs/upload", more)).toBe(true)
   })
+
+  it("More group contains Logbook and activates on /dashboard/logbook", () => {
+    const more = DASHBOARD_NAV_GROUPS.find((g) => g.id === "more")!
+    expect(more.children.some((c) => c.href === "/dashboard/logbook" && c.label === "Logbook")).toBe(true)
+    expect(groupHasActiveChild("/dashboard/logbook", more)).toBe(true)
+  })
 })
