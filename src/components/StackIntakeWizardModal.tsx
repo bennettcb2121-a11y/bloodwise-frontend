@@ -281,6 +281,95 @@ export function StackIntakeWizardModal({ open, onClose, currentSupplements, onCo
         ) : null}
 
         <style jsx>{`
+          /* These capture-* classes are also used by CurrentSupplementsCaptureModal,
+             which has its own scoped copy. styled-jsx scopes everything per component,
+             so we need our own copy here or the modal renders without head/close layout. */
+          .current-supplements-capture-root {
+            position: fixed;
+            inset: 0;
+            z-index: 9990;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding: 0;
+          }
+          @media (min-width: 640px) {
+            .current-supplements-capture-root {
+              align-items: center;
+              padding: 24px;
+            }
+          }
+          .current-supplements-capture-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            border: 0;
+            padding: 0;
+            cursor: pointer;
+          }
+          .current-supplements-capture-dialog {
+            position: relative;
+            width: 100%;
+            max-width: 520px;
+            max-height: min(90vh, 720px);
+            overflow: auto;
+            background: var(--color-bg-elevated, var(--color-bg));
+            color: var(--color-text-primary);
+            border-radius: 16px 16px 0 0;
+            border: 1px solid var(--clarion-card-border, rgba(255, 255, 255, 0.08));
+            padding: 20px 22px 22px;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+          }
+          @media (min-width: 640px) {
+            .current-supplements-capture-dialog {
+              border-radius: 16px;
+            }
+          }
+          .current-supplements-capture-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+          }
+          .current-supplements-capture-title {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.25;
+            color: var(--color-text-primary);
+          }
+          .current-supplements-capture-close {
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border: 1px solid transparent;
+            border-radius: 10px;
+            background: transparent;
+            color: var(--color-text-muted);
+            cursor: pointer;
+            transition: background 0.18s ease, color 0.18s ease;
+          }
+          .current-supplements-capture-close:hover {
+            background: color-mix(in srgb, var(--color-text-muted) 14%, transparent);
+            color: var(--color-text-primary);
+          }
+          .current-supplements-capture-lede {
+            margin: 0 0 14px;
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--color-text-secondary);
+          }
+          .current-supplements-capture-error {
+            margin: 8px 0 0;
+            font-size: 13px;
+            color: var(--color-error, #b24646);
+          }
+
           .stack-intake-field {
             display: flex;
             flex-direction: column;
