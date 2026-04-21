@@ -107,23 +107,26 @@ export function PricingTiers({
             </Link>
           )}
           <p className="pricing-tier-fine">
-            One-time ${analysisPrice} analysis. Your report is yours forever. Includes 2 free months of Clarion+; $
-            {subPrice} every 2 months after. Cancel anytime.
+            One-time ${analysisPrice} analysis. Your report is yours forever. Includes 2 free months of Clarion+, then ${subPrice} every 2 months — cancel anytime from Settings.
           </p>
         </article>
 
-        {/* TIER 3 — Clarion Monthly */}
+        {/* TIER 3 — Clarion+ full experience. Same $49 first charge as Tier 2; the
+            difference is positioning + whether the user thinks of themselves as ongoing. */}
         <article className="pricing-tier pricing-tier--monthly">
           <div className="pricing-tier-badge">Most complete</div>
-          <div className="pricing-tier-eyebrow">Clarion Monthly</div>
-          <h3 className="pricing-tier-headline">Never run out. Never overpay.</h3>
+          <div className="pricing-tier-eyebrow">Analysis + Clarion+</div>
+          <h3 className="pricing-tier-headline">Your labs, read and kept on track.</h3>
           <p className="pricing-tier-sub">
-            Track your stack daily. We watch your bottles drain and reorder before you run out — tuned to the ranges that matter for you.
+            Start with the ${analysisPrice} analysis, then Clarion watches your stack, your bottles, and your trends — tuned to your ranges.
           </p>
           <div className="pricing-tier-price">
-            <span className="pricing-tier-amount">${subPrice}</span>
-            <span className="pricing-tier-period">/ 2 months</span>
+            <span className="pricing-tier-amount">${analysisPrice}</span>
+            <span className="pricing-tier-period">today</span>
           </div>
+          <p className="pricing-tier-price-note">
+            Then <strong>${subPrice} every 2 months</strong> after your 2 free months. Cancel anytime.
+          </p>
           <ul className="pricing-tier-features">
             <li>Everything in the one-time analysis</li>
             <li>Smart supplement stack, adapted to your labs and goals</li>
@@ -138,15 +141,15 @@ export function PricingTiers({
               onClick={onTier3Click}
               disabled={Boolean(tier3Loading)}
             >
-              {tier3Loading ? "Taking you to checkout…" : `Start Clarion — $${subPrice} / 2 months`}
+              {tier3Loading ? "Taking you to checkout…" : `Start Clarion+ — $${analysisPrice} today`}
             </button>
           ) : (
             <Link href={tier3Href} className="pricing-tier-cta pricing-tier-cta--primary">
-              Start Clarion — ${subPrice} / 2 months
+              Start Clarion+ — ${analysisPrice} today
             </Link>
           )}
           <p className="pricing-tier-fine">
-            First 2 months free, then ${subPrice} every 2 months. Cancel anytime. Includes the one-time ${analysisPrice} analysis.
+            You&apos;re charged ${analysisPrice} today for the analysis. Clarion+ is free for 2 months, then ${subPrice} auto-bills every 2 months until you cancel from Settings.
           </p>
         </article>
       </div>
@@ -231,6 +234,16 @@ export function PricingTiers({
         .pricing-tier-period {
           font-size: 13px;
           color: var(--color-text-muted);
+        }
+        .pricing-tier-price-note {
+          font-size: 13px;
+          color: var(--color-text-secondary);
+          line-height: 1.45;
+          margin: -4px 0 16px;
+        }
+        .pricing-tier-price-note strong {
+          color: var(--color-text-primary);
+          font-weight: 600;
         }
         .pricing-tier-features {
           list-style: none;
