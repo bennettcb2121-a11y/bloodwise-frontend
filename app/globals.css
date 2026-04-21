@@ -1824,11 +1824,29 @@ body.pitch-deck-active .clarion-global-footer {
   flex-shrink: 0;
   width: min(272px, 88vw);
   background: color-mix(in srgb, var(--color-surface-elevated) 38%, var(--color-bg));
-  border-right: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent);
+  /* Replace the hard 1px right border with a soft vertical gradient fade so
+     the sidebar dissolves into the main column instead of meeting it with a
+     visible crisp line. */
+  border-right: none;
+  box-shadow: inset -1px 0 0 color-mix(in srgb, var(--color-border) 22%, transparent);
   z-index: 1100;
   display: flex;
   flex-direction: column;
   backdrop-filter: blur(12px);
+}
+.dashboard-sidebar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -18px;
+  bottom: 0;
+  width: 18px;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--color-bg) 26%, transparent),
+    transparent
+  );
 }
 @supports not (backdrop-filter: blur(1px)) {
   .dashboard-sidebar {
@@ -1993,7 +2011,10 @@ body.pitch-deck-active .clarion-global-footer {
   justify-content: space-between;
   gap: 10px;
   padding: max(8px, env(safe-area-inset-top, 0px)) 12px 8px;
-  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent);
+  /* Feather the bottom edge with a soft gradient instead of a hard hairline
+     so the corner where the top bar meets the sidebar no longer reads as a
+     sharp L-shape against the page. */
+  border-bottom: none;
   /* Default: calm strip */
   background: var(--color-bg-muted);
   isolation: isolate;
@@ -2003,8 +2024,9 @@ body.pitch-deck-active .clarion-global-footer {
   background: color-mix(in srgb, var(--color-bg) 94%, transparent);
   backdrop-filter: blur(18px) saturate(1.1);
   -webkit-backdrop-filter: blur(18px) saturate(1.1);
-  border-bottom-color: color-mix(in srgb, var(--color-border) 80%, transparent);
-  box-shadow: 0 1px 0 color-mix(in srgb, #fff 4%, transparent) inset;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, #fff 4%, transparent) inset,
+    0 14px 18px -14px color-mix(in srgb, var(--color-border) 45%, transparent);
 }
 [data-theme="light"] .dashboard-app-shell--clarion .dashboard-top-bar {
   background: color-mix(in srgb, var(--color-surface-elevated) 96%, transparent);
@@ -2024,7 +2046,6 @@ body.pitch-deck-active .clarion-global-footer {
 body[data-dashboard-sky="night"][data-theme="light"] .dashboard-sidebar,
 body[data-dashboard-sky="storm"][data-theme="light"] .dashboard-sidebar {
   background: color-mix(in srgb, rgb(28, 38, 56) 22%, var(--color-surface-elevated));
-  border-right-color: color-mix(in srgb, rgb(45, 58, 82) 28%, var(--color-border));
 }
 @supports not (backdrop-filter: blur(1px)) {
   body[data-dashboard-sky="night"][data-theme="light"] .dashboard-sidebar,
@@ -2198,11 +2219,17 @@ body[data-dashboard-sky="storm"][data-theme="light"] .dashboard-sidebar-group-to
     bottom: 0;
     left: 0;
     transform: translateX(-100%);
-    transition: transform 0.22s ease;
-    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.25);
+    transition: transform 0.22s ease, box-shadow 0.22s ease;
+    /* No shadow when closed — a positive X box-shadow on a translated-offscreen
+       sidebar leaks into the viewport as a visible dark strip / sharp edge. */
+    box-shadow: none;
+  }
+  .dashboard-sidebar::after {
+    display: none;
   }
   .dashboard-sidebar--open {
     transform: translateX(0);
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.25);
   }
   .dashboard-sidebar-brand {
     padding-top: max(12px, env(safe-area-inset-top, 0px));
