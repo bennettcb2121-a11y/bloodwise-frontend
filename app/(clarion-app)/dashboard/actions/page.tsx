@@ -17,6 +17,13 @@ import {
 } from "@/src/lib/affiliateProducts"
 import type { AffiliateProduct } from "@/src/lib/affiliateProducts"
 import { AFFILIATE_DISCLOSURE } from "@/src/lib/affiliateProducts"
+import {
+  affiliateUrlForShopProduct,
+  getShopEntryForBiomarker,
+  shopProductImageUrl,
+  type ShopProduct,
+  type SupplementShopEntry,
+} from "@/src/lib/supplementShopCatalog"
 import { getCoreProtocol } from "@/src/lib/coreBiomarkerProtocols"
 import { getSupplementDetail } from "@/src/lib/supplementProtocolDetail"
 import type { SupplementDetail } from "@/src/lib/supplementProtocolDetail"
@@ -54,6 +61,58 @@ type PriorityMarkerCardProps = {
   lifestyle: string[]
   guide: ReturnType<typeof getGuidesForBiomarker>[0] | undefined
   paidProtocol: (typeof PAID_PROTOCOLS)[number] | undefined
+  /** Concrete step the user can do right now (from action plan). */
+  firstMove: string | null
+  /** True when we have no product for this marker — in which case the card surfaces lifestyle content prominently. */
+  isLifestyleFirst: boolean
+}
+
+/**
+ * Wrap a ShopProduct from the new catalog to fit the AffiliateProduct shape the
+ * card already consumes. Lets us reuse the existing rendering without forking.
+ */
+function adaptShopProductToAffiliate(
+  entry: SupplementShopEntry,
+  product: ShopProduct,
+  markerName: string
+): AffiliateProduct {
+  const optionType: AffiliateProduct["optionType"] =
+    product.tier === "best_overall"
+      ? "overall_winner"
+      : product.tier === "highest_potency"
+        ? "premium"
+        : "cheapest"
+  return {
+    id: `shop_${entry.presetId}_${product.tier}`,
+    category: "supplement",
+    biomarker: markerName,
+    title: `${product.brand} ${product.productName}`,
+    subtitle: product.dose,
+    description: entry.overview,
+    affiliateUrl: affiliateUrlForShopProduct(product),
+    optionType,
+    whyRecommended: product.why,
+    imageUrl: shopProductImageUrl(product) ?? undefined,
+  }
+}
+
+/**
+ * Given a driver with no existing affiliate product, try to find one via the
+ * new shop catalog. Returns the mapped products (best overall, cheapest,
+ * highest potency) in the same shape the card already uses.
+ */
+function findFallbackShopProducts(markerName: string): {
+  primary: AffiliateProduct | undefined
+  value: AffiliateProduct | undefined
+  quality: AffiliateProduct | undefined
+} {
+  const entry = getShopEntryForBiomarker(markerName)
+  if (!entry) return { primary: undefined, value: undefined, quality: undefined }
+  return {
+    primary: adaptShopProductToAffiliate(entry, entry.products.best_overall, markerName),
+    value: adaptShopProductToAffiliate(entry, entry.products.cheapest, markerName),
+    quality: adaptShopProductToAffiliate(entry, entry.products.highest_potency, markerName),
+  }
 }
 
 function PriorityMarkerCard({
@@ -75,6 +134,8 @@ function PriorityMarkerCard({
   lifestyle,
   guide,
   paidProtocol,
+  firstMove,
+  isLifestyleFirst,
 }: PriorityMarkerCardProps) {
   const [flipped, setFlipped] = useState(false)
   const tone = isHighUrgency ? "urgent" : "steady"
@@ -110,38 +171,80 @@ function PriorityMarkerCard({
               <p className="dashboard-priority-flip-tagline">{lifestyleTagline}</p>
               <p className="dashboard-priority-flip-teaser">{statusTeaser}</p>
             </button>
+
+            {firstMove ? (
+              <div className="dashboard-priority-firstmove" role="note">
+                <span className="dashboard-priority-firstmove-kicker">First move</span>
+                <p className="dashboard-priority-firstmove-body">{firstMove}</p>
+              </div>
+            ) : null}
+
+            {isLifestyleFirst ? (
+              <div className="dashboard-priority-lifestyle-chip" role="note">
+                Lifestyle-first biomarker — no supplement lever here.
+              </div>
+            ) : null}
+
             <div className="dashboard-priority-front-cta-row">
-            {primaryProduct?.imageUrl ? (
-              <img className="dashboard-priority-product-thumb" src={primaryProduct.imageUrl} alt="" width={40} height={40} />
-            ) : (
-              <div className="dashboard-priority-product-thumb dashboard-priority-product-thumb--empty" aria-hidden />
-            )}
-                       {primaryProduct ? (
-              <a
-                href={applyAmazonAssociatesTag(primaryProduct.affiliateUrl)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="dashboard-priority-cta-buy"
-              >
-                Buy
-              </a>
-            ) : (
-              <span className="dashboard-priority-cta-placeholder" aria-hidden>
-                No shop link
-              </span>
-            )}
-            {guide ? (
-              <Link href={`/guides/${guide.slug}`} className="dashboard-priority-cta-learn">
-                Learn why
-              </Link>
-            ) : (
-              <Link href="/dashboard/biomarkers" className="dashboard-priority-cta-learn">
-                Biomarkers
-              </Link>
-            )}
-            <span className="dashboard-priority-cta-spacer" aria-hidden />
+              {primaryProduct ? (
+                <>
+                  {primaryProduct.imageUrl ? (
+                    <img
+                      className="dashboard-priority-product-thumb"
+                      src={primaryProduct.imageUrl}
+                      alt=""
+                      width={40}
+                      height={40}
+                    />
+                  ) : (
+                    <div
+                      className="dashboard-priority-product-thumb dashboard-priority-product-thumb--empty"
+                      aria-hidden
+                    />
+                  )}
+                  <div className="dashboard-priority-product-meta">
+                    <span className="dashboard-priority-product-name" title={primaryProduct.title}>
+                      {primaryProduct.title}
+                    </span>
+                    <span className="dashboard-priority-product-sub">Clarion pick · affiliate</span>
+                  </div>
+                  <a
+                    href={applyAmazonAssociatesTag(primaryProduct.affiliateUrl)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="dashboard-priority-cta-buy"
+                  >
+                    Buy
+                  </a>
+                </>
+              ) : (
+                <>
+                  <div
+                    className="dashboard-priority-product-thumb dashboard-priority-product-thumb--empty"
+                    aria-hidden
+                  />
+                  <div className="dashboard-priority-product-meta">
+                    <span className="dashboard-priority-product-name">
+                      {foods[0] ?? lifestyle[0] ?? "Focus on the daily habit above"}
+                    </span>
+                    <span className="dashboard-priority-product-sub">Food & lifestyle</span>
+                  </div>
+                  {guide ? (
+                    <Link href={`/guides/${guide.slug}`} className="dashboard-priority-cta-buy dashboard-priority-cta-buy--muted">
+                      Guide
+                    </Link>
+                  ) : (
+                    <Link
+                      href="/dashboard/biomarkers"
+                      className="dashboard-priority-cta-buy dashboard-priority-cta-buy--muted"
+                    >
+                      Learn
+                    </Link>
+                  )}
+                </>
+              )}
             </div>
-            <span className="dashboard-priority-flip-tap">Tap card for resources</span>
+            <span className="dashboard-priority-flip-tap">Tap card for the full plan</span>
           </div>
         </div>
         <div className="dashboard-priority-flip-face dashboard-priority-flip-face--back">
@@ -388,7 +491,7 @@ export default function ActionsPage() {
           <h1 className="dashboard-tab-title" id="actions-heading">
             Your plan
           </h1>
-          <p className="dashboard-tab-subtitle">Your journey—one meaningful step at a time.</p>
+          <p className="dashboard-tab-subtitle">Your top drivers—with a concrete next move for each.</p>
         </header>
 
         <div className="dashboard-actions-opt-banner" role="status">
@@ -400,7 +503,7 @@ export default function ActionsPage() {
 
         <section className="dashboard-actions-list" aria-labelledby="actions-heading">
           <p className="dashboard-action-flip-row-hint">
-            Each step is framed as progress—not a problem. Flip the card for food, lifestyle, and products.{" "}
+            Each card shows your first move up front. Tap for food, lifestyle, and the full protocol.{" "}
             <strong>Buy</strong> opens Amazon (affiliate).
           </p>
           <div className="dashboard-action-priority-row" role="list">
@@ -431,9 +534,31 @@ export default function ActionsPage() {
               const statusLower = (driver.status ?? "").toLowerCase()
               const statusTeaser = getPositiveStatusTeaser(statusLower, driver.markerName)
               const isHighUrgency = statusLower === "deficient" || statusLower === "high"
-              const primaryProduct = products[0]
-              const bestValue = products.find((p) => p.optionType === "cheapest") ?? products[1]
-              const bestQuality = products.find((p) => p.optionType === "premium") ?? products[2]
+
+              // Primary curated products come from affiliateProducts.ts. When that
+              // returns nothing (the vast majority of biomarkers outside the 10-item
+              // core set), fall back to the broader shop catalog via biomarker
+              // lookup. If neither has a match, the card falls back to lifestyle-first.
+              const fallbackProducts = products.length === 0 ? findFallbackShopProducts(driver.markerName) : null
+              const primaryProduct = products[0] ?? fallbackProducts?.primary
+              const bestValue =
+                products.find((p) => p.optionType === "cheapest") ??
+                products[1] ??
+                fallbackProducts?.value
+              const bestQuality =
+                products.find((p) => p.optionType === "premium") ??
+                products[2] ??
+                fallbackProducts?.quality
+              const isLifestyleFirst = !primaryProduct
+
+              // Pull the single most actionable item out of the action plan for
+              // prominent display on the card front. Keeps the front useful even
+              // when there's no supplement attached to the biomarker.
+              const firstMove =
+                actionPlan?.dailyActions?.[0]?.trim() ||
+                lifestyle[0] ||
+                foods[0] ||
+                null
               const progressTitle = getProgressHeadlineForMarker(driver.markerName, driver.label, driverStatus)
               const lifestyleTagline = getLifestyleTaglineForMarker(driver.markerName, driverStatus)
               const visualKind = getMarkerVisualKind(driver.markerName)
@@ -460,6 +585,8 @@ export default function ActionsPage() {
                   lifestyle={lifestyle}
                   guide={guide}
                   paidProtocol={paidProtocol}
+                  firstMove={firstMove}
+                  isLifestyleFirst={isLifestyleFirst}
                 />
               )
             })}
@@ -670,6 +797,77 @@ export default function ActionsPage() {
           font-size: 12px;
           color: var(--color-text-secondary);
           line-height: 1.45;
+        }
+        .dashboard-priority-firstmove {
+          margin: 0 0 10px;
+          padding: 10px 12px;
+          border-radius: 10px;
+          border: 1px solid var(--color-border);
+          background: var(--color-surface);
+        }
+        .dashboard-priority-firstmove-kicker {
+          display: block;
+          font-size: 10px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.12em;
+          color: var(--color-text-muted);
+          margin-bottom: 4px;
+        }
+        .dashboard-priority-firstmove-body {
+          margin: 0;
+          font-size: 12.5px;
+          line-height: 1.45;
+          color: var(--color-text-primary);
+          font-weight: 500;
+        }
+        .dashboard-priority-lifestyle-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          margin: 0 0 10px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          background: rgba(148, 163, 184, 0.1);
+          border: 1px solid rgba(148, 163, 184, 0.25);
+          font-size: 10.5px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: var(--color-text-muted);
+          width: fit-content;
+        }
+        .dashboard-priority-product-meta {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          flex: 1;
+          gap: 2px;
+        }
+        .dashboard-priority-product-name {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--color-text-primary);
+          line-height: 1.25;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .dashboard-priority-product-sub {
+          font-size: 10px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          color: var(--color-text-muted);
+        }
+        .dashboard-priority-cta-buy--muted {
+          background: var(--color-surface);
+          color: var(--color-text-primary);
+          border: 1px solid var(--color-border);
+        }
+        .dashboard-priority-cta-buy--muted:hover {
+          border-color: var(--color-accent);
+          color: var(--color-accent);
         }
         .dashboard-priority-flip-tap {
           font-size: 9px;

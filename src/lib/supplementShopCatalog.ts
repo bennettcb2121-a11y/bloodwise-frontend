@@ -1328,6 +1328,757 @@ export const SUPPLEMENT_SHOP_CATALOG: Record<string, SupplementShopEntry> = {
     },
   },
 
+  b_complex: {
+    presetId: "b_complex",
+    displayName: "B-Complex",
+    category: "vitamin",
+    overview:
+      "A good B-complex covers eight water-soluble B vitamins at once. Useful for people with poor diet quality, vegans/vegetarians, or high training loads. Use active (methyl) forms when you can.",
+    caution:
+      "High doses of pyridoxine (B6) — consistently above 50–100 mg/day — can cause neuropathy. Pick a product with B6 ≤ 50 mg for daily use.",
+    products: {
+      cheapest: {
+        tier: "cheapest",
+        tierLabel: "Best deal",
+        brand: "Nature Made",
+        productName: "Super B-Complex",
+        dose: "Standard B1–B12 coverage per tablet",
+        approxPrice: "$10–15",
+        why: "USP verified, reliably meets label claims, drugstore pricing.",
+        asin: null,
+        amazonSearchQuery: "Nature Made Super B Complex USP Verified",
+      },
+      highest_potency: {
+        tier: "highest_potency",
+        tierLabel: "Highest potency",
+        brand: "Thorne",
+        productName: "Basic B Complex",
+        dose: "Active-form Bs, B6 at 10 mg (safe long-term)",
+        approxPrice: "$25–35",
+        why: "Methylated Bs and safer B6 dosing — what most functional-medicine protocols use.",
+        asin: null,
+        amazonSearchQuery: "Thorne Basic B Complex",
+      },
+      best_overall: {
+        tier: "best_overall",
+        tierLabel: "Best overall",
+        brand: "Jarrow Formulas",
+        productName: "B-Right B Complex",
+        dose: "Active-form Bs, balanced dosing",
+        approxPrice: "$15–20",
+        why: "Longstanding methylated B-complex at a reasonable price — very common recommendation.",
+        asin: null,
+        amazonSearchQuery: "Jarrow B-Right B Complex",
+      },
+    },
+    labAwareness: {
+      biomarker: null,
+      notes: {
+        optimal: "A B-complex is an insurance policy — most helpful if diet is inconsistent or you train hard.",
+        maintenance: "A B-complex is an insurance policy — most helpful if diet is inconsistent or you train hard.",
+        priority: "A B-complex is an insurance policy — most helpful if diet is inconsistent or you train hard.",
+        unknown: "No specific lab tracks this. Low-risk daily — pick one with B6 ≤ 50 mg and B12 in the active (methyl) form.",
+      },
+    },
+  },
+
+  biotin: {
+    presetId: "biotin",
+    displayName: "Biotin (B7)",
+    category: "vitamin",
+    overview:
+      "Biotin is often marketed for hair, skin, and nails. True deficiency is rare, and most trials are underpowered. Usually unnecessary unless you have a diagnosed deficiency.",
+    caution:
+      "High-dose biotin (> 5,000 mcg) can interfere with thyroid, troponin, and hormone lab tests — tell your provider if you're supplementing.",
+    products: {
+      cheapest: {
+        tier: "cheapest",
+        tierLabel: "Best deal",
+        brand: "Nature's Bounty",
+        productName: "Biotin 1,000 mcg",
+        dose: "1,000 mcg per softgel",
+        approxPrice: "$8–12",
+        why: "Conservative dose (enough for most adults); cheap enough not to feel wasteful.",
+        asin: null,
+        amazonSearchQuery: "Nature's Bounty Biotin 1000 mcg",
+      },
+      highest_potency: {
+        tier: "highest_potency",
+        tierLabel: "Highest potency",
+        brand: "NOW Foods",
+        productName: "Biotin 5,000 mcg",
+        dose: "5,000 mcg per capsule",
+        approxPrice: "$10–15",
+        why: "Upper end of what's commonly sold — stop 2 days before blood draws to avoid assay interference.",
+        asin: null,
+        amazonSearchQuery: "NOW Foods Biotin 5000 mcg",
+      },
+      best_overall: {
+        tier: "best_overall",
+        tierLabel: "Best overall",
+        brand: "Nutricost",
+        productName: "Biotin 1,000 mcg",
+        dose: "1,000 mcg per capsule",
+        approxPrice: "$8–12",
+        why: "Conservative dose, clean label. If you're buying biotin, start here — megadoses rarely add benefit.",
+        asin: null,
+        amazonSearchQuery: "Nutricost Biotin 1000 mcg",
+      },
+    },
+    labAwareness: {
+      biomarker: null,
+      notes: {
+        optimal: "Biotin deficiency is rare. Unless hair/nail issues are severe and persistent, a multivitamin covers your need.",
+        maintenance: "Biotin deficiency is rare. Unless hair/nail issues are severe and persistent, a multivitamin covers your need.",
+        priority: "Biotin deficiency is rare. Unless hair/nail issues are severe and persistent, a multivitamin covers your need.",
+        unknown: "Low-risk at conservative doses. If you're going to test hormones or thyroid, pause biotin 2 days before.",
+      },
+    },
+  },
+
+  vitamin_e: {
+    presetId: "vitamin_e",
+    displayName: "Vitamin E",
+    category: "vitamin",
+    overview:
+      "Vitamin E is a fat-soluble antioxidant. Most adults get enough from diet. High-dose supplementation has been linked to mixed outcomes and bleeding risk — treat this as food-first.",
+    caution:
+      "Can increase bleeding risk — caution with anticoagulants and before surgery. Avoid doses > 400 IU/day long-term without clinician input.",
+    products: {
+      cheapest: {
+        tier: "cheapest",
+        tierLabel: "Best deal",
+        brand: "Nature Made",
+        productName: "Vitamin E 180 mg (400 IU)",
+        dose: "180 mg (400 IU) dl-alpha-tocopherol",
+        approxPrice: "$10–15",
+        why: "USP verified; conservative mainstream option.",
+        asin: null,
+        amazonSearchQuery: "Nature Made Vitamin E 400 IU USP",
+      },
+      highest_potency: {
+        tier: "highest_potency",
+        tierLabel: "Highest potency",
+        brand: "NOW Foods",
+        productName: "Natural E-400 Mixed Tocopherols",
+        dose: "400 IU mixed tocopherols per softgel",
+        approxPrice: "$15–20",
+        why: "Mixed-tocopherol form (closer to food); natural d-alpha source.",
+        asin: null,
+        amazonSearchQuery: "NOW Foods Natural E-400 Mixed Tocopherols",
+      },
+      best_overall: {
+        tier: "best_overall",
+        tierLabel: "Best overall",
+        brand: "Pure Encapsulations",
+        productName: "Vitamin E (Mixed Tocopherols) 400 IU",
+        dose: "400 IU mixed tocopherols",
+        approxPrice: "$20–30",
+        why: "Hypoallergenic, mixed tocopherols, clean label. Most thoughtful pick if you're going to supplement E.",
+        asin: null,
+        amazonSearchQuery: "Pure Encapsulations Vitamin E Mixed Tocopherols",
+      },
+    },
+    labAwareness: {
+      biomarker: null,
+      notes: {
+        optimal: "Vitamin E is best earned through food (nuts, seeds, leafy greens). Supplementation is rarely a priority.",
+        maintenance: "Vitamin E is best earned through food (nuts, seeds, leafy greens). Supplementation is rarely a priority.",
+        priority: "Vitamin E is best earned through food (nuts, seeds, leafy greens). Supplementation is rarely a priority.",
+        unknown: "No standard lab tracks this. Food-first is the cleanest path.",
+      },
+    },
+  },
+
+  calcium: {
+    presetId: "calcium",
+    displayName: "Calcium",
+    category: "mineral",
+    overview:
+      "Calcium is critical for bone and muscle. Food is the best delivery mechanism. Supplementation makes sense when diet is clearly low (e.g. non-dairy, minimal leafy greens/fortified foods).",
+    caution:
+      "Calcium supplements have been associated with cardiovascular concerns at high doses in some studies. Don't exceed 1,000 mg/day from supplements, and always take with vitamin K2 + D3 context.",
+    products: {
+      cheapest: {
+        tier: "cheapest",
+        tierLabel: "Best deal",
+        brand: "Citracal",
+        productName: "Calcium Citrate + D3",
+        dose: "500 mg calcium + 500 IU D3 per 2 caplets",
+        approxPrice: "$12–18",
+        why: "Citrate form absorbs with or without food — easier on the stomach than carbonate.",
+        asin: null,
+        amazonSearchQuery: "Citracal Calcium Citrate Plus D3",
+      },
+      highest_potency: {
+        tier: "highest_potency",
+        tierLabel: "Highest potency",
+        brand: "Bluebonnet",
+        productName: "Calcium Citrate Magnesium Plus Vitamin D3",
+        dose: "500 mg Ca + 200 mg Mg + 400 IU D3",
+        approxPrice: "$20–30",
+        why: "Higher-dose combo that also includes magnesium — the nutrient most often deficient alongside calcium.",
+        asin: null,
+        amazonSearchQuery: "Bluebonnet Calcium Citrate Magnesium Vitamin D3",
+      },
+      best_overall: {
+        tier: "best_overall",
+        tierLabel: "Best overall",
+        brand: "NOW Foods",
+        productName: "Calcium & Magnesium with Vitamin D3 and Zinc",
+        dose: "500 mg Ca + 250 mg Mg + 400 IU D3 per 2 tablets",
+        approxPrice: "$15–20",
+        why: "Balanced Ca/Mg ratio, vitamin D included — the pattern most clinicians prefer.",
+        asin: null,
+        amazonSearchQuery: "NOW Foods Calcium Magnesium Vitamin D3 Zinc",
+      },
+    },
+    labAwareness: {
+      biomarker: null,
+      notes: {
+        optimal:
+          "Calcium is best from food — dairy, fortified foods, leafy greens. Don't supplement unless your diet is clearly low.",
+        maintenance:
+          "Calcium is best from food — dairy, fortified foods, leafy greens. Don't supplement unless your diet is clearly low.",
+        priority:
+          "Calcium is best from food — dairy, fortified foods, leafy greens. Don't supplement unless your diet is clearly low.",
+        unknown:
+          "Serum calcium rarely reflects intake. If you don't eat dairy/greens, 500 mg with D3 is reasonable.",
+      },
+    },
+  },
+
+  potassium: {
+    presetId: "potassium",
+    displayName: "Potassium",
+    category: "mineral",
+    overview:
+      "Most adults get less than half the recommended potassium (4,700 mg/day). OTC supplements are capped at 99 mg/serving — the real move is food (bananas, potatoes, beans, leafy greens).",
+    caution:
+      "Do NOT supplement potassium beyond OTC doses without clinician input, especially if you have kidney issues, are on ACE-inhibitors, ARBs, or potassium-sparing diuretics.",
+    products: {
+      cheapest: {
+        tier: "cheapest",
+        tierLabel: "Best deal",
+        brand: "NOW Foods",
+        productName: "Potassium Chloride 99 mg",
+        dose: "99 mg per capsule",
+        approxPrice: "$8–12",
+        why: "OTC cap — useful as a small boost alongside a potassium-rich diet.",
+        asin: null,
+        amazonSearchQuery: "NOW Foods Potassium Chloride 99 mg",
+      },
+      highest_potency: {
+        tier: "highest_potency",
+        tierLabel: "Highest potency",
+        brand: "LMNT",
+        productName: "Recharge Electrolytes (200 mg K+/stick)",
+        dose: "200 mg potassium per stick",
+        approxPrice: "$45 / 30 sticks",
+        why: "Electrolyte stick packs deliver more potassium per serving than a capsule — and the sodium helps retention.",
+        asin: null,
+        amazonSearchQuery: "LMNT Recharge Electrolytes",
+      },
+      best_overall: {
+        tier: "best_overall",
+        tierLabel: "Best overall",
+        brand: "Nu-Salt or Morton Lite Salt",
+        productName: "Potassium Salt Substitute",
+        dose: "~500 mg potassium per 1/4 tsp",
+        approxPrice: "$5–10",
+        why: "The cheapest, highest-leverage way to raise potassium is a salt substitute — used as you would normal salt.",
+        asin: null,
+        amazonSearchQuery: "Morton Lite Salt Potassium",
+      },
+    },
+    labAwareness: {
+      biomarker: null,
+      notes: {
+        optimal: "Potassium is a food-first fix — bananas, potatoes, beans, leafy greens. Capsules are capped too low to matter much.",
+        maintenance: "Potassium is a food-first fix — bananas, potatoes, beans, leafy greens. Capsules are capped too low to matter much.",
+        priority: "If a lab flags low potassium, don't self-supplement — that's a clinician conversation. Focus on food.",
+        unknown: "Low-risk to add food sources; be cautious with supplements if you have any kidney disease or on ACE/ARB meds.",
+      },
+    },
+  },
+
+  selenium: {
+    presetId: "selenium",
+    displayName: "Selenium",
+    category: "mineral",
+    overview:
+      "Selenium supports thyroid function and antioxidant pathways. 2 Brazil nuts per day cover the daily need — most Americans are not deficient.",
+    caution:
+      "UL is 400 mcg/day; selenium toxicity (hair loss, GI issues, brittle nails) happens fastest with supplements. Don't stack multiple products containing selenium.",
+    products: {
+      cheapest: {
+        tier: "cheapest",
+        tierLabel: "Best deal",
+        brand: "NOW Foods",
+        productName: "Selenium 200 mcg",
+        dose: "200 mcg selenomethionine per tablet",
+        approxPrice: "$8–12",
+        why: "Selenomethionine form absorbs well; standard daily dose.",
+        asin: null,
+        amazonSearchQuery: "NOW Foods Selenium 200 mcg",
+      },
+      highest_potency: {
+        tier: "highest_potency",
+        tierLabel: "Highest potency",
+        brand: "Thorne",
+        productName: "Selenomethionine 200 mcg",
+        dose: "200 mcg selenomethionine per capsule",
+        approxPrice: "$15–20",
+        why: "NSF-certified selenomethionine; the pick when used in thyroid/Hashimoto's protocols.",
+        asin: null,
+        amazonSearchQuery: "Thorne Selenomethionine 200 mcg",
+      },
+      best_overall: {
+        tier: "best_overall",
+        tierLabel: "Best overall",
+        brand: "Pure Encapsulations",
+        productName: "Selenium 200 mcg (Selenomethionine)",
+        dose: "200 mcg per capsule",
+        approxPrice: "$15–25",
+        why: "Hypoallergenic, clean label — most popular clinician pick for short-course use.",
+        asin: null,
+        amazonSearchQuery: "Pure Encapsulations Selenium 200 mcg",
+      },
+    },
+    labAwareness: {
+      biomarker: null,
+      notes: {
+        optimal: "Selenium is rarely deficient in the US. Unless you're in a thyroid protocol, two Brazil nuts a day beats a capsule.",
+        maintenance: "Selenium is rarely deficient in the US. Unless you're in a thyroid protocol, two Brazil nuts a day beats a capsule.",
+        priority: "Selenium supplementation is usually clinician-led (thyroid context). Don't megadose on your own.",
+        unknown: "No standard panel tracks this. Short-term use (200 mcg/day, < 3 months) is low-risk for most adults.",
+      },
+    },
+  },
+
+  iodine: {
+    presetId: "iodine",
+    displayName: "Iodine",
+    category: "mineral",
+    overview:
+      "Iodine is critical for thyroid function. Most people on a Western diet get enough from iodized salt, dairy, and seafood. Supplementation is mainly for pregnancy, or people avoiding iodized salt.",
+    caution:
+      "Too much iodine can trigger thyroid issues (especially Hashimoto's or existing nodules). Don't take high-dose iodine (kelp/iodoral) without clinician input.",
+    products: {
+      cheapest: {
+        tier: "cheapest",
+        tierLabel: "Best deal",
+        brand: "Nature's Bounty",
+        productName: "Iodine from Kelp 150 mcg",
+        dose: "150 mcg per softgel",
+        approxPrice: "$6–10",
+        why: "Covers RDA for non-pregnant adults at low cost.",
+        asin: null,
+        amazonSearchQuery: "Nature's Bounty Kelp Iodine 150 mcg",
+      },
+      highest_potency: {
+        tier: "highest_potency",
+        tierLabel: "Highest potency",
+        brand: "Optimox",
+        productName: "Iodoral 12.5 mg",
+        dose: "12.5 mg iodine/iodide per tablet",
+        approxPrice: "$30–40",
+        why: "High-dose Lugol's-style iodine — strictly clinician-led territory. Not for casual use.",
+        asin: null,
+        amazonSearchQuery: "Optimox Iodoral 12.5 mg",
+      },
+      best_overall: {
+        tier: "best_overall",
+        tierLabel: "Best overall",
+        brand: "Pure Encapsulations",
+        productName: "Iodine & Tyrosine",
+        dose: "225 mcg iodine + tyrosine per capsule",
+        approxPrice: "$25–35",
+        why: "Moderate dose with tyrosine pairing (both thyroid hormone precursors). Clinician favorite for sluggish thyroid presentations.",
+        asin: null,
+        amazonSearchQuery: "Pure Encapsulations Iodine Tyrosine",
+      },
+    },
+    labAwareness: {
+      biomarker: null,
+      notes: {
+        optimal: "Iodine is handled through diet for most people. Supplement only if you avoid iodized salt and seafood.",
+        maintenance: "Iodine is handled through diet for most people. Supplement only if you avoid iodized salt and seafood.",
+        priority: "Iodine supplementation is tightly linked to thyroid labs — clinician-led. Don't megadose on your own.",
+        unknown: "Low-dose (≤ 150 mcg) is low-risk; high-dose can trigger thyroid issues.",
+      },
+    },
+  },
+
+  chromium: {
+    presetId: "chromium",
+    displayName: "Chromium",
+    category: "mineral",
+    overview:
+      "Chromium picolinate is studied for glycemic control, with modest and mixed results. Not a front-line intervention — lifestyle and diet win.",
+    products: {
+      cheapest: {
+        tier: "cheapest",
+        tierLabel: "Best deal",
+        brand: "NOW Foods",
+        productName: "Chromium Picolinate 200 mcg",
+        dose: "200 mcg per capsule",
+        approxPrice: "$8–12",
+        why: "Standard studied dose at the lowest practical cost.",
+        asin: null,
+        amazonSearchQuery: "NOW Foods Chromium Picolinate 200 mcg",
+      },
+      highest_potency: {
+        tier: "highest_potency",
+        tierLabel: "Highest potency",
+        brand: "Nature's Bounty",
+        productName: "Chromium Picolinate 800 mcg",
+        dose: "800 mcg per tablet",
+        approxPrice: "$12–18",
+        why: "Upper end of studied doses — used in some blood-sugar protocols.",
+        asin: null,
+        amazonSearchQuery: "Nature's Bounty Chromium Picolinate 800 mcg",
+      },
+      best_overall: {
+        tier: "best_overall",
+        tierLabel: "Best overall",
+        brand: "Thorne",
+        productName: "Chromium Picolinate 500 mcg",
+        dose: "500 mcg per capsule",
+        approxPrice: "$15–25",
+        why: "NSF-certified mid-dose — the least noisy pick for people trialing chromium alongside diet changes.",
+        asin: null,
+        amazonSearchQuery: "Thorne Chromium Picolinate 500 mcg",
+      },
+    },
+    labAwareness: {
+      biomarker: "HbA1c",
+      biomarkerAliases: ["A1c", "Fasting Glucose", "Glucose"],
+      notes: {
+        optimal: "Your glycemic markers look good. Chromium isn't needed — it's only modestly useful even in elevated contexts.",
+        maintenance: "Borderline glycemic markers respond much better to diet + activity than to chromium.",
+        priority: "Chromium has mixed evidence for glucose control. If you're going to trial one glucose supplement, berberine has stronger data.",
+        unknown: "Low-risk at standard doses. Treat it as a minor adjunct, not a primary lever.",
+      },
+    },
+  },
+
+  bcaa: {
+    presetId: "bcaa",
+    displayName: "BCAAs",
+    category: "amino",
+    overview:
+      "BCAAs (leucine, isoleucine, valine) are usually unnecessary if you hit your daily protein target — whole protein already contains them. Occasionally useful for fasted training or plant-based athletes.",
+    products: {
+      cheapest: {
+        tier: "cheapest",
+        tierLabel: "Best deal",
+        brand: "Nutricost",
+        productName: "BCAA Powder (Unflavored)",
+        dose: "6 g per scoop (2:1:1 ratio)",
+        approxPrice: "$20–25",
+        why: "Lowest cost/gram; unflavored lets you mix into water without added sweeteners.",
+        asin: null,
+        amazonSearchQuery: "Nutricost BCAA Powder Unflavored",
+      },
+      highest_potency: {
+        tier: "highest_potency",
+        tierLabel: "Highest potency",
+        brand: "Scivation",
+        productName: "Xtend Original BCAA",
+        dose: "7 g BCAAs + electrolytes per scoop",
+        approxPrice: "$30–40",
+        why: "The BCAA most commonly used in training — includes electrolytes for intra-workout use.",
+        asin: null,
+        amazonSearchQuery: "Scivation Xtend Original BCAA",
+      },
+      best_overall: {
+        tier: "best_overall",
+        tierLabel: "Best overall",
+        brand: "Bulk Supplements",
+        productName: "BCAA Powder (Unflavored)",
+        dose: "5 g per serving (2:1:1)",
+        approxPrice: "$15–25",
+        why: "Clean, cheap, third-party tested. Honestly, most people are better off just eating more protein.",
+        asin: null,
+        amazonSearchQuery: "Bulk Supplements BCAA Powder",
+      },
+    },
+    labAwareness: {
+      biomarker: null,
+      notes: {
+        optimal: "If you're hitting ~0.7–1 g protein per pound of bodyweight, BCAAs are redundant.",
+        maintenance: "If you're hitting ~0.7–1 g protein per pound of bodyweight, BCAAs are redundant.",
+        priority: "If you're hitting ~0.7–1 g protein per pound of bodyweight, BCAAs are redundant.",
+        unknown: "No lab. Useful specifically for fasted training or plant-based athletes. Otherwise, food beats this.",
+      },
+    },
+  },
+
+  glutamine: {
+    presetId: "glutamine",
+    displayName: "L-Glutamine",
+    category: "amino",
+    overview:
+      "L-glutamine is a popular gut-support and recovery amino. Evidence is strongest in critical-illness settings; recreational use benefit is small-to-modest.",
+    products: {
+      cheapest: {
+        tier: "cheapest",
+        tierLabel: "Best deal",
+        brand: "Nutricost",
+        productName: "L-Glutamine Powder",
+        dose: "5 g per scoop",
+        approxPrice: "$15–20",
+        why: "Lowest cost per gram; mixes cleanly into water.",
+        asin: null,
+        amazonSearchQuery: "Nutricost L-Glutamine Powder",
+      },
+      highest_potency: {
+        tier: "highest_potency",
+        tierLabel: "Highest potency",
+        brand: "Thorne",
+        productName: "L-Glutamine Powder",
+        dose: "5 g per scoop",
+        approxPrice: "$35–45",
+        why: "NSF-certified; clinician favorite for gut protocols (e.g. post-antibiotic, IBS-D work).",
+        asin: null,
+        amazonSearchQuery: "Thorne L-Glutamine Powder",
+      },
+      best_overall: {
+        tier: "best_overall",
+        tierLabel: "Best overall",
+        brand: "Designs for Health",
+        productName: "GI Revive or Glutamine Powder",
+        dose: "5 g glutamine per scoop",
+        approxPrice: "$30–40",
+        why: "Clinician-grade; use as part of a gut repair protocol rather than daily recovery.",
+        asin: null,
+        amazonSearchQuery: "Designs for Health L-Glutamine Powder",
+      },
+    },
+    labAwareness: {
+      biomarker: null,
+      notes: {
+        optimal: "L-glutamine is a targeted gut-support amino. Rarely useful for general recovery.",
+        maintenance: "L-glutamine is a targeted gut-support amino. Rarely useful for general recovery.",
+        priority: "L-glutamine is a targeted gut-support amino. Rarely useful for general recovery.",
+        unknown: "No lab. Low-risk daily. Most useful after antibiotics or for GI protocols.",
+      },
+    },
+  },
+
+  beta_alanine: {
+    presetId: "beta_alanine",
+    displayName: "Beta-Alanine",
+    category: "amino",
+    overview:
+      "Beta-alanine raises muscle carnosine, buffering acid during high-intensity efforts lasting 1–4 minutes. Real but modest performance effect. Expect tingles (paresthesia) — harmless.",
+    products: {
+      cheapest: {
+        tier: "cheapest",
+        tierLabel: "Best deal",
+        brand: "Nutricost",
+        productName: "Beta-Alanine Powder",
+        dose: "3–5 g per scoop",
+        approxPrice: "$15–20",
+        why: "Lowest cost, unflavored, IFOS-style third-party testing.",
+        asin: null,
+        amazonSearchQuery: "Nutricost Beta-Alanine Powder",
+      },
+      highest_potency: {
+        tier: "highest_potency",
+        tierLabel: "Highest potency",
+        brand: "Optimum Nutrition",
+        productName: "CarnoSyn Beta-Alanine",
+        dose: "3 g CarnoSyn per scoop",
+        approxPrice: "$25–35",
+        why: "Branded CarnoSyn is the form used in most performance trials.",
+        asin: null,
+        amazonSearchQuery: "Optimum Nutrition CarnoSyn Beta-Alanine",
+      },
+      best_overall: {
+        tier: "best_overall",
+        tierLabel: "Best overall",
+        brand: "Bulk Supplements",
+        productName: "CarnoSyn Beta-Alanine",
+        dose: "3.2 g per scoop",
+        approxPrice: "$20–25",
+        why: "CarnoSyn form at a fair price — the most-used performance dose.",
+        asin: null,
+        amazonSearchQuery: "Bulk Supplements CarnoSyn Beta-Alanine",
+      },
+    },
+    labAwareness: {
+      biomarker: null,
+      notes: {
+        optimal: "Beta-alanine is a performance supplement, not a lab-driven one.",
+        maintenance: "Beta-alanine is a performance supplement, not a lab-driven one.",
+        priority: "Beta-alanine is a performance supplement, not a lab-driven one.",
+        unknown: "No lab. Useful specifically for high-intensity 1–4 minute efforts. Split daily dose to reduce tingling.",
+      },
+    },
+  },
+
+  citrulline: {
+    presetId: "citrulline",
+    displayName: "L-Citrulline / Citrulline Malate",
+    category: "amino",
+    overview:
+      "Citrulline raises plasma arginine and supports nitric-oxide production, with modest evidence for high-rep muscular endurance. Typical dose: 6–8 g of citrulline malate (or 3–5 g L-citrulline) pre-workout.",
+    products: {
+      cheapest: {
+        tier: "cheapest",
+        tierLabel: "Best deal",
+        brand: "Nutricost",
+        productName: "Citrulline Malate 2:1 Powder",
+        dose: "6 g per scoop",
+        approxPrice: "$15–20",
+        why: "Lowest cost/gram in the 2:1 form; unflavored.",
+        asin: null,
+        amazonSearchQuery: "Nutricost Citrulline Malate 2:1 Powder",
+      },
+      highest_potency: {
+        tier: "highest_potency",
+        tierLabel: "Highest potency",
+        brand: "Bulk Supplements",
+        productName: "L-Citrulline Powder (Pure)",
+        dose: "3–5 g per scoop",
+        approxPrice: "$20–30",
+        why: "Pure L-citrulline — slightly higher per-gram effect than malate form.",
+        asin: null,
+        amazonSearchQuery: "Bulk Supplements L-Citrulline Powder",
+      },
+      best_overall: {
+        tier: "best_overall",
+        tierLabel: "Best overall",
+        brand: "Thorne",
+        productName: "NiaCel or pure L-Citrulline",
+        dose: "3 g L-citrulline per scoop",
+        approxPrice: "$30–40",
+        why: "NSF-certified; the clinician/coach pick when pre-workout purity matters.",
+        asin: null,
+        amazonSearchQuery: "Thorne L-Citrulline",
+      },
+    },
+    labAwareness: {
+      biomarker: null,
+      notes: {
+        optimal: "Citrulline is a pre-workout endurance tool, not a lab-driven supplement.",
+        maintenance: "Citrulline is a pre-workout endurance tool, not a lab-driven supplement.",
+        priority: "Citrulline is a pre-workout endurance tool, not a lab-driven supplement.",
+        unknown: "Low-risk at standard doses. Take 30–60 min before training.",
+      },
+    },
+  },
+
+  prenatal: {
+    presetId: "prenatal",
+    displayName: "Prenatal Multivitamin",
+    category: "vitamin",
+    overview:
+      "Prenatals cover the nutrients that matter most in preconception and pregnancy: folate (ideally as methylfolate), iron, choline, iodine, DHA, vitamin D. Start before conception when possible.",
+    caution:
+      "Always choose a prenatal with methylated folate (not just folic acid), iron, iodine, choline, and DHA. Talk to your OB about product choice — especially if you have MTHFR variants or PCOS.",
+    products: {
+      cheapest: {
+        tier: "cheapest",
+        tierLabel: "Best deal",
+        brand: "One A Day",
+        productName: "Women's Prenatal 1 + DHA",
+        dose: "1 softgel + 1 tablet daily",
+        approxPrice: "$15–20",
+        why: "Drugstore reliable; covers the basics for most non-MTHFR pregnancies.",
+        asin: null,
+        amazonSearchQuery: "One A Day Women's Prenatal 1 DHA",
+      },
+      highest_potency: {
+        tier: "highest_potency",
+        tierLabel: "Highest potency",
+        brand: "Seeking Health",
+        productName: "Optimal Prenatal",
+        dose: "8 capsules daily",
+        approxPrice: "$50–65",
+        why: "Methylfolate, methyl-B12, choline, iron — the most-complete prenatal on the market. Volume is the trade-off.",
+        asin: null,
+        amazonSearchQuery: "Seeking Health Optimal Prenatal",
+      },
+      best_overall: {
+        tier: "best_overall",
+        tierLabel: "Best overall",
+        brand: "Ritual",
+        productName: "Essential Prenatal",
+        dose: "2 capsules daily",
+        approxPrice: "$40–50",
+        why: "Clean label, methylfolate + choline + DHA included, 2-cap regimen — the one most women actually stick with.",
+        asin: null,
+        amazonSearchQuery: "Ritual Essential Prenatal",
+      },
+    },
+    labAwareness: {
+      biomarker: null,
+      notes: {
+        optimal: "If you're trying to conceive, pregnant, or breastfeeding — take a prenatal daily, regardless of labs.",
+        maintenance: "If you're trying to conceive, pregnant, or breastfeeding — take a prenatal daily, regardless of labs.",
+        priority: "If you're trying to conceive, pregnant, or breastfeeding — take a prenatal daily, regardless of labs.",
+        unknown: "Take daily when relevant. Discuss product choice with your OB, especially regarding folate form and iron.",
+      },
+    },
+  },
+
+  greens_powder: {
+    presetId: "greens_powder",
+    displayName: "Greens Powder",
+    category: "other",
+    overview:
+      "Greens powders won't replace vegetables, but they can close a gap on low-fiber or travel days. Look for products with real nutritional data, not proprietary blends hiding in marketing.",
+    caution:
+      "Proprietary-blend greens powders with big herb lists can interact with medications. Stick to simpler formulas.",
+    products: {
+      cheapest: {
+        tier: "cheapest",
+        tierLabel: "Best deal",
+        brand: "Amazing Grass",
+        productName: "Green Superfood Original",
+        dose: "1 scoop (~7 g) daily",
+        approxPrice: "$20–30",
+        why: "Affordable starter; wheatgrass/spirulina/alfalfa base — the veggie-powder gold standard.",
+        asin: null,
+        amazonSearchQuery: "Amazing Grass Green Superfood Original",
+      },
+      highest_potency: {
+        tier: "highest_potency",
+        tierLabel: "Highest potency",
+        brand: "Athletic Greens",
+        productName: "AG1 Daily Greens",
+        dose: "1 scoop (~12 g) daily",
+        approxPrice: "$80–100",
+        why: "Comprehensive — greens, adaptogens, pre/probiotics. Expensive, but broadly formulated.",
+        asin: null,
+        amazonSearchQuery: "Athletic Greens AG1",
+      },
+      best_overall: {
+        tier: "best_overall",
+        tierLabel: "Best overall",
+        brand: "Amazing Grass",
+        productName: "Greens Blend Superfood",
+        dose: "1 scoop daily",
+        approxPrice: "$25–35",
+        why: "Better balance of cost and ingredient transparency than premium options. Honestly, a salad is still better.",
+        asin: null,
+        amazonSearchQuery: "Amazing Grass Greens Blend Superfood",
+      },
+    },
+    labAwareness: {
+      biomarker: null,
+      notes: {
+        optimal: "Greens powders are a gap-filler — useful on travel/low-vegetable days, not a replacement for food.",
+        maintenance: "Greens powders are a gap-filler — useful on travel/low-vegetable days, not a replacement for food.",
+        priority: "Greens powders are a gap-filler — useful on travel/low-vegetable days, not a replacement for food.",
+        unknown: "Low-risk at standard doses. Skip products with huge proprietary blends — they're marketing, not science.",
+      },
+    },
+  },
+
   melatonin: {
     presetId: "melatonin",
     displayName: "Melatonin",
@@ -1391,4 +2142,27 @@ export function getCuratedPresetIds(): string[] {
 /** Lookup a full catalog entry by preset id. */
 export function getShopEntryForPreset(presetId: string): SupplementShopEntry | null {
   return SUPPLEMENT_SHOP_CATALOG[presetId] ?? null
+}
+
+/**
+ * Reverse lookup: given a biomarker name (e.g. "Vitamin D", "Ferritin", "LDL-C"),
+ * return the catalog entry whose `labAwareness.biomarker` matches — this is the
+ * supplement Clarion would recommend when that biomarker is suboptimal.
+ *
+ * Used by the "Personalized picks" page to surface concrete products for any
+ * biomarker that isn't already covered by the smaller `affiliateProducts.ts`
+ * curation.
+ */
+export function getShopEntryForBiomarker(biomarkerName: string): SupplementShopEntry | null {
+  if (!biomarkerName) return null
+  const needle = biomarkerName.trim().toLowerCase()
+  for (const entry of Object.values(SUPPLEMENT_SHOP_CATALOG)) {
+    const candidates = [entry.labAwareness.biomarker, ...(entry.labAwareness.biomarkerAliases ?? [])]
+      .filter((v): v is string => typeof v === "string")
+      .map((v) => v.trim().toLowerCase())
+    if (candidates.some((c) => c === needle || needle.includes(c) || c.includes(needle))) {
+      return entry
+    }
+  }
+  return null
 }
