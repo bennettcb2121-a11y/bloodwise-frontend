@@ -16,6 +16,10 @@ import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
 import { SupportContactHint } from "@/src/components/SupportContactHints"
 import { PricingTiers } from "@/src/components/PricingTiers"
 import { ComplianceFooter } from "@/src/components/ComplianceFooter"
+import {
+  LiveModeChargeWarning,
+  wasAcknowledgedInSession,
+} from "@/src/components/LiveModeChargeWarning"
 
 export default function PaywallPage() {
   const router = useRouter()
@@ -32,6 +36,16 @@ export default function PaywallPage() {
   const [accessView, setAccessView] = useState<"loading" | "subscribed" | "paywall" | "redirect">("loading")
   /** Optional ?showLite=1 query param surfaces the legacy Clarion Lite compare/CTA for testing. */
   const [showLite, setShowLite] = useState(false)
+  /**
+   * Launch-week safety: interstitial warning that this is a real charge (Stripe was in
+   * test mode during beta). `pendingCheckout` holds the handler to run after the user
+   * acknowledges; we show the modal every session until we retire it.
+   */
+  const [pendingCheckout, setPendingCheckout] = useState<null | {
+    label: string
+    interval: string
+    run: () => void
+  }>(null)
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -77,7 +91,9 @@ export default function PaywallPage() {
       .catch(() => setAccessView("paywall"))
   }, [user?.id, router])
 
-  async function handleLiteCheckout() {
+  // Actual checkout API calls. These are invoked only after the live-mode warning has
+  // been acknowledged (either just now, or earlier in this session).
+  async function runLiteCheckout() {
     setError(null)
     setLiteError(null)
     setLiteCheckoutLoading(true)
@@ -105,7 +121,7 @@ export default function PaywallPage() {
     }
   }
 
-  async function handleUnlock(tier: "analysis" | "monthly" = "analysis") {
+  async function runAnalysisCheckout(tier: "analysis" | "monthly" = "analysis") {
     setError(null)
     setLiteError(null)
     setCheckoutLoading(true)
@@ -140,6 +156,36 @@ export default function PaywallPage() {
     } finally {
       setCheckoutLoading(false)
     }
+  }
+
+  // Entry points used by the CTA buttons. If the launch-week warning hasn't been
+  // acknowledged in this tab yet, show it and queue the real handler; otherwise run
+  // immediately.
+  function handleLiteCheckout() {
+    if (wasAcknowledgedInSession()) {
+      void runLiteCheckout()
+      return
+    }
+    setPendingCheckout({
+      label: `$${litePrice}`,
+      interval: "every month",
+      run: () => { void runLiteCheckout() },
+    })
+  }
+
+  function handleUnlock(tier: "analysis" | "monthly" = "analysis") {
+    if (wasAcknowledgedInSession()) {
+      void runAnalysisCheckout(tier)
+      return
+    }
+    // The $49 one-time analysis is always the first charge, regardless of which
+    // marketing CTA (Tier 2 "analysis" vs Tier 3 "monthly") the user clicked —
+    // you can't reach the $29/2mo subscription without buying the $49 analysis first.
+    setPendingCheckout({
+      label: "$49",
+      interval: "one-time",
+      run: () => { void runAnalysisCheckout(tier) },
+    })
   }
 
   async function handleRedeemCode(e: React.FormEvent) {
@@ -280,7 +326,9 @@ export default function PaywallPage() {
         <ComplianceFooter variant="footer" />
 
         <div className="paywall-code-wrap">
-          <p className="paywall-code-label">Have a free Clarion unlock code?</p>
+          <p className="paywall-code-label">
+            Have a Clarion unlock or friends-and-family code?
+          </p>
           <form onSubmit={handleRedeemCode} className="paywall-code-form">
             <input
               type="text"
@@ -315,6 +363,17 @@ export default function PaywallPage() {
           <Link href="/login">← Back to sign in</Link>
         </p>
       </div>
+      <LiveModeChargeWarning
+        open={pendingCheckout !== null}
+        amountLabel={pendingCheckout?.label ?? "$49"}
+        interval={pendingCheckout?.interval ?? "one-time"}
+        onCancel={() => setPendingCheckout(null)}
+        onProceed={() => {
+          const run = pendingCheckout?.run
+          setPendingCheckout(null)
+          run?.()
+        }}
+      />
       <style jsx>{paywallStyles}</style>
     </main>
   )
