@@ -9,7 +9,6 @@ import { getSubscription, loadSavedState } from "@/src/lib/bloodwiseDb"
 import {
   hasActiveStripeSubscription,
   hasClarionAnalysisAccess,
-  isDevPaywallBypass,
 } from "@/src/lib/accessGate"
 import { getAnalysisPriceDisplayDollars, getLitePriceDisplayDollars } from "@/src/lib/analysisPricing"
 import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
@@ -61,16 +60,18 @@ export default function PaywallPage() {
 
   const litePrice = getLitePriceDisplayDollars()
 
-  // In dev: only skip paywall when NEXT_PUBLIC_DEV_SKIP_PAYWALL=1 (unless ?noRedirect=1 forces paywall for testing).
+  /**
+   * Load the user's access state and pick which view to render.
+   *
+   * NOTE: we intentionally do NOT auto-bounce to `/` when `NEXT_PUBLIC_DEV_SKIP_PAYWALL=1`
+   * anymore — previously, clicking "Subscribe" from the dashboard on a dev build
+   * kicked the user to the homepage (which rendered the survey welcome screen for
+   * fresh accounts) and made the Subscribe CTA feel broken. The dev bypass is meant
+   * to grant access to paid features, not to hide the paywall itself. If you
+   * actually want the paywall to feel like prod while dev bypass is on, you can
+   * still visit `/paywall` directly and the normal access flow applies below.
+   */
   useEffect(() => {
-    if (
-      isDevPaywallBypass() &&
-      typeof window !== "undefined" &&
-      !window.location.search.includes("noRedirect=1")
-    ) {
-      router.replace("/")
-      return
-    }
     if (!user?.id) return
     setAccessView("loading")
     Promise.all([loadSavedState(user.id), getSubscription(user.id)])
