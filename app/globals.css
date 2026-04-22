@@ -4053,3 +4053,46 @@ button.dashboard-supplement-checker-link:hover {
     margin-top: 0;
   }
 }
+
+/* --- Compliance footer (Not medical advice / Amazon Associate disclosure / Terms / Privacy) ---
+ * Moved out of `<style jsx>` in src/components/ComplianceFooter.tsx because that pattern
+ * (even with an inline template literal assigned to a variable) wasn't reliably scoping and
+ * the footer rendered as small, left-aligned, unstyled text at the bottom of every page. */
+.clarion-compliance-footer {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  line-height: 1.6;
+  max-width: 720px;
+  letter-spacing: 0.005em;
+}
+.clarion-compliance-footer--footer {
+  margin: 48px auto 24px;
+  padding: 24px 24px 16px;
+  text-align: center;
+  border-top: 1px solid var(--color-border);
+}
+.clarion-compliance-footer--inline {
+  margin: 8px 0 0;
+  max-width: 640px;
+}
+.clarion-compliance-footer__line {
+  margin: 0 0 8px;
+}
+.clarion-compliance-footer__line:last-child {
+  margin-bottom: 0;
+}
+.clarion-compliance-footer__links {
+  margin-top: 14px;
+  font-weight: 500;
+}
+.clarion-compliance-footer__link {
+  color: var(--color-text-secondary);
+  text-decoration: underline;
+  text-decoration-color: var(--color-border-strong, var(--color-border));
+  text-underline-offset: 3px;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+.clarion-compliance-footer__link:hover {
+  color: var(--color-accent);
+  text-decoration-color: var(--color-accent);
+}

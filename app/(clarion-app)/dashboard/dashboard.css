@@ -6779,26 +6779,43 @@ a.dashboard-card:hover {
 .home-v2-more {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
-  padding: 32px 0 48px;
+  gap: 10px;
+  padding: 28px 0 40px;
   border-top: 1px solid var(--color-border);
-  margin-top: 40px;
-  font-size: 13px;
+  margin-top: 48px;
+  font-size: 14px;
   color: var(--color-text-muted);
   align-items: center;
 }
 .home-v2-more__label {
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   font-size: 11px;
+  color: var(--color-text-muted);
+  margin-right: 6px;
 }
 .home-v2-more a {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--color-text-secondary);
   text-decoration: none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 .home-v2-more a:hover {
   color: var(--color-accent);
+  background: var(--clarion-card-hover-bg, var(--color-surface-elevated));
+  border-color: var(--color-border-strong, var(--color-border));
+  transform: translateY(-1px);
+}
+.home-v2-more a:active {
+  transform: translateY(0);
 }
 
 @media (max-width: 640px) {
