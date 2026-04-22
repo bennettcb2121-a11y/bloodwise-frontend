@@ -529,14 +529,23 @@ function HomePageContent() {
         // and turned into a paywall bypass (any manual-entry user skipped checkout).
         const hasAccess = hasPaid || subActive || tierUnlockOnLoad
 
-        // After explicit logout → sign-in: ask dashboard vs retake survey (don't auto-jump past home)
-        const wantsReauth =
+        // After explicit logout → sign-in: ask dashboard vs retake survey (don't auto-jump past home).
+        // Guard: localStorage persists across accounts on the same browser, so a flag set when a prior
+        // test account logged out would fire "Welcome back" for a brand-new account (and its
+        // "Continue to dashboard" button was routing past the paywall). Only show the prompt if
+        // the current account actually has access — otherwise drop the flag and let the welcome
+        // screen render normally.
+        const wantsReauthFromFlag =
           typeof window !== "undefined" &&
           (new URLSearchParams(window.location.search).get("reauth") === "1" || shouldShowReauthPrompt())
-        if (wantsReauth) {
+        const accountHasHistory = hasAccess || hasPriorBloodwork
+        if (wantsReauthFromFlag && accountHasHistory) {
           setShowReauthPrompt(true)
           router.replace("/", { scroll: false })
           return
+        }
+        if (wantsReauthFromFlag && !accountHasHistory) {
+          clearReauthPrompt()
         }
 
         const wantsLabsSurvey =
@@ -980,8 +989,15 @@ function HomePageContent() {
   const handleReauthContinueDashboard = useCallback(() => {
     clearReauthPrompt()
     setShowReauthPrompt(false)
-    router.replace("/dashboard")
-  }, [router])
+    /** Dashboard is gated by payment; if this user somehow hit the reauth prompt without access
+     *  (e.g. localStorage flag left over from a prior test account on the same browser), route
+     *  them to /paywall instead of letting them slip past checkout. */
+    if (hasPaidUnlock) {
+      router.replace("/dashboard")
+    } else {
+      router.replace("/paywall")
+    }
+  }, [router, hasPaidUnlock])
 
   const handleReauthRetakeSurvey = useCallback(() => {
     clearReauthPrompt()
