@@ -1,21 +1,34 @@
 /**
- * Clarion+ / analysis paywall: who can use dashboard analysis features without paying again.
+ * Clarion+ / analysis paywall: who can use dashboard analysis features.
  *
  * In development, set NEXT_PUBLIC_DEV_SKIP_PAYWALL=1 to bypass the paywall (legacy local testing).
- * Otherwise dev behaves like production so you can test checkout and unlock codes.
  *
- * - **Dashboard access** (`hasClarionAnalysisAccess`): Clarion Lite, Clarion+, or paid analysis.
- *   Having saved bloodwork alone is NOT sufficient — previously this was a grandfather clause
- *   for users who onboarded before the paywall existed, but it turned into a backdoor where any
- *   new user could enter manual labs → get a score → sail past the paywall. Revoked 2026-04-21.
- * - **Lab personalization** (`hasLabPersonalizationAccess`): paid analysis unlock only. Same
- *   reasoning: we can't trust the presence of bloodwork alone as proof of payment.
+ * - **$49 first**: A Stripe subscription (trialing / active) alone must NOT unlock the app — users
+ *   can subscribe to Clarion+ without the one-time analysis in sandbox or misconfigured checkouts.
+ *   Access is based on `profiles.analysis_purchased_at` (set by the $49 checkout, redeem codes, or
+ *   admin) — not on `subscriptions.status` or `plan_tier` from Stripe.
+ * - **Bloodwork alone** is not proof of payment (same as legacy “grandfather” clause; revoked 2026-04).
+ * - **Lab personalization** uses the same purchase signal as the rest of the paid analysis surface.
  */
 
 export function isDevPaywallBypass(): boolean {
   if (typeof process === "undefined") return false
   if (process.env.NODE_ENV !== "development") return false
   return process.env.NEXT_PUBLIC_DEV_SKIP_PAYWALL === "1"
+}
+
+/**
+ * Onboarding users hit `/labs/upload` before paying; the (clarion-app) paywall must not block that route.
+ * `embed=1` is added for a chromeless experience but is not part of the exempt match.
+ */
+export function isOnboardingLabUploadPath(
+  pathname: string,
+  searchParams: { get: (name: string) => string | null }
+): boolean {
+  return (
+    (pathname === "/labs/upload" || pathname.startsWith("/labs/upload/")) &&
+    searchParams.get("return") === "onboarding"
+  )
 }
 
 export type ProfileLike = {
@@ -39,18 +52,14 @@ export type BloodworkLike = {
   selected_panel?: unknown
 } | null
 
-/** True if user has paid analysis or an active subscription (Lite or full). */
+/** True if the $49 (or code) analysis unlock is present. Subscription status does not grant this by itself. */
 export function hasClarionAnalysisAccess(
   profile: ProfileLike,
-  subscription: SubscriptionLike,
+  _subscription: SubscriptionLike,
   _bloodwork: BloodworkLike
 ): boolean {
   if (isDevPaywallBypass()) return true
   if (profile?.analysis_purchased_at) return true
-  if (subscriptionStatusGrantsAccess(subscription?.status)) return true
-  /** Stripe webhook sets `plan_tier` on profiles; `subscriptions` row can lag behind checkout redirect. */
-  const tier = (profile?.plan_tier ?? "").toLowerCase()
-  if (tier === "full" || tier === "lite") return true
   return false
 }
 
@@ -65,8 +74,6 @@ export function hasLabPersonalizationAccess(
 ): boolean {
   if (isDevPaywallBypass()) return true
   if (profile?.analysis_purchased_at) return true
-  const tier = (profile?.plan_tier ?? "").toLowerCase()
-  if (tier === "full") return true
   return false
 }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { Suspense, useCallback, useEffect, useLayoutEffect, useState } from "react"
+import React, { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
@@ -15,9 +15,9 @@ import { DashboardSkyAtmosphereProvider } from "@/src/contexts/DashboardSkyAtmos
 import { DashboardSkyShell } from "@/src/components/DashboardSkyShell"
 import { DashboardLogFab } from "@/src/components/DashboardLogFab"
 import { DashboardActionsPreviewModal } from "@/src/components/DashboardActionsPreviewModal"
-import { getSubscription } from "@/src/lib/bloodwiseDb"
+import { getSubscription, loadSavedState } from "@/src/lib/bloodwiseDb"
 import type { SubscriptionRow } from "@/src/lib/bloodwiseDb"
-import { subscriptionStatusGrantsAccess } from "@/src/lib/accessGate"
+import { hasClarionAnalysisAccess, isOnboardingLabUploadPath, subscriptionStatusGrantsAccess } from "@/src/lib/accessGate"
 import {
   BRAND_INTRO_LOCAL_KEY,
   BRAND_INTRO_SESSION_KEY,
@@ -53,6 +53,8 @@ function DashboardIntroQuerySync({ onForceBrandIntro }: { onForceBrandIntro: (v:
   return null
 }
 
+type ClarionShellAccess = "loading" | "granted" | "denied"
+
 function DashboardLayoutInner({
   children,
   forceBrandIntro,
@@ -61,14 +63,24 @@ function DashboardLayoutInner({
   forceBrandIntro: boolean
 }) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const router = useRouter()
   const { user, loading: authLoading, signOut } = useAuth()
   const [phase, setPhase] = useState<AppPhase>("splash")
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null)
+  /** Single gate for all routes in this group: $49 / code unlock, except onboarding lab upload. */
+  const [shellAccess, setShellAccess] = useState<ClarionShellAccess>("loading")
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   /** Minimal chrome for embedded routes (e.g. Actions preview iframe). */
   const [embedMode, setEmbedMode] = useState(false)
+
+  const searchQueryKey = searchParams.toString()
+  const paywallExempt = useMemo(
+    () => isOnboardingLabUploadPath(pathname, new URLSearchParams(searchQueryKey)),
+    [pathname, searchQueryKey]
+  )
+  const canUseShell = paywallExempt || shellAccess === "granted"
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -167,9 +179,33 @@ function DashboardLayoutInner({
   }, [])
 
   useEffect(() => {
-    if (!user?.id) return
-    getSubscription(user.id).then(setSubscription).catch(() => setSubscription(null))
-  }, [user?.id])
+    if (authLoading) return
+    if (!user?.id) {
+      setShellAccess("loading")
+      return
+    }
+    if (paywallExempt) {
+      setShellAccess("granted")
+      getSubscription(user.id).then(setSubscription).catch(() => setSubscription(null))
+      return
+    }
+    setShellAccess("loading")
+    Promise.all([loadSavedState(user.id), getSubscription(user.id)])
+      .then(([{ profile, bloodwork }, sub]) => {
+        setSubscription(sub)
+        if (hasClarionAnalysisAccess(profile, sub, bloodwork)) {
+          setShellAccess("granted")
+        } else {
+          setShellAccess("denied")
+          router.replace("/paywall")
+        }
+      })
+      .catch(() => {
+        setSubscription(null)
+        setShellAccess("denied")
+        router.replace("/paywall")
+      })
+  }, [user?.id, authLoading, paywallExempt, searchQueryKey, router])
 
   useEffect(() => {
     if (!headerMenuOpen) return
@@ -213,6 +249,32 @@ function DashboardLayoutInner({
           <span className="clarion-loading-dot" aria-hidden />
         </div>
         <p>Loading…</p>
+      </div>
+    )
+  }
+
+  if (!paywallExempt && shellAccess === "denied") {
+    return (
+      <div className="dashboard-app-shell dashboard-app-loading" role="status" aria-live="polite">
+        <div className="dashboard-app-loading-dots">
+          <span className="clarion-loading-dot" aria-hidden />
+          <span className="clarion-loading-dot" aria-hidden />
+          <span className="clarion-loading-dot" aria-hidden />
+        </div>
+        <p>Redirecting to unlock…</p>
+      </div>
+    )
+  }
+
+  if (!canUseShell) {
+    return (
+      <div className="dashboard-app-shell dashboard-app-loading" role="status" aria-live="polite" aria-label="Verifying access">
+        <div className="dashboard-app-loading-dots">
+          <span className="clarion-loading-dot" aria-hidden />
+          <span className="clarion-loading-dot" aria-hidden />
+          <span className="clarion-loading-dot" aria-hidden />
+        </div>
+        <p>Verifying your Clarion access…</p>
       </div>
     )
   }
@@ -346,11 +408,20 @@ function DashboardLayoutInner({
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [forceBrandIntro, setForceBrandIntro] = useState(false)
   return (
-    <>
-      <Suspense fallback={null}>
-        <DashboardIntroQuerySync onForceBrandIntro={setForceBrandIntro} />
-      </Suspense>
+    <Suspense
+      fallback={
+        <div className="dashboard-app-shell dashboard-app-loading" style={{ minHeight: "100vh" }}>
+          <div className="dashboard-app-loading-dots">
+            <span className="clarion-loading-dot" aria-hidden />
+            <span className="clarion-loading-dot" aria-hidden />
+            <span className="clarion-loading-dot" aria-hidden />
+          </div>
+          <p>Loading…</p>
+        </div>
+      }
+    >
+      <DashboardIntroQuerySync onForceBrandIntro={setForceBrandIntro} />
       <DashboardLayoutInner forceBrandIntro={forceBrandIntro}>{children}</DashboardLayoutInner>
-    </>
+    </Suspense>
   )
 }

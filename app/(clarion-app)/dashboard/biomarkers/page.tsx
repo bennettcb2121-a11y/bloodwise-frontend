@@ -2,10 +2,9 @@
 
 import React, { useEffect, useState, useMemo, useCallback } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
-import { loadSavedState, getSubscription } from "@/src/lib/bloodwiseDb"
-import type { BloodworkSaveRow, ProfileRow, SubscriptionRow } from "@/src/lib/bloodwiseDb"
+import { loadSavedState } from "@/src/lib/bloodwiseDb"
+import type { BloodworkSaveRow, ProfileRow } from "@/src/lib/bloodwiseDb"
 import { analyzeBiomarkers, type BiomarkerResult } from "@/src/lib/analyzeBiomarkers"
 import { getStatusTone } from "@/src/lib/priorityEngine"
 import { getInterpretationForMarker } from "@/src/lib/biomarkerInterpretation"
@@ -20,7 +19,7 @@ import { getBiomarkerContext } from "@/src/lib/biomarkerContext"
 import { biomarkerDatabase } from "@/src/lib/biomarkerDatabase"
 import { getEvidenceForBiomarker } from "@/src/lib/biomarkerEvidence"
 import { getEvidenceStrengthForBiomarker } from "@/src/lib/recommendationEvidence"
-import { hasClarionAnalysisAccess, hasLabPersonalizationAccess } from "@/src/lib/accessGate"
+import { hasLabPersonalizationAccess } from "@/src/lib/accessGate"
 import { LabUpgradeCallout } from "@/src/components/LabUpgradeCallout"
 import { ChevronDown, Droplet, Leaf, Zap, Heart, Flame, TestTube2 } from "lucide-react"
 import { BiomarkerAiOverviewModal } from "@/src/components/BiomarkerAiOverviewModal"
@@ -51,11 +50,9 @@ const CATEGORY_ICONS: Record<ScoreCategoryId, React.ComponentType<{ size?: numbe
 }
 
 export default function BiomarkersPage() {
-  const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const [profile, setProfile] = useState<ProfileRow | null>(null)
   const [bloodwork, setBloodwork] = useState<BloodworkSaveRow | null>(null)
-  const [subscription, setSubscription] = useState<SubscriptionRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [expandedMarker, setExpandedMarker] = useState<string | null>(null)
   const [whyExpandedByMarker, setWhyExpandedByMarker] = useState<Record<string, boolean>>({})
@@ -72,27 +69,17 @@ export default function BiomarkersPage() {
       return
     }
     queueMicrotask(() => setLoading(true))
-    Promise.all([loadSavedState(user.id), getSubscription(user.id)])
-      .then(([{ profile: p, bloodwork: b }, sub]) => {
+    loadSavedState(user.id)
+      .then(({ profile: p, bloodwork: b }) => {
         setProfile(p ?? null)
         setBloodwork(b ?? null)
-        setSubscription(sub ?? null)
       })
       .catch(() => {
         setProfile(null)
         setBloodwork(null)
-        setSubscription(null)
       })
       .finally(() => setLoading(false))
   }, [user?.id])
-
-  const hasAccess = hasClarionAnalysisAccess(profile, subscription, bloodwork)
-
-  useEffect(() => {
-    if (authLoading || !user) return
-    if (profile === null && !loading) return
-    if (!hasAccess && profile !== null) router.replace("/paywall")
-  }, [authLoading, user, loading, profile, hasAccess, router])
 
   const profileForAnalysis = useMemo(
     () =>

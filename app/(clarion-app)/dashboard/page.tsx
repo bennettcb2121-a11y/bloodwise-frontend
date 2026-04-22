@@ -65,7 +65,6 @@ import {
 import { parseSupplementRow, shortStackDoseLabel } from "@/src/lib/supplementDisplay"
 import { CHALLENGES, getChallengeProgress, getChallengeExtra } from "@/src/lib/challenges"
 import {
-  hasClarionAnalysisAccess,
   hasLabPersonalizationAccess,
   subscriptionStatusGrantsAccess,
 } from "@/src/lib/accessGate"
@@ -936,16 +935,6 @@ export default function DashboardPage() {
     }, 4000)
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [user?.id, router])
-
-  // Redirect to paywall when no access (unless dev bypass via NEXT_PUBLIC_DEV_SKIP_PAYWALL=1).
-  const hasAnyAccess = hasClarionAnalysisAccess(profile, subscription, bloodwork)
-  useEffect(() => {
-    if (authLoading || !user || loading) return
-    if (profile === null && !loading) return
-    if (!hasAnyAccess && profile !== null) {
-      router.replace("/paywall")
-    }
-  }, [authLoading, user, loading, profile, hasAnyAccess, router])
 
   const profileForAnalysis = useMemo(
     () =>

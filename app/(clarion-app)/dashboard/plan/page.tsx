@@ -2,12 +2,12 @@
 
 import React, { useEffect, useState, useMemo, useCallback, useRef } from "react"
 import Link from "next/link"
-import { hasClarionAnalysisAccess, hasLabPersonalizationAccess } from "@/src/lib/accessGate"
+import { hasLabPersonalizationAccess } from "@/src/lib/accessGate"
 import { buildLiteSupplementSuggestions, LITE_DISCLAIMER } from "@/src/lib/symptomLiteSupplements"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { loadSavedState, getSubscription } from "@/src/lib/bloodwiseDb"
-import type { BloodworkSaveRow, ProfileRow, SavedSupplementStackItem, SubscriptionRow } from "@/src/lib/bloodwiseDb"
+import type { BloodworkSaveRow, ProfileRow, SavedSupplementStackItem } from "@/src/lib/bloodwiseDb"
 import { AFFILIATE_DISCLOSURE, MONTHLY_COST_DISCLAIMER } from "@/src/lib/affiliateProducts"
 import { analyzeBiomarkers } from "@/src/lib/analyzeBiomarkers"
 import { getRetestRecommendations } from "@/src/lib/retestEngine"
@@ -56,7 +56,6 @@ export default function DashboardPlanPage() {
   const { user, loading: authLoading } = useAuth()
   const [profile, setProfile] = useState<ProfileRow | null>(null)
   const [bloodwork, setBloodwork] = useState<BloodworkSaveRow | null>(null)
-  const [subscription, setSubscription] = useState<SubscriptionRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [supplementsSheetOpen, setSupplementsSheetOpen] = useState(false)
   const [stackEditRow, setStackEditRow] = useState<SavedSupplementStackItem | null>(null)
@@ -75,7 +74,6 @@ export default function DashboardPlanPage() {
       setProfile(cached.saved.profile ?? null)
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setBloodwork(cached.saved.bloodwork ?? null)
-      setSubscription(cached.subscription)
       setLoading(false)
     }
     Promise.all([loadSavedState(user.id), getSubscription(user.id)])
@@ -83,12 +81,10 @@ export default function DashboardPlanPage() {
         writeBootstrapCache(user.id, { profile: p ?? null, bloodwork: b ?? null }, sub ?? null)
         setProfile(p ?? null)
         setBloodwork(b ?? null)
-        setSubscription(sub ?? null)
       })
       .catch(() => {
         setProfile(null)
         setBloodwork(null)
-        setSubscription(null)
       })
       .finally(() => setLoading(false))
   }, [user?.id])
@@ -103,14 +99,6 @@ export default function DashboardPlanPage() {
     window.addEventListener(CLARION_PROFILE_UPDATED_EVENT, reload)
     return () => window.removeEventListener(CLARION_PROFILE_UPDATED_EVENT, reload)
   }, [user?.id])
-
-  const hasAccess = hasClarionAnalysisAccess(profile, subscription, bloodwork)
-
-  useEffect(() => {
-    if (authLoading || !user) return
-    if (profile === null && !loading) return
-    if (!hasAccess && profile !== null) router.replace("/paywall")
-  }, [authLoading, user, loading, profile, hasAccess, router])
 
   const profileForAnalysis = useMemo(
     () =>

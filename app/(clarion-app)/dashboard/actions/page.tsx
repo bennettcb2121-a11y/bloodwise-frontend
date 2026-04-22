@@ -5,8 +5,8 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Leaf } from "lucide-react"
 import { useAuth } from "@/src/contexts/AuthContext"
-import { loadSavedState, getSubscription } from "@/src/lib/bloodwiseDb"
-import type { BloodworkSaveRow, ProfileRow, SubscriptionRow } from "@/src/lib/bloodwiseDb"
+import { loadSavedState } from "@/src/lib/bloodwiseDb"
+import type { BloodworkSaveRow, ProfileRow } from "@/src/lib/bloodwiseDb"
 import { analyzeBiomarkers } from "@/src/lib/analyzeBiomarkers"
 import { findAnalysisResultForDriverMarker, getOrderedScoreDrivers, getImprovementForecast } from "@/src/lib/scoreBreakdown"
 import { buildPriorityContextFromProfile } from "@/src/lib/priorityRanking"
@@ -31,7 +31,7 @@ import { getSupplementDetail } from "@/src/lib/supplementProtocolDetail"
 import type { SupplementDetail } from "@/src/lib/supplementProtocolDetail"
 import { getGuidesForBiomarker } from "@/src/lib/guides"
 import { PAID_PROTOCOLS } from "@/src/lib/paidProtocols"
-import { hasClarionAnalysisAccess, hasLabPersonalizationAccess } from "@/src/lib/accessGate"
+import { hasLabPersonalizationAccess } from "@/src/lib/accessGate"
 import { LabUpgradeCallout } from "@/src/components/LabUpgradeCallout"
 import {
   getJourneyStepCopy,
@@ -349,7 +349,6 @@ export default function ActionsPage() {
   const { user, loading: authLoading } = useAuth()
   const [profile, setProfile] = useState<ProfileRow | null>(null)
   const [bloodwork, setBloodwork] = useState<BloodworkSaveRow | null>(null)
-  const [subscription, setSubscription] = useState<SubscriptionRow | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -358,27 +357,17 @@ export default function ActionsPage() {
       return
     }
     queueMicrotask(() => setLoading(true))
-    Promise.all([loadSavedState(user.id), getSubscription(user.id)])
-      .then(([{ profile: p, bloodwork: b }, sub]) => {
+    loadSavedState(user.id)
+      .then(({ profile: p, bloodwork: b }) => {
         setProfile(p ?? null)
         setBloodwork(b ?? null)
-        setSubscription(sub ?? null)
       })
       .catch(() => {
         setProfile(null)
         setBloodwork(null)
-        setSubscription(null)
       })
       .finally(() => setLoading(false))
   }, [user?.id])
-
-  const hasAccess = hasClarionAnalysisAccess(profile, subscription, bloodwork)
-
-  useEffect(() => {
-    if (authLoading || !user) return
-    if (profile === null && !loading) return
-    if (!hasAccess && profile !== null) router.replace("/paywall")
-  }, [authLoading, user, loading, profile, hasAccess, router])
 
   const profileForAnalysis = useMemo(
     () =>

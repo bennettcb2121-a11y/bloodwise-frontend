@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { ChevronDown, Crosshair, Lightbulb, Mail, Pill, Printer, Sparkles, Table2 } from "lucide-react"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { loadSavedState, getSubscription } from "@/src/lib/bloodwiseDb"
-import type { BloodworkSaveRow, ProfileRow, SubscriptionRow } from "@/src/lib/bloodwiseDb"
+import type { BloodworkSaveRow, ProfileRow } from "@/src/lib/bloodwiseDb"
 import { analyzeBiomarkers, getRangeComparison, type BiomarkerResult } from "@/src/lib/analyzeBiomarkers"
 import { RangeComparisonBar } from "@/src/components/RangeComparisonBar"
 import { getStatusTone } from "@/src/lib/priorityEngine"
@@ -17,7 +17,7 @@ import { getOrderedFocusResults, getOrderedScoreDrivers, getScoreBreakdown } fro
 import { countByStatus, scoreToLabel } from "@/src/lib/scoreEngine"
 import { detectPatterns } from "@/src/lib/patternEngine"
 import { supplementRecommendations, type SupplementRecommendation } from "@/src/lib/supplements"
-import { hasClarionAnalysisAccess, hasLabPersonalizationAccess } from "@/src/lib/accessGate"
+import { hasLabPersonalizationAccess } from "@/src/lib/accessGate"
 import { LabUpgradeCallout } from "@/src/components/LabUpgradeCallout"
 import { ComplianceFooter } from "@/src/components/ComplianceFooter"
 import { buildAdaptiveRangeBullets } from "@/src/lib/analysisReportCopy"
@@ -61,7 +61,6 @@ export default function AnalysisReportPage() {
   const { user, loading: authLoading } = useAuth()
   const [profile, setProfile] = useState<ProfileRow | null>(null)
   const [bloodwork, setBloodwork] = useState<BloodworkSaveRow | null>(null)
-  const [subscription, setSubscription] = useState<SubscriptionRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [showIntroBanner, setShowIntroBanner] = useState(false)
   const [emailStatus, setEmailStatus] = useState<"idle" | "sending" | "sent" | "error">("idle")
@@ -79,7 +78,6 @@ export default function AnalysisReportPage() {
       queueMicrotask(() => {
         setProfile(cached.saved.profile ?? null)
         setBloodwork(cached.saved.bloodwork ?? null)
-        setSubscription(cached.subscription)
         setLoading(false)
       })
     } else {
@@ -90,12 +88,10 @@ export default function AnalysisReportPage() {
         writeBootstrapCache(user.id, { profile: p ?? null, bloodwork: b ?? null }, sub ?? null)
         setProfile(p ?? null)
         setBloodwork(b ?? null)
-        setSubscription(sub ?? null)
       })
       .catch(() => {
         setProfile(null)
         setBloodwork(null)
-        setSubscription(null)
       })
       .finally(() => setLoading(false))
   }, [user?.id])
@@ -149,14 +145,6 @@ export default function AnalysisReportPage() {
       setEmailStatus("error")
     }
   }, [])
-
-  const hasAccess = hasClarionAnalysisAccess(profile, subscription, bloodwork)
-
-  useEffect(() => {
-    if (authLoading || !user) return
-    if (profile === null && !loading) return
-    if (!hasAccess && profile !== null) router.replace("/paywall")
-  }, [authLoading, user, loading, profile, hasAccess, router])
 
   const profileForAnalysis = useMemo(
     () =>

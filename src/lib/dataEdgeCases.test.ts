@@ -3,7 +3,12 @@
  * data so missing guards show up as thrown errors or failed assertions.
  */
 import { describe, expect, it } from "vitest"
-import { hasClarionAnalysisAccess, hasLabPersonalizationAccess, subscriptionStatusGrantsAccess } from "@/src/lib/accessGate"
+import {
+  hasClarionAnalysisAccess,
+  hasLabPersonalizationAccess,
+  isOnboardingLabUploadPath,
+  subscriptionStatusGrantsAccess,
+} from "@/src/lib/accessGate"
 import { buildLiteSupplementSuggestions } from "@/src/lib/symptomLiteSupplements"
 import { resolveTierFromStripeSubscription } from "@/src/lib/planTier"
 import type Stripe from "stripe"
@@ -40,6 +45,18 @@ function minimalSkyInput(overrides: Partial<Parameters<typeof getDashboardSkyMoo
   }
 }
 
+describe("onboarding lab upload path (layout paywall exempt)", () => {
+  it("is true for /labs/upload with return=onboarding", () => {
+    expect(isOnboardingLabUploadPath("/labs/upload", new URLSearchParams("return=onboarding&embed=1"))).toBe(true)
+  })
+  it("is false without return=onboarding", () => {
+    expect(isOnboardingLabUploadPath("/labs/upload", new URLSearchParams(""))).toBe(false)
+  })
+  it("is false for other routes", () => {
+    expect(isOnboardingLabUploadPath("/dashboard/shop", new URLSearchParams("return=onboarding"))).toBe(false)
+  })
+})
+
 describe("access gate — null / empty data", () => {
   it("denies when everything is null", () => {
     expect(hasClarionAnalysisAccess(null, null, null)).toBe(false)
@@ -55,21 +72,24 @@ describe("access gate — null / empty data", () => {
     expect(hasClarionAnalysisAccess(null, null, { selected_panel: ["Ferritin"] })).toBe(false)
   })
 
-  it("allows subscription trialing", () => {
-    expect(hasClarionAnalysisAccess(null, { status: "trialing" }, null)).toBe(true)
+  it("denies subscription trialing / active without $49 analysis (regression: sandbox sub-only was unlocking Report)", () => {
+    expect(hasClarionAnalysisAccess(null, { status: "trialing" }, null)).toBe(false)
+    expect(hasClarionAnalysisAccess(null, { status: "active" }, null)).toBe(false)
   })
 
-  it("allows subscription past_due (still entitled until canceled)", () => {
-    expect(hasClarionAnalysisAccess(null, { status: "past_due" }, null)).toBe(true)
+  it("denies plan_tier from Stripe when analysis_purchased_at is not set", () => {
+    expect(hasClarionAnalysisAccess({ plan_tier: "full" }, null, null)).toBe(false)
+    expect(hasClarionAnalysisAccess({ plan_tier: "lite" }, null, null)).toBe(false)
+  })
+
+  it("subscriptionStatusGrantsAccess still true for past_due (used by subscription UI, not the analysis gate)", () => {
     expect(subscriptionStatusGrantsAccess("past_due")).toBe(true)
   })
 
-  it("allows plan_tier full when subscriptions row has not synced yet", () => {
-    expect(hasClarionAnalysisAccess({ plan_tier: "full" }, null, null)).toBe(true)
-  })
-
-  it("allows plan_tier lite when subscriptions row has not synced yet", () => {
-    expect(hasClarionAnalysisAccess({ plan_tier: "lite" }, null, null)).toBe(true)
+  it("allows when analysis was purchased (primary unlock)", () => {
+    expect(
+      hasClarionAnalysisAccess({ analysis_purchased_at: "2024-01-01T00:00:00Z" }, { status: "active" }, null)
+    ).toBe(true)
   })
 })
 
@@ -88,10 +108,8 @@ describe("lab personalization access", () => {
     expect(hasLabPersonalizationAccess(null, { score: 70 })).toBe(false)
   })
 
-  it("allows plan_tier full without explicit analysis_purchased_at", () => {
-    // Webhook race: subscriptions row may lag profile update. plan_tier='full'
-    // indicates a completed paid analysis.
-    expect(hasLabPersonalizationAccess({ plan_tier: "full" }, null)).toBe(true)
+  it("denies plan_tier full without analysis_purchased (Stripe can set tier before/without $49 row)", () => {
+    expect(hasLabPersonalizationAccess({ plan_tier: "full" }, null)).toBe(false)
   })
 
   it("denies plan_tier lite (lite subscribers have no analysis unlock)", () => {

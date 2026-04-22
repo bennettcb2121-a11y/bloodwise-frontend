@@ -276,6 +276,17 @@ export default function PaywallPage() {
         </p>
         <p className="paywall-differentiator">We don&apos;t sell labs—we help you use the ones you have.</p>
 
+        {typeof process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY === "string" &&
+        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY.startsWith("pk_test_") ? (
+          <p className="paywall-stripe-test-banner" role="status">
+            This environment uses a Stripe <strong>test</strong> publishable key — checkout will show Sandbox
+            and won&apos;t charge a real card. For live charges, set{" "}
+            <code className="paywall-inline-code">NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY</code> and{" "}
+            <code className="paywall-inline-code">STRIPE_SECRET_KEY</code> to your <strong>live</strong> keys in
+            Vercel.
+          </p>
+        ) : null}
+
         <PricingTiers
           variant="paywall"
           onTier1Click={() => router.push("/?step=survey")}

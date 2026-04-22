@@ -1,6 +1,6 @@
 /**
  * Clarion subscription tier from Stripe Price IDs (Lite vs Clarion+).
- * Lab personalization remains gated by `analysis_purchased_at` / bloodwork — see accessGate.
+ * Lab/paid surfaces are gated by `analysis_purchased_at` — see `accessGate`.
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js"

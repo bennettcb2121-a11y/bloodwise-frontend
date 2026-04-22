@@ -952,7 +952,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
                   <span>Drop it in and we&apos;ll extract the values for you. Works for Quest, LabCorp, Kaiser, and most other labs.</span>
                 </div>
               </div>
-              <Link href="/labs/upload?return=onboarding" className="onboarding-lab-upload-btn">
+              <Link href="/labs/upload?return=onboarding&embed=1" className="onboarding-lab-upload-btn">
                 Upload PDF / photo <ChevronRight size={16} strokeWidth={2.5} aria-hidden />
               </Link>
             </div>

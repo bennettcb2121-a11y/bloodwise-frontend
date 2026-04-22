@@ -127,7 +127,7 @@ function HomePageContent() {
   const [retestWeeks, setRetestWeeks] = useState(8)
   const [analyzing, setAnalyzing] = useState(false)
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null)
-  /** Latest saved bloodwork — drives `hasClarionAnalysisAccess` legacy path when subscription/profile lags. */
+  /** Context for the survey home only; the paywall uses `profile.analysis_purchased_at` (not bloodwork alone). */
   const [bloodworkForAccess, setBloodworkForAccess] = useState<BloodworkLike>(null)
 
   const profileForAccess = useMemo(

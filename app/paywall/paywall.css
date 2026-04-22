@@ -150,6 +150,28 @@
   margin: 0 0 16px;
   font-style: italic;
 }
+.paywall-stripe-test-banner {
+  margin: 0 auto 20px;
+  max-width: 640px;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-text-primary);
+  background: rgba(234, 179, 8, 0.1);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  border-radius: 10px;
+  text-align: left;
+}
+.paywall-stripe-test-banner strong {
+  font-weight: 700;
+}
+.paywall-stripe-test-banner .paywall-inline-code {
+  font-size: 12px;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+}
 .paywall-how-different {
   margin-bottom: 24px;
   padding: 14px 18px;
