@@ -24,6 +24,7 @@ import {
   type ShopProduct,
   type SupplementShopEntry,
 } from "@/src/lib/supplementShopCatalog"
+import { SupplementPickerSheet } from "@/src/components/SupplementPickerSheet"
 import { getCoreProtocol } from "@/src/lib/coreBiomarkerProtocols"
 import { getSupplementDetail } from "@/src/lib/supplementProtocolDetail"
 import type { SupplementDetail } from "@/src/lib/supplementProtocolDetail"
@@ -416,6 +417,29 @@ export default function ActionsPage() {
     [analysisResults, priorityContext]
   )
 
+  // Maintenance strip: supplements keyed to markers the user is *already
+  // optimal on*. Reverse-lookup the catalog by biomarker, dedupe by preset,
+  // filter out drivers (those are shown as priorities), cap at 5 tiles.
+  const maintenanceEntries = useMemo(() => {
+    if (!analysisResults.length) return [] as SupplementShopEntry[]
+    const driverSet = new Set(orderedDrivers.map((d) => d.markerName.toLowerCase()))
+    const seen = new Set<string>()
+    const out: SupplementShopEntry[] = []
+    for (const r of analysisResults) {
+      if (r.status !== "optimal") continue
+      if (driverSet.has(r.name.toLowerCase())) continue
+      const entry = getShopEntryForBiomarker(r.name)
+      if (!entry) continue
+      if (seen.has(entry.presetId)) continue
+      seen.add(entry.presetId)
+      out.push(entry)
+      if (out.length >= 5) break
+    }
+    return out
+  }, [analysisResults, orderedDrivers])
+
+  const [maintenanceOpenEntry, setMaintenanceOpenEntry] = useState<SupplementShopEntry | null>(null)
+
   if (authLoading || (user && loading)) {
     return (
       <main className="dashboard-tab-shell dashboard-actions-env">
@@ -593,12 +617,59 @@ export default function ActionsPage() {
           </div>
         </section>
 
+        {maintenanceEntries.length > 0 ? (
+          <section className="dashboard-actions-maintenance" aria-labelledby="maintenance-heading">
+            <header className="dashboard-actions-maintenance-head">
+              <h2 className="dashboard-actions-maintenance-title" id="maintenance-heading">
+                Keep it dialed in
+              </h2>
+              <p className="dashboard-actions-maintenance-sub">
+                You&apos;re already optimal on these markers — here&apos;s what your Clarion pick looks like for maintenance.
+              </p>
+            </header>
+            <div className="dashboard-actions-maintenance-grid" role="list">
+              {maintenanceEntries.map((entry) => {
+                const product = entry.products.best_overall
+                const img = shopProductImageUrl(product)
+                return (
+                  <button
+                    key={entry.presetId}
+                    type="button"
+                    className="dashboard-actions-maintenance-tile"
+                    role="listitem"
+                    onClick={() => setMaintenanceOpenEntry(entry)}
+                  >
+                    <span className="dashboard-actions-maintenance-pill">Optimal</span>
+                    <div className="dashboard-actions-maintenance-thumb">
+                      {img ? (
+                        <img src={img} alt="" width={56} height={56} />
+                      ) : (
+                        <div className="dashboard-actions-maintenance-thumb-ph" aria-hidden />
+                      )}
+                    </div>
+                    <span className="dashboard-actions-maintenance-name">{entry.displayName}</span>
+                    <span className="dashboard-actions-maintenance-marker">
+                      for {entry.labAwareness.biomarker ?? "daily foundation"}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
+        ) : null}
+
         <p className="dashboard-actions-disclosure">{AFFILIATE_DISCLOSURE}</p>
 
         <p className="dashboard-tab-muted">
           <Link href="/dashboard">Back to Home</Link>
         </p>
       </div>
+
+      <SupplementPickerSheet
+        entry={maintenanceOpenEntry}
+        labStatus="optimal"
+        onClose={() => setMaintenanceOpenEntry(null)}
+      />
 
       <style jsx global>{`
         .dashboard-actions-empty,
@@ -1134,6 +1205,105 @@ export default function ActionsPage() {
           color: var(--color-text-muted);
           margin: 24px 0 16px;
           line-height: 1.5;
+        }
+        .dashboard-actions-maintenance {
+          margin-top: 40px;
+          padding-top: 24px;
+          border-top: 1px solid var(--color-border);
+        }
+        .dashboard-actions-maintenance-head {
+          margin-bottom: 16px;
+        }
+        .dashboard-actions-maintenance-title {
+          margin: 0 0 4px;
+          font-size: 18px;
+          font-weight: 700;
+          letter-spacing: -0.01em;
+          color: var(--color-text-primary);
+        }
+        .dashboard-actions-maintenance-sub {
+          margin: 0;
+          font-size: 13px;
+          color: var(--color-text-secondary);
+          line-height: 1.45;
+          max-width: 46rem;
+        }
+        .dashboard-actions-maintenance-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 12px;
+          margin-top: 8px;
+        }
+        .dashboard-actions-maintenance-tile {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          padding: 16px 10px 12px;
+          border-radius: 14px;
+          border: 1px solid var(--color-border);
+          background: var(--color-surface);
+          cursor: pointer;
+          text-align: center;
+          font: inherit;
+          color: inherit;
+          transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .dashboard-actions-maintenance-tile:hover {
+          border-color: var(--color-accent);
+          transform: translateY(-1px);
+          box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+        }
+        .dashboard-actions-maintenance-tile:focus-visible {
+          outline: 2px solid var(--color-accent);
+          outline-offset: 2px;
+        }
+        .dashboard-actions-maintenance-pill {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          font-size: 9px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          padding: 2px 7px;
+          border-radius: 999px;
+          background: rgba(74, 222, 128, 0.16);
+          color: rgb(74, 222, 128);
+          border: 1px solid rgba(74, 222, 128, 0.35);
+        }
+        .dashboard-actions-maintenance-thumb {
+          width: 56px;
+          height: 56px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--color-bg);
+          border-radius: 10px;
+          overflow: hidden;
+          flex-shrink: 0;
+        }
+        .dashboard-actions-maintenance-thumb img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+        }
+        .dashboard-actions-maintenance-thumb-ph {
+          width: 100%;
+          height: 100%;
+          background: linear-gradient(145deg, var(--color-surface), var(--color-bg));
+        }
+        .dashboard-actions-maintenance-name {
+          font-size: 13px;
+          font-weight: 700;
+          color: var(--color-text-primary);
+          line-height: 1.25;
+        }
+        .dashboard-actions-maintenance-marker {
+          font-size: 11px;
+          color: var(--color-text-muted);
+          line-height: 1.3;
         }
       `}</style>
     </main>
