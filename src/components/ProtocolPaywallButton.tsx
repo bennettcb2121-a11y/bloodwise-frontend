@@ -1,15 +1,28 @@
 "use client"
 
 import React, { useState } from "react"
+import {
+  LiveModeChargeWarning,
+  wasAcknowledgedInSession,
+} from "./LiveModeChargeWarning"
 
 type Props = { slug: string; title: string; priceCents: number }
 
+/**
+ * Unlock button for a paid protocol guide ($N one-time charge).
+ *
+ * Gated by `LiveModeChargeWarning` on first click per session so users who
+ * signed up during test-mode beta don't accidentally get charged real money.
+ * Mirrors the pattern used on `/paywall` — every Stripe redirect in the app
+ * must pass through the live-mode interstitial once per tab.
+ */
 export function ProtocolPaywallButton({ slug, title, priceCents }: Props) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pendingCheckout, setPendingCheckout] = useState(false)
   const price = (priceCents / 100).toFixed(2)
 
-  const handleUnlock = async () => {
+  const runCheckout = async () => {
     setError(null)
     setLoading(true)
     try {
@@ -36,17 +49,35 @@ export function ProtocolPaywallButton({ slug, title, priceCents }: Props) {
     }
   }
 
+  const handleClick = () => {
+    if (wasAcknowledgedInSession()) {
+      void runCheckout()
+      return
+    }
+    setPendingCheckout(true)
+  }
+
   return (
     <>
       <button
         type="button"
         className="protocol-unlock-btn"
-        onClick={handleUnlock}
+        onClick={handleClick}
         disabled={loading}
       >
         {loading ? "Redirecting…" : `Unlock ${title} for $${price}`}
       </button>
       {error && <p className="protocol-unlock-error">{error}</p>}
+      <LiveModeChargeWarning
+        open={pendingCheckout}
+        amountLabel={`$${price}`}
+        interval="one-time"
+        onCancel={() => setPendingCheckout(false)}
+        onProceed={() => {
+          setPendingCheckout(false)
+          void runCheckout()
+        }}
+      />
       <style jsx>{`
         .protocol-unlock-btn {
           padding: 12px 24px;
