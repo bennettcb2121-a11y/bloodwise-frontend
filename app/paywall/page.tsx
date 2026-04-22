@@ -271,19 +271,17 @@ export default function PaywallPage() {
       <div className="paywall-container paywall-container--wide">
         <ClarionLabsLogo variant="page" href="/dashboard" linkClassName="paywall-logo-root" />
         <p className="paywall-tagline">The bloodwork coach that explains your numbers and your next steps.</p>
-        <h1 className="paywall-title">Pick the level that fits you</h1>
+        <h1 className="paywall-title">Pick what fits you</h1>
         <p className="paywall-subtitle">
-          Start free with the Clarion survey. Add a one-time analysis when you have labs. Go monthly when you want Clarion to run your stack.
+          Start free with the Clarion survey. Unlock Clarion+ when you&apos;re ready for labs — cancel during the 2-month trial if you just want the one-time analysis.
         </p>
         <p className="paywall-differentiator">We don&apos;t sell labs—we help you use the ones you have.</p>
 
         <PricingTiers
           variant="paywall"
           onTier1Click={() => router.push("/?step=survey")}
-          onTier2Click={() => handleUnlock("analysis")}
-          onTier3Click={() => handleUnlock("monthly")}
-          tier2Loading={checkoutLoading}
-          tier3Loading={checkoutLoading}
+          onPaidClick={() => handleUnlock("monthly")}
+          paidLoading={checkoutLoading}
         />
 
         {error && (

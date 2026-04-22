@@ -538,14 +538,13 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
                 <div className="onboarding-hero-pricing-heading">
                   <h2 className="onboarding-hero-pricing-title">Three ways to use Clarion</h2>
                   <p className="onboarding-hero-pricing-sub">
-                    Start free. Add a one-time analysis when you have labs. Go monthly when you want Clarion running your stack.
+                    Start free. Unlock Clarion+ when you&apos;re ready for labs — keep it, or cancel during the 2-month trial and the analysis is still yours.
                   </p>
                 </div>
                 <PricingTiers
                   variant="marketing"
                   onTier1Click={onWelcomeContinue ?? goNext}
-                  onTier2Click={handleHeroTier2Click}
-                  onTier3Click={handleHeroTier2Click}
+                  onPaidClick={handleHeroTier2Click}
                 />
               </section>
             )}

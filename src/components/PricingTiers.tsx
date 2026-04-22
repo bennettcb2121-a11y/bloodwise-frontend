@@ -11,46 +11,71 @@ export type PricingTiersVariant = "paywall" | "marketing"
 
 export type PricingTiersProps = {
   variant: PricingTiersVariant
-  /** Called when Tier 1 (free survey) CTA is clicked. Overrides `tier1Href` when set. */
+  /** Called when Tier 1 (free survey) CTA is clicked. Overrides `tier1Href`. */
   onTier1Click?: () => void
-  /** Called when Tier 2 (one-time analysis) CTA is clicked. Overrides `tier2Href` when set. */
-  onTier2Click?: () => void
-  /** Called when Tier 3 (Clarion Monthly) CTA is clicked. Overrides `tier3Href` when set. */
-  onTier3Click?: () => void
-  tier2Loading?: boolean
-  tier3Loading?: boolean
+  /** Called when the single paid CTA is clicked. Overrides `paidHref`. */
+  onPaidClick?: () => void
+  /** Loading state for the paid CTA. */
+  paidLoading?: boolean
   tier1Href?: string
-  tier2Href?: string
-  tier3Href?: string
+  paidHref?: string
   /** Optional extra className on the wrapper. */
   className?: string
+
+  // ── Deprecated 3-tier props. Retained so existing callers (paywall,
+  // OnboardingFlow) keep working — we used to have a middle "one-time
+  // analysis" card, but the underlying Stripe offer is identical to the
+  // monthly tier (see app/api/create-analysis-checkout/route.ts: `tier` was
+  // purely a funnel-attribution tag). Collapsing removes the redundancy the
+  // user flagged as "misleading" on the homepage.
+  /** @deprecated use onPaidClick. */
+  onTier2Click?: () => void
+  /** @deprecated use onPaidClick. */
+  onTier3Click?: () => void
+  /** @deprecated use paidLoading. */
+  tier2Loading?: boolean
+  /** @deprecated use paidLoading. */
+  tier3Loading?: boolean
+  /** @deprecated use paidHref. */
+  tier2Href?: string
+  /** @deprecated use paidHref. */
+  tier3Href?: string
 }
 
 const DEFAULT_TIER1_HREF = "/login?next=%2F%3Fstep%3Dsurvey"
-const DEFAULT_TIER2_HREF = "/login?next=%2Fpaywall"
-const DEFAULT_TIER3_HREF = "/login?next=%2Fpaywall"
+const DEFAULT_PAID_HREF = "/login?next=%2Fpaywall"
 
 export function PricingTiers({
   variant,
   onTier1Click,
+  onPaidClick,
+  paidLoading,
+  tier1Href = DEFAULT_TIER1_HREF,
+  paidHref,
+  className,
+
   onTier2Click,
   onTier3Click,
   tier2Loading,
   tier3Loading,
-  tier1Href = DEFAULT_TIER1_HREF,
-  tier2Href = DEFAULT_TIER2_HREF,
-  tier3Href = DEFAULT_TIER3_HREF,
-  className,
+  tier2Href,
+  tier3Href,
 }: PricingTiersProps) {
   const analysisPrice = getAnalysisPriceDisplayDollars()
   const subPrice = getSubscriptionPriceDisplayDollars()
+
+  // Resolve the single paid CTA from the new-or-deprecated props. Tier 3
+  // always took precedence because it was the "fuller" offer; same rule here.
+  const resolvedPaidClick = onPaidClick ?? onTier3Click ?? onTier2Click
+  const resolvedPaidLoading = Boolean(paidLoading ?? tier3Loading ?? tier2Loading)
+  const resolvedPaidHref = paidHref ?? tier3Href ?? tier2Href ?? DEFAULT_PAID_HREF
 
   const rootClass = ["pricing-tiers", `pricing-tiers--${variant}`, className].filter(Boolean).join(" ")
 
   return (
     <section className={rootClass} aria-label="Pricing">
       <div className="pricing-tiers-grid">
-        {/* TIER 1 — Free */}
+        {/* TIER 1 — Free survey. No labs required. */}
         <article className="pricing-tier pricing-tier--free">
           <div className="pricing-tier-eyebrow">Free</div>
           <h3 className="pricing-tier-headline">Take the Clarion survey</h3>
@@ -76,80 +101,51 @@ export function PricingTiers({
           <p className="pricing-tier-fine">No card required.</p>
         </article>
 
-        {/* TIER 2 — One-time analysis */}
-        <article className="pricing-tier pricing-tier--analysis">
-          <div className="pricing-tier-eyebrow">One-time analysis</div>
-          <h3 className="pricing-tier-headline">Your labs, read for your body</h3>
-          <p className="pricing-tier-sub">
-            Upload your results. Get ranges calibrated to your goals, sex, age, and training. Stop guessing what &ldquo;normal&rdquo; means for you.
-          </p>
-          <div className="pricing-tier-price">
-            <span className="pricing-tier-amount">${analysisPrice}</span>
-            <span className="pricing-tier-period">one-time</span>
-          </div>
-          <ul className="pricing-tier-features">
-            <li>Personalized range for every marker you upload</li>
-            <li>Root-cause summary across your panel</li>
-            <li>Printable report you can share with your doctor</li>
-          </ul>
-          {onTier2Click ? (
-            <button
-              type="button"
-              className="pricing-tier-cta"
-              onClick={onTier2Click}
-              disabled={Boolean(tier2Loading)}
-            >
-              {tier2Loading ? "Taking you to checkout…" : `Get my analysis — $${analysisPrice}`}
-            </button>
-          ) : (
-            <Link href={tier2Href} className="pricing-tier-cta">
-              Get my analysis — ${analysisPrice}
-            </Link>
-          )}
-          <p className="pricing-tier-fine">
-            One-time ${analysisPrice} analysis. Your report is yours forever. Includes 2 free months of Clarion+, then ${subPrice} every 2 months — cancel anytime from Settings.
-          </p>
-        </article>
-
-        {/* TIER 3 — Clarion+ full experience. Same $49 first charge as Tier 2; the
-            difference is positioning + whether the user thinks of themselves as ongoing. */}
-        <article className="pricing-tier pricing-tier--monthly">
+        {/* TIER 2 — Clarion+. Single paid offer. $49 today unlocks the analysis
+            + 2 free months of Clarion+. After that it auto-continues at
+            $29 every 2 months, or the user can cancel during the trial and
+            keep the analysis forever. This was previously split into two
+            cards ("one-time analysis" vs "Clarion Monthly") with the same
+            underlying Stripe checkout — the split read as redundant. */}
+        <article className="pricing-tier pricing-tier--paid">
           <div className="pricing-tier-badge">Most complete</div>
-          <div className="pricing-tier-eyebrow">Analysis + Clarion+</div>
-          <h3 className="pricing-tier-headline">Your labs, read and kept on track.</h3>
+          <div className="pricing-tier-eyebrow">Clarion+</div>
+          <h3 className="pricing-tier-headline">Your labs, read and kept on track</h3>
           <p className="pricing-tier-sub">
-            Start with the ${analysisPrice} analysis, then Clarion watches your stack, your bottles, and your trends — tuned to your ranges.
+            Upload your results. Clarion calibrates every marker to your goals, sex, age, and training — then keeps your stack, bottles, and trends tuned to those ranges.
           </p>
           <div className="pricing-tier-price">
             <span className="pricing-tier-amount">${analysisPrice}</span>
             <span className="pricing-tier-period">today</span>
           </div>
           <p className="pricing-tier-price-note">
-            Then <strong>${subPrice} every 2 months</strong> after your 2 free months. Cancel anytime.
+            Then <strong>${subPrice} every 2 months</strong> after your 2 free months. Cancel anytime — you keep your analysis report forever.
           </p>
           <ul className="pricing-tier-features">
-            <li>Everything in the one-time analysis</li>
+            <li>Personalized range for every marker you upload</li>
+            <li>Root-cause summary across your panel</li>
+            <li>Printable report you can share with your doctor</li>
             <li>Smart supplement stack, adapted to your labs and goals</li>
             <li>Bottle-drain tracking + &ldquo;running low&rdquo; alerts</li>
             <li>Reorder with one tap (Clarion picks or your own link)</li>
             <li>New lab upload every quarter — plan evolves</li>
           </ul>
-          {onTier3Click ? (
+          {resolvedPaidClick ? (
             <button
               type="button"
               className="pricing-tier-cta pricing-tier-cta--primary"
-              onClick={onTier3Click}
-              disabled={Boolean(tier3Loading)}
+              onClick={resolvedPaidClick}
+              disabled={resolvedPaidLoading}
             >
-              {tier3Loading ? "Taking you to checkout…" : `Start Clarion+ — $${analysisPrice} today`}
+              {resolvedPaidLoading ? "Taking you to checkout…" : `Start Clarion+ — $${analysisPrice} today`}
             </button>
           ) : (
-            <Link href={tier3Href} className="pricing-tier-cta pricing-tier-cta--primary">
+            <Link href={resolvedPaidHref} className="pricing-tier-cta pricing-tier-cta--primary">
               Start Clarion+ — ${analysisPrice} today
             </Link>
           )}
           <p className="pricing-tier-fine">
-            You&apos;re charged ${analysisPrice} today for the analysis. Clarion+ is free for 2 months, then ${subPrice} auto-bills every 2 months until you cancel from Settings.
+            You&apos;re charged ${analysisPrice} today for the analysis. Clarion+ is free for 2 months, then ${subPrice} auto-bills every 2 months. Just want the one-time analysis? Cancel during the free trial and the report is still yours.
           </p>
         </article>
       </div>
@@ -160,11 +156,13 @@ export function PricingTiers({
         }
         .pricing-tiers-grid {
           display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 16px;
           align-items: stretch;
+          max-width: 820px;
+          margin: 0 auto;
         }
-        @media (max-width: 900px) {
+        @media (max-width: 760px) {
           .pricing-tiers-grid {
             grid-template-columns: 1fr;
           }
@@ -180,7 +178,7 @@ export function PricingTiers({
           text-align: left;
           min-height: 100%;
         }
-        .pricing-tier--monthly {
+        .pricing-tier--paid {
           border-color: var(--color-accent);
           box-shadow: 0 0 0 1px var(--color-accent), var(--shadow-sm);
         }
@@ -223,7 +221,7 @@ export function PricingTiers({
           display: flex;
           align-items: baseline;
           gap: 6px;
-          margin-bottom: 16px;
+          margin-bottom: 10px;
         }
         .pricing-tier-amount {
           font-size: 32px;
@@ -239,7 +237,7 @@ export function PricingTiers({
           font-size: 13px;
           color: var(--color-text-secondary);
           line-height: 1.45;
-          margin: -4px 0 16px;
+          margin: 0 0 16px;
         }
         .pricing-tier-price-note strong {
           color: var(--color-text-primary);
