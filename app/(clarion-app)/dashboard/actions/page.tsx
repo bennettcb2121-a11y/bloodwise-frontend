@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { Leaf } from "lucide-react"
 import { useAuth } from "@/src/contexts/AuthContext"
 import { loadSavedState, getSubscription } from "@/src/lib/bloodwiseDb"
 import type { BloodworkSaveRow, ProfileRow, SubscriptionRow } from "@/src/lib/bloodwiseDb"
@@ -20,11 +21,11 @@ import { AFFILIATE_DISCLOSURE } from "@/src/lib/affiliateProducts"
 import {
   affiliateUrlForShopProduct,
   getShopEntryForBiomarker,
-  shopProductImageUrl,
   type ShopProduct,
   type SupplementShopEntry,
 } from "@/src/lib/supplementShopCatalog"
 import { SupplementPickerSheet } from "@/src/components/SupplementPickerSheet"
+import { SupplementMonogram } from "@/src/components/SupplementMonogram"
 import { getCoreProtocol } from "@/src/lib/coreBiomarkerProtocols"
 import { getSupplementDetail } from "@/src/lib/supplementProtocolDetail"
 import type { SupplementDetail } from "@/src/lib/supplementProtocolDetail"
@@ -93,7 +94,6 @@ function adaptShopProductToAffiliate(
     affiliateUrl: affiliateUrlForShopProduct(product),
     optionType,
     whyRecommended: product.why,
-    imageUrl: shopProductImageUrl(product) ?? undefined,
   }
 }
 
@@ -189,20 +189,11 @@ function PriorityMarkerCard({
             <div className="dashboard-priority-front-cta-row">
               {primaryProduct ? (
                 <>
-                  {primaryProduct.imageUrl ? (
-                    <img
-                      className="dashboard-priority-product-thumb"
-                      src={primaryProduct.imageUrl}
-                      alt=""
-                      width={40}
-                      height={40}
-                    />
-                  ) : (
-                    <div
-                      className="dashboard-priority-product-thumb dashboard-priority-product-thumb--empty"
-                      aria-hidden
-                    />
-                  )}
+                  <SupplementMonogram
+                    biomarker={primaryProduct.biomarker ?? driver.markerName}
+                    size={40}
+                    radius={10}
+                  />
                   <div className="dashboard-priority-product-meta">
                     <span className="dashboard-priority-product-name" title={primaryProduct.title}>
                       {primaryProduct.title}
@@ -220,10 +211,9 @@ function PriorityMarkerCard({
                 </>
               ) : (
                 <>
-                  <div
-                    className="dashboard-priority-product-thumb dashboard-priority-product-thumb--empty"
-                    aria-hidden
-                  />
+                  <div className="dashboard-priority-lifestyle-thumb" aria-hidden>
+                    <Leaf size={20} strokeWidth={2} />
+                  </div>
                   <div className="dashboard-priority-product-meta">
                     <span className="dashboard-priority-product-name">
                       {foods[0] ?? lifestyle[0] ?? "Focus on the daily habit above"}
@@ -628,32 +618,27 @@ export default function ActionsPage() {
               </p>
             </header>
             <div className="dashboard-actions-maintenance-grid" role="list">
-              {maintenanceEntries.map((entry) => {
-                const product = entry.products.best_overall
-                const img = shopProductImageUrl(product)
-                return (
-                  <button
-                    key={entry.presetId}
-                    type="button"
-                    className="dashboard-actions-maintenance-tile"
-                    role="listitem"
-                    onClick={() => setMaintenanceOpenEntry(entry)}
-                  >
-                    <span className="dashboard-actions-maintenance-pill">Optimal</span>
-                    <div className="dashboard-actions-maintenance-thumb">
-                      {img ? (
-                        <img src={img} alt="" width={56} height={56} />
-                      ) : (
-                        <div className="dashboard-actions-maintenance-thumb-ph" aria-hidden />
-                      )}
-                    </div>
-                    <span className="dashboard-actions-maintenance-name">{entry.displayName}</span>
-                    <span className="dashboard-actions-maintenance-marker">
-                      for {entry.labAwareness.biomarker ?? "daily foundation"}
-                    </span>
-                  </button>
-                )
-              })}
+              {maintenanceEntries.map((entry) => (
+                <button
+                  key={entry.presetId}
+                  type="button"
+                  className="dashboard-actions-maintenance-tile"
+                  role="listitem"
+                  onClick={() => setMaintenanceOpenEntry(entry)}
+                >
+                  <span className="dashboard-actions-maintenance-pill">Optimal</span>
+                  <SupplementMonogram
+                    presetId={entry.presetId}
+                    category={entry.category}
+                    size={60}
+                    radius={14}
+                  />
+                  <span className="dashboard-actions-maintenance-name">{entry.displayName}</span>
+                  <span className="dashboard-actions-maintenance-marker">
+                    for {entry.labAwareness.biomarker ?? "daily foundation"}
+                  </span>
+                </button>
+              ))}
             </div>
           </section>
         ) : null}
@@ -940,6 +925,18 @@ export default function ActionsPage() {
           border-color: var(--color-accent);
           color: var(--color-accent);
         }
+        .dashboard-priority-lifestyle-thumb {
+          width: 40px;
+          height: 40px;
+          border-radius: 10px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(135deg, #34d399 0%, #059669 55%, #064e3b 100%);
+          color: #ecfdf5;
+          flex-shrink: 0;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
         .dashboard-priority-flip-tap {
           font-size: 9px;
           font-weight: 700;
@@ -1104,6 +1101,12 @@ export default function ActionsPage() {
           margin: 0 auto 6px;
           background: var(--color-border);
           border-radius: 8px;
+        }
+        .dashboard-action-product-tile-monogram-wrap {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 6px;
         }
         .dashboard-action-product-tile-badge {
           display: block;
@@ -1385,11 +1388,9 @@ function ActionSupplementStrip({
               aria-expanded={isOpen}
             >
               <span className="dashboard-action-product-tile-badge">{productOptionBadge(p, primaryProduct)}</span>
-              {p.imageUrl ? (
-                <img src={p.imageUrl} alt="" className="dashboard-action-product-tile-img" width={56} height={56} />
-              ) : (
-                <div className="dashboard-action-product-tile-img-ph" aria-hidden />
-              )}
+              <div className="dashboard-action-product-tile-monogram-wrap">
+                <SupplementMonogram biomarker={p.biomarker} size={56} radius={10} />
+              </div>
               <span className="dashboard-action-product-tile-title">{p.title}</span>
             </button>
           )

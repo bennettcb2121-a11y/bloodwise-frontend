@@ -103,9 +103,14 @@ export function affiliateUrlForShopProduct(product: ShopProduct): string {
 /**
  * Thumb image (Amazon serves a standard image per ASIN). Non-ASIN products return null.
  */
-export function shopProductImageUrl(product: ShopProduct): string | null {
-  if (!product.asin) return null
-  return `https://m.media-amazon.com/images/P/${product.asin}._SL160_.jpg`
+/**
+ * @deprecated We no longer render hotlinked Amazon product images. See
+ * `src/lib/supplementVisual.ts` for the copyright / consistency rationale.
+ * Left as a no-op so any stale callers fail safely (no image, fallback UI
+ * handles it).
+ */
+export function shopProductImageUrl(_product: ShopProduct): string | null {
+  return null
 }
 
 // ---------------------------------------------------------------------------

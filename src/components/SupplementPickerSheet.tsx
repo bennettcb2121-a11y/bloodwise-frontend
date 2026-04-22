@@ -4,12 +4,12 @@ import React, { useCallback, useEffect } from "react"
 import { X, ExternalLink, Check, AlertCircle, ShieldAlert, Info } from "lucide-react"
 import {
   affiliateUrlForShopProduct,
-  shopProductImageUrl,
   type LabAwarenessStatus,
   type ShopProduct,
   type SupplementShopEntry,
 } from "@/src/lib/supplementShopCatalog"
 import { AFFILIATE_DISCLOSURE } from "@/src/lib/affiliateProducts"
+import { SupplementMonogram } from "@/src/components/SupplementMonogram"
 
 type Props = {
   entry: SupplementShopEntry | null
@@ -87,9 +87,22 @@ export function SupplementPickerSheet({ entry, labStatus, onClose }: Props) {
         ) : null}
 
         <div className="shop-picker-cards">
-          <ShopProductCard product={entry.products.best_overall} highlight />
-          <ShopProductCard product={entry.products.cheapest} />
-          <ShopProductCard product={entry.products.highest_potency} />
+          <ShopProductCard
+            product={entry.products.best_overall}
+            presetId={entry.presetId}
+            category={entry.category}
+            highlight
+          />
+          <ShopProductCard
+            product={entry.products.cheapest}
+            presetId={entry.presetId}
+            category={entry.category}
+          />
+          <ShopProductCard
+            product={entry.products.highest_potency}
+            presetId={entry.presetId}
+            category={entry.category}
+          />
         </div>
 
         <p className="shop-picker-disclosure">{AFFILIATE_DISCLOSURE}</p>
@@ -345,13 +358,16 @@ const BANNER_META: Record<
 
 function ShopProductCard({
   product,
+  presetId,
+  category,
   highlight,
 }: {
   product: ShopProduct
+  presetId: string
+  category: string
   highlight?: boolean
 }) {
   const url = affiliateUrlForShopProduct(product)
-  const img = shopProductImageUrl(product)
   return (
     <article className={`shop-card${highlight ? " shop-card--highlight" : ""}`}>
       <div className={`shop-card-tier shop-card-tier--${product.tier}`}>
@@ -359,12 +375,7 @@ function ShopProductCard({
       </div>
 
       <div className="shop-card-image">
-        {img ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={img} alt="" loading="lazy" />
-        ) : (
-          <span className="shop-card-image-fallback">{product.brand}</span>
-        )}
+        <SupplementMonogram presetId={presetId} category={category} size={88} radius={16} />
       </div>
 
       <div className="shop-card-body">
@@ -431,23 +442,7 @@ function ShopProductCard({
           display: flex;
           align-items: center;
           justify-content: center;
-          aspect-ratio: 1 / 1;
-          border-radius: 10px;
-          background: #fff;
-          overflow: hidden;
-        }
-        .shop-card-image img {
-          width: 100%;
-          height: 100%;
-          object-fit: contain;
-        }
-        .shop-card-image-fallback {
-          font-size: 13px;
-          font-weight: 700;
-          color: #111;
-          letter-spacing: -0.01em;
-          padding: 12px;
-          text-align: center;
+          padding: 8px 0 4px;
         }
         .shop-card-body {
           display: flex;
