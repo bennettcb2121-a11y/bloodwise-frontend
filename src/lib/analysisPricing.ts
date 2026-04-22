@@ -1,12 +1,17 @@
 /**
  * Display prices for paywall (must match Stripe Prices / checkout defaults).
  * Analysis: app/api/create-analysis-checkout/route.ts
- * Subscription: STRIPE_SUBSCRIPTION_PRICE_ID — recurring $29 every 2 months in Stripe.
+ * Subscription: STRIPE_SUBSCRIPTION_PRICE_ID — recurring $29.79 every 2 months in Stripe.
+ *
+ * Defaults below mirror the live Stripe Prices exactly so the app displays
+ * $49.79 / $29.79 without any env-var configuration. If you change the
+ * Stripe Prices later, either update these constants or override with
+ * NEXT_PUBLIC_ANALYSIS_PRICE_CENTS / NEXT_PUBLIC_SUBSCRIPTION_PRICE_CENTS.
  */
 
-export const ANALYSIS_DEFAULT_PRICE_CENTS = 4900
+export const ANALYSIS_DEFAULT_PRICE_CENTS = 4979
 /** Clarion+ subscription: first bill after trial; must match STRIPE subscription price amount. */
-export const SUBSCRIPTION_DEFAULT_PRICE_CENTS = 2900
+export const SUBSCRIPTION_DEFAULT_PRICE_CENTS = 2979
 /** Clarion Lite (symptom-based plan; optional product in Stripe). */
 export const LITE_DEFAULT_PRICE_CENTS = 999
 /** Trial days for Clarion+ before first recurring bill (bundled with analysis signup). */

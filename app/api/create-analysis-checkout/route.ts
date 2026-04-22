@@ -76,11 +76,11 @@ export async function POST(request: Request) {
         {
           price_data: {
             currency: "usd",
-            unit_amount: 4900, // $49.00
+            unit_amount: 4979, // $49.79 — matches live Stripe Clarion Analysis price
             product_data: {
               name: "Clarion Analysis",
               description:
-                "One-time biomarker analysis. Clarion+ ($29 every 2 months) starts after a 2-month included period — see checkout terms.",
+                "One-time biomarker analysis. Clarion+ ($29.79 every 2 months) starts after a 2-month included period — see checkout terms.",
               images: undefined,
             },
           },
