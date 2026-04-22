@@ -4,8 +4,12 @@
  * In development, set NEXT_PUBLIC_DEV_SKIP_PAYWALL=1 to bypass the paywall (legacy local testing).
  * Otherwise dev behaves like production so you can test checkout and unlock codes.
  *
- * - **Dashboard access** (`hasClarionAnalysisAccess`): Clarion Lite, Clarion+, $49 analysis, or legacy bloodwork.
- * - **Lab personalization** (`hasLabPersonalizationAccess`): $49 analysis unlock or saved bloodwork with panel/score — not symptom-only Lite.
+ * - **Dashboard access** (`hasClarionAnalysisAccess`): Clarion Lite, Clarion+, or paid analysis.
+ *   Having saved bloodwork alone is NOT sufficient — previously this was a grandfather clause
+ *   for users who onboarded before the paywall existed, but it turned into a backdoor where any
+ *   new user could enter manual labs → get a score → sail past the paywall. Revoked 2026-04-21.
+ * - **Lab personalization** (`hasLabPersonalizationAccess`): paid analysis unlock only. Same
+ *   reasoning: we can't trust the presence of bloodwork alone as proof of payment.
  */
 
 export function isDevPaywallBypass(): boolean {
@@ -35,11 +39,11 @@ export type BloodworkLike = {
   selected_panel?: unknown
 } | null
 
-/** True if user has paid analysis, active subscription (Lite or full), or legacy saved bloodwork. */
+/** True if user has paid analysis or an active subscription (Lite or full). */
 export function hasClarionAnalysisAccess(
   profile: ProfileLike,
   subscription: SubscriptionLike,
-  bloodwork: BloodworkLike
+  _bloodwork: BloodworkLike
 ): boolean {
   if (isDevPaywallBypass()) return true
   if (profile?.analysis_purchased_at) return true
@@ -47,25 +51,22 @@ export function hasClarionAnalysisAccess(
   /** Stripe webhook sets `plan_tier` on profiles; `subscriptions` row can lag behind checkout redirect. */
   const tier = (profile?.plan_tier ?? "").toLowerCase()
   if (tier === "full" || tier === "lite") return true
-  if (bloodwork) {
-    if (bloodwork.score != null) return true
-    const panel = bloodwork.selected_panel
-    if (Array.isArray(panel) && panel.length > 0) return true
-  }
   return false
 }
 
 /**
  * Lab-backed features: panel score from real markers, biomarker trends, lab-matched supplement recs.
- * Clarion Lite alone does not grant this — user needs analysis purchase or saved bloodwork.
+ * Requires a paid analysis unlock. A subscription alone (e.g. lite) does not grant this —
+ * the $49 analysis unlock is what actually pays for the personalized biomarker work.
  */
-export function hasLabPersonalizationAccess(profile: ProfileLike, bloodwork: BloodworkLike): boolean {
+export function hasLabPersonalizationAccess(
+  profile: ProfileLike,
+  _bloodwork: BloodworkLike
+): boolean {
   if (isDevPaywallBypass()) return true
   if (profile?.analysis_purchased_at) return true
-  if (!bloodwork) return false
-  if (bloodwork.score != null) return true
-  const panel = bloodwork.selected_panel
-  if (Array.isArray(panel) && panel.length > 0) return true
+  const tier = (profile?.plan_tier ?? "").toLowerCase()
+  if (tier === "full") return true
   return false
 }
 

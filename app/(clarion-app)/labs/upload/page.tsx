@@ -2,7 +2,7 @@
 
 import React, { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft } from "lucide-react"
 import { ConsentGate } from "@/src/components/ConsentGate"
 import {
@@ -21,16 +21,23 @@ type Stage =
 export default function LabsUploadPage() {
   const [stage, setStage] = useState<Stage>({ kind: "upload" })
   const router = useRouter()
+  const searchParams = useSearchParams()
+  /** `?return=onboarding` sends the user back into the survey (analyze → paywall lock) after upload;
+   *  default flow sends them to `/dashboard?newResults=1` for returning users. */
+  const returnTo = searchParams.get("return")
+
+  const backHref = returnTo === "onboarding" ? "/?step=labs" : "/dashboard"
+  const backLabel = returnTo === "onboarding" ? "Back to survey" : "Dashboard"
 
   return (
     <main className="clarion-labs-shell">
       <p style={{ margin: 0 }}>
         <Link
-          href="/dashboard"
+          href={backHref}
           className="clarion-lab-actions__secondary"
           style={{ padding: "0.35rem 0.9rem", fontSize: "0.82rem", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "0.35rem" }}
         >
-          <ArrowLeft size={14} aria-hidden /> Dashboard
+          <ArrowLeft size={14} aria-hidden /> {backLabel}
         </Link>
       </p>
 
@@ -61,9 +68,14 @@ export default function LabsUploadPage() {
             extractions={stage.extractions}
             onConfirmed={() => {
               setStage({ kind: "done", sessionId: stage.sessionId })
-              // Go home with the "Updated panel" banner; trends + biomarkers pick
-              // up the new save automatically. Previous saves stay in history.
-              router.push(`/dashboard?newResults=1`)
+              /** Onboarding users haven't paid yet; send them to the score-reveal step so they hit the paywall.
+               *  Returning dashboard users land on `/dashboard?newResults=1` where trends + biomarkers pick up
+               *  the new save automatically. Previous saves stay in history in both cases. */
+              if (returnTo === "onboarding") {
+                router.push("/?step=labs&analyze=1")
+              } else {
+                router.push("/dashboard?newResults=1")
+              }
             }}
           />
         ) : null}

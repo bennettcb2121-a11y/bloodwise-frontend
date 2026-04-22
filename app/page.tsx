@@ -392,11 +392,15 @@ function HomePageContent() {
     const search = typeof window !== "undefined" ? window.location.search : ""
     const isPaymentReturn = search.includes("paid=1")
     const isSubscriptionReturn = search.includes("subscription=success")
+    /** `?step=labs&analyze=1` comes from the onboarding lab upload return — a dedicated effect handles it;
+     *  if we run the welcome-reset block here, we'd race and push the user back to step 8. */
+    const isPostUploadAnalyze =
+      typeof window !== "undefined" && new URLSearchParams(search).get("analyze") === "1"
     const stepParam = typeof window !== "undefined" ? new URLSearchParams(search).get("step") : null
     const viewParam = typeof window !== "undefined" ? new URLSearchParams(search).get("view") : null
     const goToLabs = stepParam === "labs" || stepParam === "8"
     const goToSurvey = stepParam === "survey" || stepParam === "welcome"
-    if (!isPaymentReturn && !isSubscriptionReturn && !viewParam) {
+    if (!isPaymentReturn && !isSubscriptionReturn && !viewParam && !isPostUploadAnalyze) {
       if (goToLabs) setCurrentStepRaw(8)
       else if (goToSurvey) setCurrentStepRaw(0)
       else setCurrentStep(0)
@@ -408,9 +412,14 @@ function HomePageContent() {
     Promise.all([loadSavedState(userId), getSubscription(userId)])
       .then(([{ profile: p, bloodwork: b }, subscription]) => {
         setBloodworkForAccess(b ?? null)
-        const row = p ? (p as { improvement_preference?: string; profile_type?: string; analysis_purchased_at?: string | null; results_flow_completed_at?: string | null }) : null
+        const row = p ? (p as { improvement_preference?: string; profile_type?: string; analysis_purchased_at?: string | null; results_flow_completed_at?: string | null; plan_tier?: string | null }) : null
         const hasPaid = !!row?.analysis_purchased_at
         const hasCompletedResultsFlow = !!row?.results_flow_completed_at
+        /** Computed here (not inside `if (p)`) so downstream redirect/`?view=` logic can rely on them
+         *  even when profile row doesn't exist yet. Used to gate access without the legacy bloodwork bypass. */
+        const subActiveOnLoad = subscriptionStatusGrantsAccess(subscription?.status)
+        const tierLcOnLoad = (row?.plan_tier ?? "").toLowerCase()
+        const tierUnlockOnLoad = tierLcOnLoad === "full" || tierLcOnLoad === "lite"
         if (p) {
           const rowProfile = p as ProfileRow
           const healthGoalCsv = rowProfile.health_goals?.trim() ?? ""
@@ -443,9 +452,6 @@ function HomePageContent() {
             alcohol: rowProfile?.alcohol_frequency ?? "",
             planTier: (rowProfile?.plan_tier ?? "").trim() || undefined,
           })
-          const subActiveOnLoad = subscriptionStatusGrantsAccess(subscription?.status)
-          const tierLc = (rowProfile?.plan_tier ?? "").toLowerCase()
-          const tierUnlockOnLoad = tierLc === "full" || tierLc === "lite"
           // Don’t overwrite optimistic paid state when returning from checkout (webhook may lag behind redirect).
           setHasPaidAnalysis(
             hasPaid || isPaymentReturn || isSubscriptionReturn || subActiveOnLoad || tierUnlockOnLoad
@@ -494,10 +500,11 @@ function HomePageContent() {
           setLastBloodworkAt(null)
         }
 
-        // Dashboard "Saved plan" links: ?view=insights or ?view=stack — show that results step with saved data (must run before hasAccess redirect)
+        // Dashboard "Saved plan" links: ?view=insights or ?view=stack — show results step with saved data.
+        // Gate by actual payment (paid analysis, active Stripe sub, or webhook-set plan_tier) — never
+        // by bloodwork alone, which was a paywall bypass (any user entering manual labs got access).
         const view = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("view") : null
-        if ((view === "insights" || view === "stack") && (hasPaid || (b && (b.score != null || (b.selected_panel?.length ?? 0) > 0)))) {
-          setHasPaidAnalysis(true)
+        if ((view === "insights" || view === "stack") && (hasPaid || subActiveOnLoad || tierUnlockOnLoad)) {
           if (b?.biomarker_inputs && typeof b.biomarker_inputs === "object") {
             setInputs((prev) => ({ ...prev, ...b.biomarker_inputs }))
           }
@@ -509,14 +516,18 @@ function HomePageContent() {
           return
         }
 
-        // If returning from payment or subscription checkout, don't redirect — dedicated effects will show results flow.
-        // Use flags captured when this effect ran, not window.location here: the ?paid=1 effect may have already
-        // router.replace("/")'d and stripped the query before this promise resolves, which would wrongly fall through to setCurrentStep(0).
-        if (isPaymentReturn || isSubscriptionReturn) return
+        // If returning from payment / subscription checkout, or from the onboarding PDF upload return,
+        // don't redirect — dedicated effects will show results flow. Use flags captured when this effect
+        // ran, not window.location here: the other effects may have already router.replace("/")'d and
+        // stripped the query before this promise resolves, which would wrongly fall through to setCurrentStep(0).
+        if (isPaymentReturn || isSubscriptionReturn || isPostUploadAnalyze) return
 
         const subActive = subscriptionStatusGrantsAccess(subscription?.status)
-        const hasBloodworkAccess = b && (b.score != null || (b.selected_panel?.length ?? 0) > 0)
-        const hasAccess = hasPaid || subActive || !!hasBloodworkAccess
+        // Does the user have prior saved bloodwork to restore? (UI hint only — NOT access.)
+        const hasPriorBloodwork = Boolean(b && (b.score != null || (b.selected_panel?.length ?? 0) > 0))
+        // Access must be gated by actual payment — bloodwork alone used to unlock the app
+        // and turned into a paywall bypass (any manual-entry user skipped checkout).
+        const hasAccess = hasPaid || subActive || tierUnlockOnLoad
 
         // After explicit logout → sign-in: ask dashboard vs retake survey (don't auto-jump past home)
         const wantsReauth =
@@ -542,7 +553,7 @@ function HomePageContent() {
           if (Array.isArray(b?.selected_panel) && b.selected_panel.length > 0) {
             setSelectedPanel(b.selected_panel)
           }
-          const targetStep = hasBloodworkAccess ? 10 : 8
+          const targetStep = hasPriorBloodwork ? 10 : 8
           setCurrentStepRaw(targetStep)
           router.replace("/?step=labs", { scroll: false })
           return
@@ -603,6 +614,29 @@ function HomePageContent() {
       setAnalyzing(true)
       router.replace("/", { scroll: false })
     }).catch(() => router.replace("/", { scroll: false }))
+  }, [userId, searchParams, router])
+
+  // After onboarding lab-upload flow: `/labs/upload?return=onboarding` routes here with `?step=labs&analyze=1`
+  // so we can restore the freshly-saved bloodwork into the survey and run the analysis → score reveal.
+  // The user still hits the paywall at STEP_SCORE; this is purely about showing them their computed score.
+  useEffect(() => {
+    if (!userId) return
+    if (searchParams.get("step") !== "labs" || searchParams.get("analyze") !== "1") return
+    loadSavedState(userId)
+      .then(({ bloodwork: b }) => {
+        if (b?.biomarker_inputs && typeof b.biomarker_inputs === "object") {
+          setInputs((prev) => ({ ...prev, ...b.biomarker_inputs }))
+        }
+        if (Array.isArray(b?.selected_panel) && b.selected_panel.length > 0) {
+          setSelectedPanel(b.selected_panel)
+        }
+        setBloodworkForAccess(b ?? null)
+        /** STEP_ANALYSIS = 12: the OnboardingFlow effect at STEP_ANALYSIS+analyzing auto-advances to STEP_SCORE. */
+        setCurrentStepRaw(12)
+        setAnalyzing(true)
+        router.replace("/", { scroll: false })
+      })
+      .catch(() => router.replace("/", { scroll: false }))
   }, [userId, searchParams, router])
 
   // After subscription success: continue the survey (results flow) then they reach dashboard via "Go to Dashboard"

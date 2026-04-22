@@ -45,12 +45,14 @@ describe("access gate — null / empty data", () => {
     expect(hasClarionAnalysisAccess(null, null, null)).toBe(false)
   })
 
-  it("allows bloodwork with score only", () => {
-    expect(hasClarionAnalysisAccess(null, null, { score: 72 })).toBe(true)
+  it("denies bloodwork with score only (no payment)", () => {
+    // Regression: previously `bloodwork.score != null` was a grandfather clause
+    // that let anyone entering manual labs skip the paywall. Revoked 2026-04-21.
+    expect(hasClarionAnalysisAccess(null, null, { score: 72 })).toBe(false)
   })
 
-  it("allows bloodwork with non-empty panel only", () => {
-    expect(hasClarionAnalysisAccess(null, null, { selected_panel: ["Ferritin"] })).toBe(true)
+  it("denies bloodwork with non-empty panel only (no payment)", () => {
+    expect(hasClarionAnalysisAccess(null, null, { selected_panel: ["Ferritin"] })).toBe(false)
   })
 
   it("allows subscription trialing", () => {
@@ -72,7 +74,7 @@ describe("access gate — null / empty data", () => {
 })
 
 describe("lab personalization access", () => {
-  it("denies when no analysis and no qualifying bloodwork", () => {
+  it("denies when no analysis", () => {
     expect(hasLabPersonalizationAccess(null, null)).toBe(false)
   })
 
@@ -80,8 +82,20 @@ describe("lab personalization access", () => {
     expect(hasLabPersonalizationAccess({ analysis_purchased_at: "2024-01-01T00:00:00Z" }, null)).toBe(true)
   })
 
-  it("allows bloodwork with score", () => {
-    expect(hasLabPersonalizationAccess(null, { score: 70 })).toBe(true)
+  it("denies bloodwork with score but no payment (regression)", () => {
+    // Manual lab entry alone must not unlock personalized analysis features;
+    // used to be a grandfather clause that turned into a paywall bypass.
+    expect(hasLabPersonalizationAccess(null, { score: 70 })).toBe(false)
+  })
+
+  it("allows plan_tier full without explicit analysis_purchased_at", () => {
+    // Webhook race: subscriptions row may lag profile update. plan_tier='full'
+    // indicates a completed paid analysis.
+    expect(hasLabPersonalizationAccess({ plan_tier: "full" }, null)).toBe(true)
+  })
+
+  it("denies plan_tier lite (lite subscribers have no analysis unlock)", () => {
+    expect(hasLabPersonalizationAccess({ plan_tier: "lite" }, null)).toBe(false)
   })
 })
 

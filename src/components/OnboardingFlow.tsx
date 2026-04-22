@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { PricingTiers } from "@/src/components/PricingTiers"
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion"
-import { Target, Pill, Droplet, Activity, Wallet, TrendingUp, ChevronLeft, Lock, FileText, Stethoscope, CheckCircle2, Zap, Utensils, Moon, Layers, Heart, Dumbbell, Lightbulb, ChevronRight, FlaskConical, ShoppingBag, Check } from "lucide-react"
+import { Target, Pill, Droplet, Activity, Wallet, TrendingUp, ChevronLeft, Lock, FileText, Stethoscope, CheckCircle2, Zap, Utensils, Moon, Layers, Heart, Dumbbell, Lightbulb, ChevronRight, FlaskConical, ShoppingBag, Check, UploadCloud } from "lucide-react"
 import { SubscribeButton } from "@/src/components/SubscribeButton"
 import { getMarkerReason, getInputPlaceholder, titleCase, getBiomarkerTiers } from "@/src/lib/panelEngine"
 import { getStatusTone, inferWhyItMatters, inferNextStep } from "@/src/lib/priorityEngine"
@@ -944,6 +944,19 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
           >
             <TypewriterHeading className="onboarding-headline">Enter your lab results</TypewriterHeading>
             <p className="onboarding-subtext">Enter values for each biomarker so we can build your personalized plan. Your target range appears after you enter a value.</p>
+            <div className="onboarding-lab-upload-cta">
+              <div className="onboarding-lab-upload-copy">
+                <span className="onboarding-lab-upload-icon" aria-hidden><UploadCloud size={22} strokeWidth={1.75} /></span>
+                <div>
+                  <strong>Have a PDF or photo of your labs?</strong>
+                  <span>Drop it in and we&apos;ll extract the values for you. Works for Quest, LabCorp, Kaiser, and most other labs.</span>
+                </div>
+              </div>
+              <Link href="/labs/upload?return=onboarding" className="onboarding-lab-upload-btn">
+                Upload PDF / photo <ChevronRight size={16} strokeWidth={2.5} aria-hidden />
+              </Link>
+            </div>
+            <div className="onboarding-lab-inputs-divider" aria-hidden><span>or enter manually</span></div>
             <div className="onboarding-lab-inputs">
               {activePanel.map((key) => {
                 const hasValue = inputs[key] !== undefined && inputs[key] !== "" && String(inputs[key]).trim() !== ""
@@ -2815,6 +2828,41 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
         .onboarding-next-btn-secondary { background: transparent; color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.15); }
         .onboarding-next-btn-secondary:hover { background: rgba(255,255,255,0.08); }
         .onboarding-next-clarion-link { display: block; margin-top: 8px; }
+        .onboarding-lab-upload-cta {
+          display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px;
+          padding: 16px 20px; margin-bottom: 20px;
+          background: linear-gradient(135deg, rgba(73, 171, 255, 0.08), rgba(139, 92, 246, 0.06));
+          border: 1px solid rgba(73, 171, 255, 0.25);
+          border-radius: var(--clarion-radius-md);
+        }
+        .onboarding-lab-upload-copy { display: flex; align-items: flex-start; gap: 12px; flex: 1 1 260px; min-width: 0; }
+        .onboarding-lab-upload-icon {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 40px; height: 40px; flex-shrink: 0;
+          background: rgba(73, 171, 255, 0.15); color: #49abff; border-radius: 10px;
+        }
+        .onboarding-lab-upload-copy strong { display: block; color: var(--color-text-primary); font-size: 15px; margin-bottom: 2px; }
+        .onboarding-lab-upload-copy span { font-size: 13px; color: var(--color-text-muted); line-height: 1.45; }
+        .onboarding-lab-upload-btn {
+          display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+          padding: 10px 16px;
+          background: #49abff; color: #fff; font-weight: 600; font-size: 14px;
+          border-radius: 10px; text-decoration: none;
+          transition: background 120ms ease;
+        }
+        .onboarding-lab-upload-btn:hover { background: #2d8fe0; }
+        .onboarding-lab-inputs-divider {
+          position: relative; text-align: center; margin: 8px 0 18px;
+          font-size: 12px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.08em;
+        }
+        .onboarding-lab-inputs-divider::before,
+        .onboarding-lab-inputs-divider::after {
+          content: ""; position: absolute; top: 50%; width: calc(50% - 80px); height: 1px;
+          background: var(--color-border);
+        }
+        .onboarding-lab-inputs-divider::before { left: 0; }
+        .onboarding-lab-inputs-divider::after { right: 0; }
+        .onboarding-lab-inputs-divider span { position: relative; background: transparent; padding: 0 12px; }
         .onboarding-lab-inputs { display: flex; flex-direction: column; gap: 16px; margin-bottom: 20px; }
         .onboarding-lab-card {
           background: var(--color-surface-elevated);
