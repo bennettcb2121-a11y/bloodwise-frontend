@@ -96,9 +96,8 @@ function SubscriptionSummary({
         {badge}
       </div>
       <p className="settings-hint" style={{ margin: "4px 0 12px" }}>
-        Your ${getAnalysisPriceDisplayDollars()} analysis is permanent — canceling only stops the
-        ${getSubscriptionPriceDisplayDollars()} / 2-month Clarion+ add-on. Your report, biomarkers,
-        and history always stay in your account.
+        Your ${getAnalysisPriceDisplayDollars()} analysis is permanent — canceling only stops the ${getSubscriptionPriceDisplayDollars()} / 2-month Clarion+ add-on.
+        Your report, biomarkers, and history always stay in your account.
       </p>
 
       {isTrial && !pendingCancel && (
@@ -192,14 +191,13 @@ function NoSubscriptionSummary({
       </div>
       {hasAnalysis ? (
         <p className="settings-hint" style={{ margin: 0 }}>
-          You bought the one-time ${getAnalysisPriceDisplayDollars()} analysis — that&apos;s
-          permanent. Clarion+ (${getSubscriptionPriceDisplayDollars()} every 2 months) is the
-          optional add-on for ongoing retests, priority AI, and deeper trend reports.
+          You bought the one-time ${getAnalysisPriceDisplayDollars()} analysis — that&apos;s permanent. Clarion+ (${getSubscriptionPriceDisplayDollars()} every 2 months) is
+          the optional add-on for ongoing retests, priority AI, and deeper trend reports.
         </p>
       ) : (
         <p className="settings-hint" style={{ margin: 0 }}>
-          To get your personalized Clarion analysis, start with the ${getAnalysisPriceDisplayDollars()} one-time
-          purchase. That unlocks your report and includes 2 months of Clarion+ free.
+          To get your personalized Clarion analysis, start with the ${getAnalysisPriceDisplayDollars()} one-time purchase. That
+          unlocks your report and includes 2 months of Clarion+ free.
         </p>
       )}
       {error && <p className="settings-sub-error" style={{ marginTop: 10 }}>{error}</p>}
