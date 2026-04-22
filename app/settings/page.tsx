@@ -698,8 +698,32 @@ export default function SettingsPage() {
                 </div>
               </div>
             </section>
+          </>
+        )}
 
-            <section className="settings-section" aria-labelledby="settings-billing-heading">
+        {/* Placeholder for users who haven't completed the survey yet — without this,
+         * a new account sees an empty settings page because every section used to be
+         * gated on `profile` being populated. Subscription / Account / Danger zone
+         * below don't need a profile row and always render. */}
+        {!profile && !loading && (
+          <section className="settings-section" aria-labelledby="settings-empty-profile">
+            <h2 id="settings-empty-profile" className="settings-section-title">Profile</h2>
+            <div className="settings-card">
+              <p className="settings-hint" style={{ margin: "0 0 14px" }}>
+                You haven&apos;t finished the Clarion survey yet, so there&apos;s no profile to edit.
+                Complete it to unlock personalized preferences, symptom tracking, and retest reminders.
+              </p>
+              <Link href="/?step=survey" className="settings-save">
+                Start the survey
+              </Link>
+            </div>
+          </section>
+        )}
+
+        {/* Subscription, Account, and Danger zone render regardless of whether the user
+         * has a saved profile — billing and account deletion must be reachable even
+         * before the survey is completed. */}
+        <section className="settings-section" aria-labelledby="settings-billing-heading">
               <h2 id="settings-billing-heading" className="settings-section-title">Subscription</h2>
               <div className="settings-card">
                 {/*
@@ -764,8 +788,6 @@ export default function SettingsPage() {
                 </button>
               </div>
             </section>
-          </>
-        )}
       </div>
 
       {showDeleteModal && (
