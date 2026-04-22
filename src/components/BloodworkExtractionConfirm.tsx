@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useMemo, useState } from "react"
-import { AlertTriangle, Check, Edit2 } from "lucide-react"
+import { AlertTriangle, Check, Edit2, X } from "lucide-react"
 import type { UploadedExtraction } from "@/src/components/BloodworkUploadModal"
 import { resolveExtractedLabName } from "@/src/lib/biomarkerAliases"
 import { normalizeToCanonical } from "@/src/lib/unitConversion"
@@ -129,6 +129,11 @@ export function BloodworkExtractionConfirm({ sessionId, extractions, onConfirmed
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)))
   }
 
+  const removeRow = (id: string) => {
+    setRows((prev) => prev.filter((r) => r.id !== id))
+    setRemappingId((cur) => (cur === id ? null : cur))
+  }
+
   const confirm = async () => {
     if (submitting || includedRows.length === 0) return
     setSubmitting(true)
@@ -172,10 +177,11 @@ export function BloodworkExtractionConfirm({ sessionId, extractions, onConfirmed
     }
   }
 
-  // Group confirmed rows by panel — simple bucketing using key name heuristics from biomarkerDatabase.
+  // Group rows that already map to a Clarion marker. Unmapped lines only show in the “couldn’t match” section.
   const grouped = useMemo(() => {
     const groups: Record<string, ConfirmRow[]> = {}
     for (const r of rows) {
+      if (!r.mappedKey) continue
       const label = groupLabelFor(r.mappedKey)
       if (!groups[label]) groups[label] = []
       groups[label].push(r)
@@ -250,27 +256,41 @@ export function BloodworkExtractionConfirm({ sessionId, extractions, onConfirmed
       {unmapped.length > 0 ? (
         <div className="clarion-lab-unmapped">
           <h4>We couldn&apos;t match these markers</h4>
-          <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--color-text-secondary)" }}>
-            You can still save them as manual entries later, or pick a biomarker we know.
+          <p className="clarion-lab-unmapped__intro">
+            Some lab lines aren&apos;t in Clarion&apos;s library yet — we&apos;re always adding more. You can try to map
+            one to a similar marker, or <strong>skip a line</strong> and continue with everything else we can import.
           </p>
-          <ul>
+          <ul className="clarion-lab-unmapped__list">
             {unmapped.map((r) => (
-              <li key={r.id}>
-                <strong>{r.rawName}</strong>
-                {r.rawValue != null ? (
-                  <>
-                    {" · "}
-                    {r.rawValue} {r.rawUnit}
-                  </>
-                ) : null}{" "}
-                <button
-                  type="button"
-                  className="clarion-lab-dropzone__btn"
-                  style={{ padding: "0.25rem 0.6rem", fontSize: "0.8rem" }}
-                  onClick={() => setRemappingId(remappingId === r.id ? null : r.id)}
-                >
-                  <Edit2 size={14} aria-hidden /> {remappingId === r.id ? "Cancel" : "Map manually"}
-                </button>
+              <li key={r.id} className="clarion-lab-unmapped__row">
+                <div className="clarion-lab-unmapped__row-main">
+                  <strong>{r.rawName}</strong>
+                  {r.rawValue != null ? (
+                    <span className="clarion-lab-unmapped__vals">
+                      {" "}
+                      · {r.rawValue} {r.rawUnit}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="clarion-lab-unmapped__row-actions">
+                  <button
+                    type="button"
+                    className="clarion-lab-unmapped__skip"
+                    onClick={() => removeRow(r.id)}
+                    aria-label={`Skip ${r.rawName} — not in Clarion yet`}
+                    title="Skip this line and continue with other markers"
+                  >
+                    <X size={16} strokeWidth={2.25} aria-hidden />
+                    <span>Skip</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="clarion-lab-dropzone__btn clarion-lab-unmapped__map"
+                    onClick={() => setRemappingId(remappingId === r.id ? null : r.id)}
+                  >
+                    <Edit2 size={14} aria-hidden /> {remappingId === r.id ? "Cancel" : "Map manually"}
+                  </button>
+                </div>
                 {remappingId === r.id ? (
                   <RemapControl
                     onPick={(key) => {
@@ -295,6 +315,17 @@ export function BloodworkExtractionConfirm({ sessionId, extractions, onConfirmed
       {error ? (
         <p className="clarion-consent-gate__error" role="alert">
           {error}
+        </p>
+      ) : null}
+
+      {rows.length > 0 && includedRows.length === 0 ? (
+        <p className="clarion-lab-confirm-hint" role="status">
+          Turn on at least one row above, map an unmatched line, or skip unmapped lines — then you can save.
+        </p>
+      ) : null}
+      {rows.length === 0 ? (
+        <p className="clarion-lab-confirm-hint" role="alert">
+          No lab lines left to save. Re-upload your file, or go back to the survey and enter markers manually.
         </p>
       ) : null}
 

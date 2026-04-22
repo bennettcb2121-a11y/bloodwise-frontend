@@ -285,12 +285,14 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
   }, [hasPaidAnalysis, hasActiveSubscription, profile.planTier])
 
   const [showCaptureSupplementsModal, setShowCaptureSupplementsModal] = useState(false)
+  /** Only nudge for “what I take” after the score once the user can see results (paid / unlocked). Opening on a locked score step covered the “Get my results” / paywall CTA. */
   useEffect(() => {
     if (typeof window === "undefined") return
     if (currentStep !== STEP_SCORE) return
+    if (!resultsUnlocked) return
     if (sessionStorage.getItem("clarion_capture_supplements_v1") === "1") return
     queueMicrotask(() => setShowCaptureSupplementsModal(true))
-  }, [currentStep])
+  }, [currentStep, resultsUnlocked])
 
   const dismissCaptureSupplementsModal = useCallback(() => {
     if (typeof window !== "undefined") sessionStorage.setItem("clarion_capture_supplements_v1", "1")
@@ -411,7 +413,7 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
                     void signOut()
                   }}
                 >
-                  Log out
+                  Sign out
                 </button>
               </>
             ) : (
@@ -1767,20 +1769,29 @@ export function OnboardingFlow(props: OnboardingFlowProps) {
           transition: color 0.2s;
         }
         .onboarding-back:hover { color: var(--color-text-primary); }
-        .onboarding-header-actions { display: flex; align-items: center; gap: 10px; }
+        .onboarding-header-actions {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 6px;
+          flex-wrap: nowrap;
+          min-width: 0;
+        }
         .onboarding-header-theme-toggle { flex-shrink: 0; }
         .onboarding-header-btn {
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 600;
           font-family: inherit;
           color: var(--color-text-secondary);
           text-decoration: none;
-          padding: 10px 18px;
+          padding: 8px 12px;
           border-radius: var(--clarion-radius-md);
           transition: background 0.2s, color 0.2s;
           border: none;
           background: transparent;
           cursor: pointer;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
         .onboarding-header-btn:hover { background: var(--color-surface-elevated); color: var(--color-text-primary); }
         .onboarding-progress-wrap {
