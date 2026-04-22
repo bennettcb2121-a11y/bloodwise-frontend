@@ -137,8 +137,8 @@ Stripe handles the $49 one-time analysis payment (and optional subscriptions). Y
 2. Turn **off** “Test mode” (top right) so you’re in **Live** mode.
 3. **Developers** → **API keys**.
 4. Copy:
-   - **Publishable key** (starts with `pk_live_`) → `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
    - **Secret key** (starts with `sk_live_`) → `STRIPE_SECRET_KEY`.
+   - (The publishable key isn't needed — the app uses Stripe-hosted Checkout, not client-side Stripe.js.)
 
 ## 3.2 Create the webhook (so the app knows when someone paid)
 
@@ -205,7 +205,7 @@ In the project: **Settings** → **Environment Variables**. Add these for **Prod
 
 **Product tiers:** (1) **$49 one-time** = unlock your analysis (score, insights, protocol, stack) on the main app. (2) **Clarion+ subscription** = access dashboard, trends, charts, history, retest reminders. Both are enforced in the app; Stripe webhook sets `analysis_purchased_at` and updates the `subscriptions` table.
 
-Optional: `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` – Stripe publishable key (live), only if you add client-side Stripe.
+Not needed: `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`. Checkout is server-side (Stripe-hosted), so no publishable key is required.
 
 Redeploy after changing env vars so they take effect.
 

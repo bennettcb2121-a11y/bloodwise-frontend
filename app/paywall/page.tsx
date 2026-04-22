@@ -11,7 +11,7 @@ import {
   hasClarionAnalysisAccess,
   isDevPaywallBypass,
 } from "@/src/lib/accessGate"
-import { getLitePriceDisplayDollars } from "@/src/lib/analysisPricing"
+import { getAnalysisPriceDisplayDollars, getLitePriceDisplayDollars } from "@/src/lib/analysisPricing"
 import { ClarionLabsLogo } from "@/src/components/ClarionLabsLogo"
 import { SupportContactHint } from "@/src/components/SupportContactHints"
 import { PricingTiers } from "@/src/components/PricingTiers"
@@ -182,7 +182,7 @@ export default function PaywallPage() {
     // marketing CTA (Tier 2 "analysis" vs Tier 3 "monthly") the user clicked —
     // you can't reach the $29/2mo subscription without buying the $49 analysis first.
     setPendingCheckout({
-      label: "$49",
+      label: `$${getAnalysisPriceDisplayDollars()}`,
       interval: "one-time",
       run: () => { void runAnalysisCheckout(tier) },
     })
@@ -363,7 +363,7 @@ export default function PaywallPage() {
       </div>
       <LiveModeChargeWarning
         open={pendingCheckout !== null}
-        amountLabel={pendingCheckout?.label ?? "$49"}
+        amountLabel={pendingCheckout?.label ?? `$${getAnalysisPriceDisplayDollars()}`}
         interval={pendingCheckout?.interval ?? "one-time"}
         onCancel={() => setPendingCheckout(null)}
         onProceed={() => {

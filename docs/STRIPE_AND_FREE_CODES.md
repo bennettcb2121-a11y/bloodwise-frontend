@@ -8,8 +8,7 @@ Use **live** Stripe keys so the app is ready for real payments, while giving fam
 
 1. In [Stripe Dashboard](https://dashboard.stripe.com) go to **Developers → API keys**.
 2. Use **Live** (not Test) keys:
-   - **Publishable key** → `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-   - **Secret key** → `STRIPE_SECRET_KEY`
+   - **Secret key** → `STRIPE_SECRET_KEY` (the publishable key isn't needed — we redirect to Stripe-hosted Checkout instead of loading Stripe.js on the client)
 3. In **Developers → Webhooks** (live), add an endpoint:
    - URL: `https://your-domain.com/api/webhooks/stripe`
    - Events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`

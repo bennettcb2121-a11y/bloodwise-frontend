@@ -146,7 +146,6 @@ After this, **Continue with Google** and **Continue with GitHub** (if enabled) w
 ### Environment variables
 
 - `STRIPE_SECRET_KEY` – Stripe Dashboard → **Developers** → **API keys** → **Secret key**.
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` – optional, for Stripe.js on the client.
 - `STRIPE_PRICE_ID` – the **Price ID** of your monthly plan (e.g. `price_xxxx`).
 - `NEXT_PUBLIC_APP_URL` – your app’s public URL (e.g. `https://your-app.vercel.app`).
 
